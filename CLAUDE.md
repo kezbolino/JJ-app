@@ -1,15 +1,25 @@
-# CLAUDE.md — BJJ Brain (repo `JJ-app`)
+# CLAUDE.md — JJ-app
 
 ## What this is
 
-**BJJ Brain** — a personal knowledge system for Brazilian jiu-jitsu. Journal
-every class, connect everything into a knowledge graph, and surface patterns in
-the user's game over years.
+A personal knowledge system for Brazilian jiu-jitsu. Journal every class,
+connect everything into a knowledge graph, and surface patterns in the user's
+game over years.
 
-Repo name is `JJ-app`; product name is **BJJ Brain**. A rename to `bjj-brain`
-is recommended and unresolved — see `docs/OPEN-QUESTIONS.md` §11.
+**Call it `JJ-app`.** "BJJ Brain" appears as the title of `docs/VISION.md` but
+is a working title only — it came from ChatGPT and the user has explicitly
+declined to rename the repo to match it. Don't reintroduce it as the project
+name.
 
 Part of the Project Hub → `github.com/kezbolino/project-hub`.
+
+## Shape
+
+A **static offline PWA**, same model as `kezbolino/social-media-app` (Wingman) —
+*not* a localhost Node tool like Distill. Phone-first. The user builds remotely
+via browser and phone, so **don't assume a local dev setup**: anything requiring
+`npm run` on their machine is the wrong choice. Zero build step, or one that
+runs in CI.
 
 ## State of the repo
 
@@ -23,11 +33,12 @@ repo currently contains documentation only:
 
 ## Rules
 
-- **Read `docs/OPEN-QUESTIONS.md` before writing code.** Several unanswered
-  questions (MVP boundary, data model, standalone vs Obsidian, competence
-  signal) would cause rework if guessed at.
+- **Read `docs/OPEN-QUESTIONS.md` before writing code.** §13 (where data lives)
+  blocks the first schema and must not be guessed at.
 - This repo is **private**. Free GitHub Pages does not serve private repos, so
-  the mobile-first design principle has no deployment path yet (§8).
+  there is no deployment path yet (§8) — either flip it public or host on
+  Cloudflare/Netlify/Vercel. Note that public *code* does not mean public
+  *notes*: journals live in browser storage, not in the repo.
 - Don't let decisions live in chat windows — write them into
   `docs/OPEN-QUESTIONS.md` or `docs/VISION.md`, and update `HUB.md` in
   `project-hub` when status changes meaningfully.
@@ -66,3 +77,8 @@ recommendations — all three are one computation over this matrix.
   annual wrapped demoted to nice-to-have; "Evidence" radar reframed from
   competence to coverage asymmetry (user's idea, and a better one). Wrote
   `docs/MVP.md`. Still no code or stack decision.
+- 2026-07-27 — Shape settled: static offline PWA like Wingman, built remotely,
+  not local. Gym publishes no curriculum, so the third dashboard panel became
+  "recent class themes" derived from journal entries. No repo rename. Drafted
+  `docs/ONTOLOGY.md` (position × role tags) — **needs the user's review as a
+  practitioner**. Raised §13 (data persistence) as the blocking risk.

@@ -28,10 +28,12 @@ The screen you open by default. Three things:
 |---|---|---|
 | **Classes attended** | derived from journal entries | count this week / month / all time |
 | **What you should focus on this week** | user-set focus, later suggested | small number of active focuses |
-| **What we're learning in class** | ⚠️ external — see open question | gym's current curriculum / theme |
+| **Recent class themes** | derived from journal entries | "last 5 classes: guard passing ×3, half guard ×2" |
 
-The third panel is the only one the app cannot derive from your own data. How it
-gets in is unresolved — see `OPEN-QUESTIONS.md` §12.
+The third panel was originally "what we're learning in class", sourced from the
+gym. The gym publishes nothing, so it's derived from your own entries instead —
+a mirror of what you've been doing rather than a preview of what's next. No
+manual upkeep, nothing to forget. See `OPEN-QUESTIONS.md` §12.
 
 ### 2. Class journal (capture)
 

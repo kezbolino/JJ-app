@@ -1,22 +1,30 @@
-# BJJ Brain
+# JJ-app
 
 *Part of the Project Hub → [github.com/kezbolino/project-hub](https://github.com/kezbolino/project-hub)*
 
-A personal knowledge system for grapplers. It remembers everything you learn,
-connects it together, identifies patterns in your game, and helps you get better
-over time.
+A personal knowledge system for jiu-jitsu. Journal every class, connect it all
+together, and see patterns in your own game over time.
 
-> Obsidian for knowledge · Spotify Wrapped for progress · a coach that never forgets
+**Status:** 🌱 Scoped, nothing built yet.
 
-**Status:** 🌱 Vision captured, nothing built. No stack chosen yet.
+## Shape
+
+A static offline PWA — same model as
+[social-media-app](https://github.com/kezbolino/social-media-app) (Wingman).
+Phone-first, works offline, no local dev setup needed.
 
 ## Docs
 
-- [`docs/VISION.md`](docs/VISION.md) — the full product vision
-- [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — unresolved decisions that
-  shape the build; read this before writing code
+- [`docs/MVP.md`](docs/MVP.md) — **the first slice; start here**
+- [`docs/ONTOLOGY.md`](docs/ONTOLOGY.md) — technique tag structure (draft, needs
+  a practitioner's review)
+- [`docs/VISION.md`](docs/VISION.md) — the full long-term vision
+- [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) — unresolved decisions;
+  §13 (where data lives) blocks the first schema
 
-## Next step
+## Next steps
 
-Answer the open questions — particularly the MVP boundary, where competence
-signal comes from, and whether this is standalone or an Obsidian layer.
+1. Decide where data lives — browser-only storage loses everything on one
+   cleared cache (`OPEN-QUESTIONS.md` §13)
+2. Decide hosting — free GitHub Pages needs a public repo; this one is private
+3. Review the ontology draft

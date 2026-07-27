@@ -168,7 +168,47 @@ Two projects in the hub already suffer name drift (Wingman / Street Food Post /
 `social-media-app`). Renaming a GitHub repo is free right now — one commit, no
 clones, no deploys, no links. It will not stay free.
 
-**Recommendation:** rename the repo to `bjj-brain` before any code lands.
+**RESOLVED 2026-07-27: no rename.** The user declined — "BJJ Brain" came from
+ChatGPT and isn't their name for it.
+
+So drift gets fixed the other way: **the project is `JJ-app`** everywhere —
+repo, docs, hub. "BJJ Brain" survives only as the title of the original vision
+doc, marked as a working title.
+
+If a real product name turns up later, rename then — it's still cheap while
+there's no deploy and no users.
+
+---
+
+## 13. Where does the data live? ⚠️ BLOCKING
+
+Decided 2026-07-27: the app is a **static offline PWA**, built like Wingman, used
+on phone and in the browser, not run locally.
+
+That means data lives in browser storage (IndexedDB) **on one device**. The
+vision says "designed for years of accumulated knowledge". Those two facts are
+in direct conflict:
+
+- clear site data → gone
+- lose or replace the phone → gone
+- iOS evicts storage from PWAs not opened recently → gone
+- notes written on the phone are invisible in the desktop browser, and vice versa
+
+There is no undo. **This is the highest-severity risk in the project** — higher
+than tagging accuracy, because bad tags can be fixed and lost journals cannot.
+
+**Options:**
+
+| Option | Sync | Backup | Cost | Notes |
+|---|---|---|---|---|
+| IndexedDB only | ❌ | ❌ | free | v1-only, unacceptable long-term |
+| + manual JSON export | ❌ | manual | free | relies on user discipline; better than nothing |
+| Sync to a private GitHub data repo | ✅ | ✅ | free | needs a token in the browser — separate private repo, never this one |
+| Supabase / Firebase free tier | ✅ | ✅ | free tier | real backend, real auth, more moving parts |
+| iCloud/Drive file the PWA reads | partial | ✅ | free | awkward on iOS |
+
+**Must be decided before the first schema is written.** Everything else is
+reversible; this isn't.
 
 ---
 
@@ -190,5 +230,13 @@ Options:
   Instagram post, a whiteboard? If it exists in any consistent form, that's the
   real answer, and it changes the panel from a chore into genuine value.
 
-This is worth answering before building the dashboard, because option 3 makes
-the panel great and options 1–2 make it marginal.
+**ANSWERED 2026-07-27: the gym publishes nothing.** Option 3 is out.
+
+So the panel is rescoped and renamed. It cannot show what's *coming*; it shows
+**recent class themes, derived from your own journal entries** — "last 5
+classes: guard passing ×3, half guard ×2". No extra input required, no chore to
+forget, and it feeds the focus suggestion directly.
+
+Honest about what it is: a mirror of what you've been doing, not a preview of
+what's next. Still useful — most people don't consciously track that their gym
+has been on passing for three weeks.
