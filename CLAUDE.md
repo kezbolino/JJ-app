@@ -18,56 +18,80 @@ Part of the Project Hub → `github.com/kezbolino/project-hub`.
 A **static offline PWA**, same model as `kezbolino/social-media-app` (Wingman) —
 *not* a localhost Node tool like Distill. Phone-first. The user builds remotely
 via browser and phone, so **don't assume a local dev setup**: anything requiring
-`npm run` on their machine is the wrong choice. Zero build step, or one that
-runs in CI.
+`npm run` on their machine is the wrong choice.
 
-## State of the repo
+**No build step, no dependencies, no framework.** Plain ES modules loaded
+straight from disk. Keep it that way — it's what makes the app deployable to
+any static host and editable from a phone.
 
-**Nothing is built.** No stack chosen, no dependencies, no build, no tests. The
-repo currently contains documentation only:
+## Layout
 
-- `docs/VISION.md` — full product vision (v1, 2026-07-27)
-- `docs/MVP.md` — **the first slice; start here.** Supersedes VISION's "10 MVP
-  features" list
-- `docs/OPEN-QUESTIONS.md` — the decisions that block or reshape the build
+```
+index.html            shell + tab bar
+css/app.css           all styling; light and dark via prefers-color-scheme
+js/app.js             hash router and boot
+js/ontology.js        positions, roles, techniques, synonyms  ← machine copy of docs/ONTOLOGY.md
+js/tagger.js          text → suggested tags (literal matching, no AI)
+js/db.js              IndexedDB wrapper + migrations
+js/store.js           entry CRUD and every derived query (coverage, gaps, themes)
+js/backup.js          JSON export/import
+js/youtube.js         link parsing and title lookup
+js/ui.js              h() element builder and shared bits
+js/views/*.js         home, log, map, position, library, search
+sw.js                 offline cache — bump CACHE when files change
+tests/smoke.mjs       end-to-end browser test
+```
+
+## Running and testing
+
+```sh
+python3 -m http.server 8099    # from the repo root
+node tests/smoke.mjs           # needs Playwright; drives a real browser
+```
+
+The smoke test covers the whole loop: log a class → tags suggested → saved →
+counted on the dashboard → linked to its technique page → found by search →
+turns into a coverage prompt. **Run it after touching anything in `js/`.**
 
 ## Rules
 
-- **Read `docs/OPEN-QUESTIONS.md` before writing code.** §13 (where data lives)
-  blocks the first schema and must not be guessed at.
+- **Read `docs/OPEN-QUESTIONS.md` before adding features.** §13 (where data
+  lives) is still open and outranks new functionality.
+- **`js/ontology.js` and `docs/ONTOLOGY.md` must stay in step.** The markdown is
+  the human copy that the user reviews; the JS is what runs.
+- **Bump `CACHE` in `sw.js`** whenever you add, remove or rename a file under
+  `js/` or `css/`, and add new files to `SHELL`. Otherwise returning users get
+  a stale app.
+- Never render user content as HTML. `h()` in `js/ui.js` makes text nodes;
+  don't reach for `innerHTML`.
 - This repo is **private**. Free GitHub Pages does not serve private repos, so
   there is no deployment path yet (§8) — either flip it public or host on
-  Cloudflare/Netlify/Vercel. Note that public *code* does not mean public
-  *notes*: journals live in browser storage, not in the repo.
-- Don't let decisions live in chat windows — write them into
-  `docs/OPEN-QUESTIONS.md` or `docs/VISION.md`, and update `HUB.md` in
-  `project-hub` when status changes meaningfully.
-
-## Known traps
-
-- **Auto-tagging accuracy gates everything.** The knowledge graph, insights and
-  radar charts all sit on top of tags. BJJ vocabulary is regional and
-  synonym-heavy (knee slice / knee cut / knee slide). A canonical ontology
-  probably needs to exist before the tagger does.
-- **Cold start.** Most of the compelling features need months of data before
-  they show anything. Anything shipped early has to be worth using while the
-  graph is empty.
-- **Capture friction is the whole product.** Logging happens after training,
-  exhausted, often driving. If capture isn't near-zero effort, no data
-  accumulates and nothing downstream exists.
-- **Reuse from Distill:** `kezbolino/distill` already has a single
-  `LLMProvider` interface with a keyless `mock` provider. Don't reinvent it.
+  Cloudflare/Netlify/Vercel. Public *code* does not mean public *notes*:
+  journals live in browser storage, not in the repo.
 
 ## The one design decision that must not be got wrong
 
 Coverage asymmetry ("you've written a lot about half guard sweeps — how's your
 half guard passing?") needs **position × role** in the data model, not a flat
-tag list. Roles are intents: play it / pass it / escape it / submit from it /
-retain it / take it down. A gap is an empty cell next to a full one.
+tag list. A gap is an empty cell next to a full one. This is already built —
+see `docs/DATA-MODEL.md` — and it must survive any refactor.
 
-Retrofitting this later means re-tagging every entry ever written. Build it in
-from the first schema. It powers the pentagon, knowledge gaps and
-recommendations — all three are one computation over this matrix.
+Related discipline: the app reports what has been **written about**, never what
+the user is **good at**. Note volume is attention, not skill. Don't let a
+feature quietly start claiming competence.
+
+## Known traps
+
+- **Data loss is the live risk.** IndexedDB on one device, no sync. Export in
+  Library is the only safety net until §13 is built.
+- **Cold start.** Most features need months of data. The dashboard was designed
+  to be useful from day one; keep it that way.
+- **Capture friction is the whole product.** If logging a class gets slower,
+  nothing downstream gets data. Guard this over everything else.
+- **Gap prompts need a threshold.** Below 3 entries in a sibling role, an empty
+  role means nothing — flagging it just makes noise.
+- **Reuse from Distill:** `kezbolino/distill` has a single `LLMProvider`
+  interface with a keyless `mock` provider. Use it when tagging goes AI.
 
 ## Session log
 
@@ -76,9 +100,11 @@ recommendations — all three are one computation over this matrix.
 - 2026-07-27 — Scope sharpened with the user. Dashboard is the front door;
   annual wrapped demoted to nice-to-have; "Evidence" radar reframed from
   competence to coverage asymmetry (user's idea, and a better one). Wrote
-  `docs/MVP.md`. Still no code or stack decision.
+  `docs/MVP.md`.
 - 2026-07-27 — Shape settled: static offline PWA like Wingman, built remotely,
   not local. Gym publishes no curriculum, so the third dashboard panel became
   "recent class themes" derived from journal entries. No repo rename. Drafted
-  `docs/ONTOLOGY.md` (position × role tags) — **needs the user's review as a
-  practitioner**. Raised §13 (data persistence) as the blocking risk.
+  `docs/ONTOLOGY.md` — **still needs the user's review as a practitioner**.
+- 2026-07-27 — Built v0.1: the whole loop works end to end, smoke test green.
+  Data still device-local; sync to a private data repo is the agreed next step
+  and is not built.
