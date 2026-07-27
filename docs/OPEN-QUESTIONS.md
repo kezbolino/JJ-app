@@ -6,6 +6,24 @@ live in a chat window.
 
 ---
 
+## Resolved (2026-07-27)
+
+- **§1 MVP boundary — RESOLVED.** See `docs/MVP.md`. First slice is dashboard +
+  journal + tagging + technique pages + YouTube links + search.
+- **§2 Cold start — PARTLY RESOLVED.** The dashboard ("how many classes have I
+  been to", "what should I focus on", "what are we learning in class") is useful
+  from week one because it doesn't depend on accumulated history. Annual wrapped
+  demoted to nice-to-have by the user.
+- **§4 Evidence pentagon — RESOLVED, reframed.** No longer claims competence.
+  Replaced by **coverage asymmetry**: compare attention across roles within a
+  position and prompt on the imbalance ("lots on half guard sweeps — how's your
+  half guard passing?"). This is a fact about the notes, not a claim about
+  skill. Collapses pentagon + knowledge gaps + recommendations into one engine.
+  Requires **position × role** in the data model from day one — see
+  `docs/MVP.md`.
+
+---
+
 ## 1. The MVP is not an MVP
 
 `VISION.md` labels ten features as MVP, then adds the knowledge graph, personal
@@ -151,3 +169,26 @@ Two projects in the hub already suffer name drift (Wingman / Street Food Post /
 clones, no deploys, no links. It will not stay free.
 
 **Recommendation:** rename the repo to `bjj-brain` before any code lands.
+
+---
+
+## 12. Where does "what we're learning in class" come from?
+
+The dashboard's third panel is the only one the app cannot derive from the
+user's own data. Everything else (class count, focus) comes from journal entries
+or user settings.
+
+**Question:** how does the gym's current curriculum get into the app?
+
+Options:
+- **User types it in** — simplest, works today, but it's another manual chore
+  and it will rot the moment you skip a week.
+- **Derived backwards from journal entries** — "we did knee slice three classes
+  running, so the current theme is guard passing". Free, no extra input, but it
+  reports the past rather than telling you what's coming.
+- **Gym publishes a schedule** — does yours? A syllabus, a monthly theme, an
+  Instagram post, a whiteboard? If it exists in any consistent form, that's the
+  real answer, and it changes the panel from a chore into genuine value.
+
+This is worth answering before building the dashboard, because option 3 makes
+the panel great and options 1–2 make it marginal.
