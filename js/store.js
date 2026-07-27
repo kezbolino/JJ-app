@@ -56,8 +56,40 @@ export async function saveEntry(entry) {
   return entry;
 }
 
-export const deleteEntry = id => db.del('entries', id);
+/**
+ * Write without touching `updatedAt`.
+ *
+ * Sync needs this. Merge order is decided by `updatedAt`, so bookkeeping
+ * writes — recording what we last pushed, or storing an entry pulled from the
+ * repo — must not restamp it, or every entry looks permanently newer than its
+ * remote copy and the two devices push at each other forever.
+ */
+export async function putEntryRaw(entry) {
+  await db.put('entries', entry);
+  return entry;
+}
+
 export const getEntry = id => db.get('entries', id);
+
+/**
+ * Delete, and remember that we deleted.
+ *
+ * Without the tombstone the next sync resurrects the entry: pull sees a file
+ * in the repo whose id we no longer hold, assumes it is new, and puts it
+ * straight back. Tombstones are cleared once the deletion has been pushed.
+ */
+export async function deleteEntry(id) {
+  const entry = await getEntry(id);
+  await db.del('entries', id);
+  if (entry?.syncPath) {
+    const tombstones = await getSetting('tombstones', {});
+    tombstones[id] = { path: entry.syncPath, at: new Date().toISOString() };
+    await setSetting('tombstones', tombstones);
+  }
+}
+
+/** Delete without a tombstone — for applying someone else's deletion. */
+export const removeEntryRaw = id => db.del('entries', id);
 
 /** All entries, newest first. */
 export async function allEntries() {

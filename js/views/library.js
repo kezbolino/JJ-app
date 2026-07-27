@@ -5,6 +5,7 @@ import { h, card, empty, toast, fmtDate, giFlag, tagChip } from '../ui.js';
 import { suggestTags } from '../tagger.js';
 import * as store from '../store.js';
 import * as backup from '../backup.js';
+import * as sync from '../sync.js';
 import { parseVideoId, thumbFor, fetchTitle } from '../youtube.js';
 
 function addVideoCard(onSaved) {
@@ -70,7 +71,7 @@ function quickNoteCard(onSaved) {
     h('div.btn-row', saveButton));
 }
 
-function backupCard() {
+function backupCard(configured) {
   const fileInput = h('input', { type: 'file', accept: 'application/json', style: 'display:none' });
 
   fileInput.addEventListener('change', async () => {
@@ -86,10 +87,11 @@ function backupCard() {
   });
 
   return card('Backup',
-    h('p.small.muted',
-      'Your notes live in this browser only. Clear your site data or lose the ' +
-      'device and they are gone. Export regularly until repo sync is built.'),
+    h('p.small.muted', configured
+      ? 'Synced to your private notes repo as markdown. JSON export is here if you want a copy off GitHub.'
+      : 'Your notes live in this browser only. Clear your site data or lose the device and they are gone — set up sync.'),
     h('div.btn-row',
+      h('a.btn' + (configured ? '' : '.primary'), { href: '#/settings' }, configured ? 'Sync settings' : 'Set up sync'),
       h('button.btn', { onclick: async () => toast(`Exported ${await backup.downloadBackup()} entries`) }, 'Export'),
       h('button.btn', { onclick: () => fileInput.click() }, 'Import'),
       fileInput));
@@ -99,6 +101,7 @@ const TYPE_LABEL = { class: 'Class', note: 'Note', question: 'Question', video: 
 
 export default async function library(root) {
   const entries = await store.allEntries();
+  const configured = sync.isConfigured(await sync.getConfig());
   const reload = () => { root.replaceChildren(); library(root); };
 
   root.append(
@@ -116,6 +119,6 @@ export default async function library(root) {
               (e.title || e.body).slice(0, 140) + ((e.title || e.body).length > 140 ? '…' : '')),
             (e.tags ?? []).length ? h('div.tags', e.tags.slice(0, 4).map(t => tagChip(t))) : null))
         : empty('Nothing saved yet.')),
-    backupCard(),
+    backupCard(configured),
   );
 }

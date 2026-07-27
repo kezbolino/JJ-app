@@ -7,6 +7,7 @@ import map from './views/map.js';
 import position from './views/position.js';
 import library from './views/library.js';
 import search from './views/search.js';
+import settings from './views/settings.js';
 
 const view = document.getElementById('view');
 
@@ -24,7 +25,7 @@ function route() {
   clear(view);
   window.scrollTo(0, 0);
 
-  const tab = head === 'log' && a ? '/log' : '/' + (head ?? '');
+  const tab = head === 'settings' ? '/library' : '/' + (head ?? '');
   for (const link of document.querySelectorAll('.tabbar a')) {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
     if (link.dataset.tab === tab) link.setAttribute('aria-current', 'page');
@@ -36,6 +37,7 @@ function route() {
       case 'log':      return log(view, { id: a });
       case 'map':      return a ? position(view, { positionId: a, role: b ?? null }) : map(view);
       case 'library':  return library(view);
+      case 'settings': return settings(view);
       case 'search':   return search(view, { q: query.q ?? '' });
       default:         view.append(h('p.empty', 'Page not found.'));
     }

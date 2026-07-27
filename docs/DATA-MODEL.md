@@ -66,12 +66,61 @@ results — not more inference over the same notes.
 
 ## Storage
 
-IndexedDB, database `jj-app`, stores `entries` and `settings`.
+IndexedDB, database `jj-app`, stores `entries` and `settings`. Local is the
+source of truth.
 
 Migrations live in `js/db.js` — bump `DB_VERSION` and add a new `if (oldVersion
 < n)` block. Never edit an existing block; users' databases have already run it.
 
-⚠️ **This is one device's browser storage.** Sync and backup to a private
-GitHub data repo is agreed but unbuilt — see `OPEN-QUESTIONS.md` §13. Until it
-exists, `js/backup.js` (Library → Export) is the only thing preventing total
-loss.
+## Backup and sync
+
+Entries are mirrored to a **separate private GitHub repo as markdown**, one file
+per entry:
+
+```
+class/2026-07-27-3f2a1b9c.md
+question/2026-07-29-aaaa1111.md
+README.md          ← generated index
+```
+
+```markdown
+---
+id: 3f2a1b9c-0000-4000-8000-000000000001
+type: class
+date: 2026-07-27
+coach: John
+gi: gi
+tags: [half-guard/pass/knee-slice, half-guard/pass/leg-weave, concept:Pressure]
+created: "2026-07-27T20:11:00.000Z"
+updated: "2026-07-27T20:11:00.000Z"
+---
+
+# Class — 2026-07-27
+
+## Techniques
+
+Knee slice pass
+```
+
+Front matter is a **deliberately tiny fixed grammar**, not real YAML — we write
+it and we parse it, and the round trip has to be exact. Don't swap in a YAML
+library; keep the grammar boring. `tests/markdown.test.mjs` guards this.
+
+Sync rules:
+
+- **pull, then push**; newest `updatedAt` wins
+- **one commit per sync** via the Git Data API, not one per file
+- **deletions need tombstones.** Delete locally and pull would otherwise see an
+  unfamiliar id in the repo and put it straight back. `store.deleteEntry` records
+  a tombstone; push turns it into a file deletion; the other device notices its
+  synced file is gone and applies the deletion locally
+- entries with no `syncPath` are local-only and a pull will never delete them
+- bookkeeping writes use `putEntryRaw`, **not** `saveEntry` — restamping
+  `updatedAt` during sync makes every entry look permanently newer and the two
+  devices push at each other forever
+
+Known limit: conflict resolution is last-write-wins per entry. Two devices
+editing the same note while both offline will lose one side.
+
+The access token lives in IndexedDB on the device and is never written to
+either repo.

@@ -180,7 +180,32 @@ there's no deploy and no users.
 
 ---
 
-## 13. Where does the data live? ⚠️ BLOCKING
+## 13. Where does the data live? ✅ RESOLVED & BUILT (2026-07-27)
+
+**Decision:** notes live locally in IndexedDB (source of truth) and back up to a
+**second, private** GitHub repo as **markdown files**.
+
+Built in `js/sync.js` + `js/markdown.js` + `js/views/settings.js`:
+
+- one `.md` file per entry, foldered by type (`class/`, `note/`, `question/`,
+  `video/`, `principle/`), plus a generated `README.md` index
+- small front-matter header carries id, date, coach, gi, tags and timestamps;
+  the body is ordinary markdown, so the repo reads as notes and opens in Obsidian
+- an entire sync is **one commit** (Git Data API), not one commit per note
+- pull-then-push, newest `updatedAt` wins
+- deletions use tombstones and propagate between devices — without them, pull
+  puts deleted notes straight back
+- the token lives in this browser only and is never written to either repo
+
+Covered by `tests/sync.test.mjs` (real app, real IndexedDB, fake GitHub) and
+`tests/markdown.test.mjs` (round-trip fidelity).
+
+**Still to do:** the user must create the private data repo and a fine-grained
+token; nothing syncs until they do. Conflict handling is last-write-wins on the
+whole entry — two devices editing the *same* note offline will lose one side's
+edit. Acceptable for a single user; revisit if it ever bites.
+
+### Original write-up
 
 Decided 2026-07-27: the app is a **static offline PWA**, built like Wingman, used
 on phone and in the browser, not run locally.

@@ -35,23 +35,27 @@ js/tagger.js          text → suggested tags (literal matching, no AI)
 js/db.js              IndexedDB wrapper + migrations
 js/store.js           entry CRUD and every derived query (coverage, gaps, themes)
 js/backup.js          JSON export/import
+js/markdown.js        entry ↔ markdown file (the backup format)
+js/sync.js            GitHub backup repo sync, via the Git Data API
 js/youtube.js         link parsing and title lookup
 js/ui.js              h() element builder and shared bits
-js/views/*.js         home, log, map, position, library, search
+js/views/*.js         home, log, map, position, library, search, settings
 sw.js                 offline cache — bump CACHE when files change
-tests/smoke.mjs       end-to-end browser test
+tests/                markdown round-trip, app smoke test, sync test
 ```
 
 ## Running and testing
 
 ```sh
-python3 -m http.server 8099    # from the repo root
-node tests/smoke.mjs           # needs Playwright; drives a real browser
+python3 -m http.server 8099     # from the repo root, then:
+node tests/markdown.test.mjs    # pure node, fast
+node tests/smoke.mjs            # Playwright; the whole app loop
+node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
 ```
 
-The smoke test covers the whole loop: log a class → tags suggested → saved →
-counted on the dashboard → linked to its technique page → found by search →
-turns into a coverage prompt. **Run it after touching anything in `js/`.**
+**Run all three after touching anything in `js/`.** Between them they cover the
+core loop (log → tag → technique page → dashboard → coverage prompt), backup
+format fidelity, and multi-device sync including deletions.
 
 ## Rules
 
@@ -80,10 +84,28 @@ Related discipline: the app reports what has been **written about**, never what
 the user is **good at**. Note volume is attention, not skill. Don't let a
 feature quietly start claiming competence.
 
+## Sync — the rules that are easy to break
+
+Local IndexedDB is the source of truth; a private GitHub repo holds a markdown
+mirror. Full detail in `docs/DATA-MODEL.md`. Three things will silently corrupt
+data if forgotten:
+
+- **Never use `saveEntry` for sync bookkeeping — use `putEntryRaw`.**
+  `saveEntry` restamps `updatedAt`, which is the merge key. Restamp it during a
+  sync and every entry looks permanently newer than its remote copy, so two
+  devices push at each other forever.
+- **Deletions need tombstones.** Delete locally, and a pull sees an id it
+  doesn't recognise in the repo and puts it straight back. `store.deleteEntry`
+  writes a tombstone; push converts it to a file deletion; push clears it.
+- **Front matter is a fixed tiny grammar, not YAML.** We write it and we parse
+  it. Don't add a YAML library or free-form fields — `tests/markdown.test.mjs`
+  is what stops the backup rotting.
+
 ## Known traps
 
-- **Data loss is the live risk.** IndexedDB on one device, no sync. Export in
-  Library is the only safety net until §13 is built.
+- **Notes are only as safe as the user's sync setup.** Until they add a data
+  repo and token, IndexedDB on one device is all there is; Library → Export is
+  the fallback.
 - **Cold start.** Most features need months of data. The dashboard was designed
   to be useful from day one; keep it that way.
 - **Capture friction is the whole product.** If logging a class gets slower,
@@ -108,3 +130,10 @@ feature quietly start claiming competence.
 - 2026-07-27 — Built v0.1: the whole loop works end to end, smoke test green.
   Data still device-local; sync to a private data repo is the agreed next step
   and is not built.
+- 2026-07-27 — Built markdown sync (§13 closed). Notes mirror to a private repo
+  as one .md per entry, foldered by type, with a generated index; one commit per
+  sync via the Git Data API; tombstoned deletions propagate between devices.
+  Added `tests/markdown.test.mjs` and `tests/sync.test.mjs` (fake GitHub). Fixed
+  two bugs found by those tests: the last `## section` was dropped on parse (JS
+  has no `\Z`), and pull resurrected deleted notes. **Waiting on the user** to
+  create the data repo + token, and to flip `JJ-app` public for Pages.

@@ -19,6 +19,8 @@ and watch the map of your game fill in — including the parts you keep skipping
 - **Library** — save YouTube links, quick-capture notes / questions / coach
   principles, export and import your data
 - **Search** — across everything
+- **Sync & backup** — notes mirror to a private GitHub repo as markdown files,
+  one per entry, readable on github.com and openable in Obsidian
 - **Offline** — service worker caches the app shell; installable as a PWA
 
 ## The idea it's built around
@@ -30,6 +32,23 @@ Tags are **(position, role)** pairs, not words. That's what lets it say:
 A claim about your notes, never about your skill. See
 [`docs/DATA-MODEL.md`](docs/DATA-MODEL.md).
 
+## Setting up sync
+
+1. Create a **private** repo for your notes (e.g. `jj-app-data`). Empty is fine.
+2. Make a **fine-grained personal access token** scoped to that repo alone, with
+   **Contents: read and write**.
+3. In the app: Library → Set up sync → fill in owner, repo and token → Test
+   connection → Sync now.
+
+The token is stored in your browser and never written to either repo. Your notes
+land as markdown:
+
+```
+class/2026-07-27-3f2a1b9c.md
+question/2026-07-29-aaaa1111.md
+README.md                       ← generated index
+```
+
 ## Running it
 
 No build, no dependencies. Any static file server:
@@ -39,10 +58,12 @@ python3 -m http.server 8099
 # → http://localhost:8099
 ```
 
-Smoke test (needs Playwright installed):
+Tests (Playwright needed for the two browser ones):
 
 ```sh
-node tests/smoke.mjs
+node tests/markdown.test.mjs   # backup format round-trips
+node tests/smoke.mjs           # the whole app loop
+node tests/sync.test.mjs       # sync, against a fake GitHub
 ```
 
 ## Docs
@@ -55,8 +76,8 @@ node tests/smoke.mjs
 
 ## Next up
 
-1. **Sync/backup to a private GitHub data repo** — right now your notes live in
-   one browser and Export is the only safety net (`OPEN-QUESTIONS.md` §13)
-2. **Deploy** — free GitHub Pages needs a public repo; this one is private
-3. **Review the ontology** — wrong names and missing positions are expected
-4. Voice capture, once the data model has proven itself
+1. **Deploy it** — needs the repo public for free GitHub Pages, or a host like
+   Cloudflare Pages that serves private repos
+2. **Review the ontology** — wrong names and missing positions are expected
+3. Voice capture, once the data model has proven itself
+4. Gi/no-gi per *technique*, not just per entry
