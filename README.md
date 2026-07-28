@@ -5,7 +5,9 @@
 A personal knowledge system for jiu-jitsu. Log every class, let it tag itself,
 and watch the map of your game fill in — including the parts you keep skipping.
 
-**Status:** 🚧 v0.1 — the core loop works end to end. Not deployed yet.
+**Status:** ✅ v0.2 — live at **https://kezbolino.github.io/JJ-app/**
+
+Add it to your phone's home screen and it runs offline like a native app.
 
 ## What works today
 
@@ -76,8 +78,13 @@ node tests/sync.test.mjs       # sync, against a fake GitHub
 
 ## Next up
 
-1. **Deploy it** — needs the repo public for free GitHub Pages, or a host like
-   Cloudflare Pages that serves private repos
-2. **Review the ontology** — wrong names and missing positions are expected
-3. Voice capture, once the data model has proven itself
-4. Gi/no-gi per *technique*, not just per entry
+1. **Review the ontology** — wrong names and missing positions are expected
+2. Voice capture — capture friction is the whole product
+3. Gi/no-gi per *technique*, not just per entry
+4. Sync on save, instead of tapping "Sync now"
+
+## A note on privacy
+
+This repo is public; **your notes are not in it.** They live in your browser and
+in the separate private `jj-app-data` repo. The sync token is stored on your
+device and never committed anywhere.

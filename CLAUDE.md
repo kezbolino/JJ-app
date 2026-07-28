@@ -68,10 +68,12 @@ format fidelity, and multi-device sync including deletions.
   a stale app.
 - Never render user content as HTML. `h()` in `js/ui.js` makes text nodes;
   don't reach for `innerHTML`.
-- This repo is **private**. Free GitHub Pages does not serve private repos, so
-  there is no deployment path yet (§8) — either flip it public or host on
-  Cloudflare/Netlify/Vercel. Public *code* does not mean public *notes*:
-  journals live in browser storage, not in the repo.
+- This repo is **public** and served by GitHub Pages at
+  `https://kezbolino.github.io/JJ-app/`. **No secrets, ever** — no tokens, no
+  keys. The user's sync token is entered in the app and lives in their browser's
+  IndexedDB; it must never reach this repo or the notes repo.
+- The journal itself lives in `kezbolino/jj-app-data` (**private**), not here.
+  That separation is the whole reason this repo can be public.
 
 ## The one design decision that must not be got wrong
 
@@ -135,5 +137,8 @@ data if forgotten:
   sync via the Git Data API; tombstoned deletions propagate between devices.
   Added `tests/markdown.test.mjs` and `tests/sync.test.mjs` (fake GitHub). Fixed
   two bugs found by those tests: the last `## section` was dropped on parse (JS
-  has no `\Z`), and pull resurrected deleted notes. **Waiting on the user** to
-  create the data repo + token, and to flip `JJ-app` public for Pages.
+  has no `\Z`), and pull resurrected deleted notes.
+- 2026-07-28 — **Shipped.** Repo made public, GitHub Pages enabled → live at
+  `https://kezbolino.github.io/JJ-app/`. Private notes repo `jj-app-data`
+  created and sync configured by the user. Remember to bump `CACHE` in `sw.js`
+  on every deploy now that real users (one) have the old shell cached.
