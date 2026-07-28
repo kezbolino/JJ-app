@@ -8,10 +8,18 @@
 // as ONE commit, instead of one commit per note.
 
 import { getSetting, setSetting, allEntries, putEntryRaw, removeEntryRaw } from './store.js';
-import { toMarkdown, fromMarkdown, pathFor, buildIndex } from './markdown.js';
+import {
+  toMarkdown, fromMarkdown, pathFor, buildIndex,
+  overridesToMarkdown, overridesFromMarkdown,
+} from './markdown.js';
+import { getOverrides, setOverrides } from './overrides.js';
 
 const DEFAULT_API = 'https://api.github.com';
 const INDEX_PATH = 'README.md';
+const OVERRIDES_PATH = 'ontology-overrides.md';
+
+/** Files in the repo that aren't journal entries. */
+const isSpecial = path => path === INDEX_PATH || path === OVERRIDES_PATH;
 
 // ---- config --------------------------------------------------------------
 // The token lives in this browser's IndexedDB and is never written to either
@@ -103,16 +111,18 @@ async function baseTreeSha(config, commitSha) {
 
 async function remoteTree(config, commitSha) {
   const treeSha = await baseTreeSha(config, commitSha);
-  if (!treeSha) return {};
+  if (!treeSha) return { notes: {}, special: {} };
   const tree = await api(config, repoPath(config, `/git/trees/${treeSha}?recursive=1`));
-  const files = {};
+  const notes = {}, special = {};
   for (const node of tree.tree) {
-    if (node.type === 'blob' && node.path.endsWith('.md') && node.path !== INDEX_PATH) {
-      files[node.path] = node.sha;
-    }
+    if (node.type !== 'blob' || !node.path.endsWith('.md')) continue;
+    (isSpecial(node.path) ? special : notes)[node.path] = node.sha;
   }
-  return files;
+  return { notes, special };
 }
+
+const readBlob = async (config, sha) =>
+  fromBase64((await api(config, repoPath(config, `/git/blobs/${sha}`))).content);
 
 /**
  * Bring down anything the repo has that we don't, or that is newer there.
@@ -122,7 +132,17 @@ export async function pull(config) {
   const commitSha = await headCommit(config);
   if (!commitSha) return { added: 0, updated: 0, removed: 0, checked: 0 };
 
-  const remote = await remoteTree(config, commitSha);
+  const { notes: remote, special } = await remoteTree(config, commitSha);
+
+  // Ontology corrections, last-write-wins on the whole set.
+  if (special[OVERRIDES_PATH]) {
+    try {
+      const theirs = overridesFromMarkdown(await readBlob(config, special[OVERRIDES_PATH]));
+      const mine = await getOverrides();
+      if ((theirs.updatedAt ?? '') > (mine.updatedAt ?? '')) await setOverrides(theirs);
+    } catch { /* malformed or hand-edited; local wins */ }
+  }
+
   const local = await allEntries();
   const byId = new Map(local.map(e => [e.id, e]));
   const knownBlobs = new Set(local.map(e => e.syncBlob).filter(Boolean));
@@ -133,8 +153,7 @@ export async function pull(config) {
 
   for (const [path, blobSha] of Object.entries(remote)) {
     const blobKnown = knownBlobs.has(blobSha);
-    const blob = blobKnown ? null : await api(config, repoPath(config, `/git/blobs/${blobSha}`));
-    const text = blob ? fromBase64(blob.content) : null;
+    const text = blobKnown ? null : await readBlob(config, blobSha);
 
     let entry = null;
     if (text !== null) {
@@ -195,6 +214,9 @@ export async function push(config) {
   const indexText = buildIndex(entries);
   const indexChanged = state.indexHash !== hash(indexText);
 
+  const overridesText = overridesToMarkdown(await getOverrides());
+  const overridesChanged = state.overridesHash !== hash(overridesText);
+
   // Paths to remove: ones we wrote before that no longer belong to an entry
   // (deleted, or renamed because the date changed), plus explicit tombstones.
   const tombstones = await getSetting('tombstones', {});
@@ -203,7 +225,7 @@ export async function push(config) {
     ...Object.values(tombstones).map(t => t.path).filter(p => !seenPaths.has(p)),
   ]);
 
-  if (!changed.length && !indexChanged && !gone.size) {
+  if (!changed.length && !indexChanged && !overridesChanged && !gone.size) {
     // Still record what the repo holds, so a later delete knows what to remove.
     await setState({ ...state, paths: Object.fromEntries([...seenPaths].map(p => [p, true])) });
     return { pushed: 0, deleted: 0, commit: parent };
@@ -218,12 +240,16 @@ export async function push(config) {
     tree.push({ path: file.path, mode: '100644', type: 'blob', sha: blob.sha });
   }
 
-  if (indexChanged) {
+  for (const [path, text, changedFlag] of [
+    [INDEX_PATH, indexText, indexChanged],
+    [OVERRIDES_PATH, overridesText, overridesChanged],
+  ]) {
+    if (!changedFlag) continue;
     const blob = await api(config, repoPath(config, '/git/blobs'), {
       method: 'POST',
-      body: JSON.stringify({ content: toBase64(indexText), encoding: 'base64' }),
+      body: JSON.stringify({ content: toBase64(text), encoding: 'base64' }),
     });
-    tree.push({ path: INDEX_PATH, mode: '100644', type: 'blob', sha: blob.sha });
+    tree.push({ path, mode: '100644', type: 'blob', sha: blob.sha });
   }
 
   // Safe because push always runs after pull, so anything another device added
@@ -265,6 +291,7 @@ export async function push(config) {
   await setState({
     commit: commit.sha,
     indexHash: hash(indexText),
+    overridesHash: hash(overridesText),
     paths: Object.fromEntries([...seenPaths].map(p => [p, true])),
   });
   // The deletions are in the repo now, so the tombstones have done their job.

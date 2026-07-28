@@ -6,7 +6,10 @@
 //   node tests/markdown.test.mjs
 
 import assert from 'node:assert/strict';
-import { toMarkdown, fromMarkdown, pathFor, buildIndex } from '../js/markdown.js';
+import {
+  toMarkdown, fromMarkdown, pathFor, buildIndex,
+  overridesToMarkdown, overridesFromMarkdown,
+} from '../js/markdown.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -133,6 +136,32 @@ test('index links every entry', () => {
 
 test('rejects a file that is not ours', () => {
   assert.throws(() => fromMarkdown('# just a note\n\nno front matter here'), /front matter/);
+});
+
+test('ontology corrections round-trip', () => {
+  const corrections = {
+    aliases: [
+      { term: 'rodeo', tag: { kind: 'pos', position: 'half-guard', role: 'sweep', technique: 'dogfight' } },
+      { term: 'the squish', tag: { kind: 'pos', position: 'side-control', role: 'maintain' } },
+      { term: 'squeeze', tag: { kind: 'concept', concept: 'Pressure' } },
+    ],
+    muted: [{ term: 'pressure' }, { term: 'base' }],
+    updatedAt: '2026-07-28T10:00:00.000Z',
+  };
+
+  const back = overridesFromMarkdown(overridesToMarkdown(corrections));
+  assert.equal(back.updatedAt, corrections.updatedAt);
+  assert.deepEqual(back.aliases.map(a => a.term), ['rodeo', 'the squish', 'squeeze']);
+  assert.deepEqual(back.aliases[0].tag, corrections.aliases[0].tag);
+  assert.deepEqual(back.aliases[1].tag, { kind: 'pos', position: 'side-control', role: 'maintain' });
+  assert.deepEqual(back.aliases[2].tag, { kind: 'concept', concept: 'Pressure' });
+  assert.deepEqual(back.muted.map(m => m.term), ['pressure', 'base']);
+});
+
+test('empty corrections round-trip', () => {
+  const back = overridesFromMarkdown(overridesToMarkdown({ aliases: [], muted: [], updatedAt: 'x' }));
+  assert.deepEqual(back.aliases, []);
+  assert.deepEqual(back.muted, []);
 });
 
 console.log(`\n${passed} passed`);

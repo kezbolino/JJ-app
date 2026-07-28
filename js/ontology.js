@@ -4,6 +4,11 @@
 // what lets the app say "lots on half guard sweeps, nothing on passing it".
 // See docs/ONTOLOGY.md — that file is the human-readable source; this is the
 // machine copy. Keep them in step.
+//
+// This is only the *shipped* vocabulary. The user's own corrections — words
+// they've taught it, words they've muted — live in js/overrides.js and are
+// layered on top at tagging time. Don't edit this file on the user's behalf to
+// record a personal preference; that's what overrides are for.
 
 export const ROLES = [
   { id: 'retain',     label: 'Retain',      side: 'bottom' },

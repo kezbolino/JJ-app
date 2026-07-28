@@ -1,8 +1,9 @@
 // Sync settings — point the app at your private backup repo.
 
-import { h, card, toast, empty } from '../ui.js';
+import { h, card, toast, empty, tagChip } from '../ui.js';
 import * as sync from '../sync.js';
 import * as backup from '../backup.js';
+import * as overrides from '../overrides.js';
 
 function fmtWhen(iso) {
   if (!iso) return 'never';
@@ -13,9 +14,44 @@ function fmtWhen(iso) {
   return new Date(iso).toLocaleDateString();
 }
 
+/** Everything the user has taught or muted, with an undo on each. */
+function correctionsCard(corrections, reload) {
+  const { aliases, muted } = corrections;
+
+  const aliasList = aliases.length
+    ? h('div.tags', aliases.map(a =>
+        h('span.tag',
+          h('strong', a.term),
+          h('span.role', '→'),
+          tagChip(a.tag),
+          h('button', {
+            onclick: async () => { await overrides.removeAlias(a.term); toast('Forgotten'); reload(); },
+            'aria-label': `Forget ${a.term}`,
+          }, '×'))))
+    : empty('Nothing taught yet. Do it from the Log screen when a tag comes out wrong.');
+
+  const mutedList = muted.length
+    ? h('div.tags', muted.map(m =>
+        h('span.tag', m.term,
+          h('button', {
+            onclick: async () => { await overrides.unmuteTerm(m.term); toast('Unmuted'); reload(); },
+            'aria-label': `Unmute ${m.term}`,
+          }, '×'))))
+    : empty('No muted words.');
+
+  return card('Your ontology corrections',
+    h('p.small.muted',
+      'The shipped technique list is a best guess. These are your fixes to it — ' +
+      'they apply immediately and travel with your notes.'),
+    h('label', 'Words you have taught'), aliasList,
+    h('label', 'Words you have muted'), mutedList);
+}
+
 export default async function settings(root) {
   const config = await sync.getConfig();
   const lastSync = await sync.getLastSync();
+  const corrections = await overrides.getOverrides();
+  const reload = () => { root.replaceChildren(); settings(root); };
 
   const owner = h('input', { type: 'text', value: config.owner, placeholder: 'kezbolino' });
   const repo = h('input', { type: 'text', value: config.repo, placeholder: 'jj-app-data' });
@@ -91,6 +127,8 @@ export default async function settings(root) {
         ? h('p.small.muted', 'Pulls first, then pushes. Newer always wins.')
         : empty('Fill in the repo details above first.'),
       h('div.btn-row', h('button.btn.primary.wide', { onclick: runSync }, 'Sync now'))),
+
+    correctionsCard(corrections, reload),
 
     card('Manual backup',
       h('p.small.muted', 'A single JSON file, for when you want a copy off GitHub entirely.'),

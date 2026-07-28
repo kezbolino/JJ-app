@@ -30,7 +30,8 @@ any static host and editable from a phone.
 index.html            shell + tab bar
 css/app.css           all styling; light and dark via prefers-color-scheme
 js/app.js             hash router and boot
-js/ontology.js        positions, roles, techniques, synonyms  ← machine copy of docs/ONTOLOGY.md
+js/ontology.js        shipped positions, roles, techniques, synonyms  ← machine copy of docs/ONTOLOGY.md
+js/overrides.js       the user's corrections: taught words, muted words
 js/tagger.js          text → suggested tags (literal matching, no AI)
 js/db.js              IndexedDB wrapper + migrations
 js/store.js           entry CRUD and every derived query (coverage, gaps, themes)
@@ -47,15 +48,17 @@ tests/                markdown round-trip, app smoke test, sync test
 ## Running and testing
 
 ```sh
-python3 -m http.server 8099     # from the repo root, then:
 node tests/markdown.test.mjs    # pure node, fast
+node tests/tagger.test.mjs      # pure node, fast
+python3 -m http.server 8099 &   # the two browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
 ```
 
-**Run all three after touching anything in `js/`.** Between them they cover the
-core loop (log → tag → technique page → dashboard → coverage prompt), backup
-format fidelity, and multi-device sync including deletions.
+**Run all four after touching anything in `js/`.** Between them they cover the
+core loop (log → tag → technique page → dashboard → coverage prompt), tagging
+including user corrections, backup format fidelity, and multi-device sync
+including deletions.
 
 ## Rules
 
@@ -63,6 +66,10 @@ format fidelity, and multi-device sync including deletions.
   lives) is still open and outranks new functionality.
 - **`js/ontology.js` and `docs/ONTOLOGY.md` must stay in step.** The markdown is
   the human copy that the user reviews; the JS is what runs.
+- **Don't edit `js/ontology.js` to record the user's personal preference.** That
+  is what `js/overrides.js` is for — corrections they make in-app, which sync and
+  can be undone. Only change the shipped ontology for things true of BJJ
+  generally, and update the markdown copy in the same commit.
 - **Bump `CACHE` in `sw.js`** whenever you add, remove or rename a file under
   `js/` or `css/`, and add new files to `SHELL`. Otherwise returning users get
   a stale app.
@@ -142,3 +149,9 @@ data if forgotten:
   `https://kezbolino.github.io/JJ-app/`. Private notes repo `jj-app-data`
   created and sync configured by the user. Remember to bump `CACHE` in `sw.js`
   on every deploy now that real users (one) have the old shell cached.
+- 2026-07-28 — Ontology is now correctable in-app (`js/overrides.js`): ⊘ mutes a
+  wrong suggestion, "Teach a word" maps the user's vocabulary onto a technique.
+  Corrections sync to the notes repo as `ontology-overrides.md` and are listed
+  with undo in Settings. `suggestTags` now returns `{tag, term}` so a bad
+  suggestion can be muted at source; `suggestTagsOnly` is the old shape. Added
+  `tests/tagger.test.mjs`. Suite is 43 tests. sw CACHE → v3.

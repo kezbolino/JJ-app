@@ -128,6 +128,71 @@ await step('quick capture + backup export work', async () => {
 
 await page.screenshot({ path: `${SHOT}/06-library.png`, fullPage: true });
 
+await step('muting a bad suggestion sticks', async () => {
+  await page.goto(BASE + '#/log', { waitUntil: 'networkidle' });
+  await page.waitForSelector('textarea');
+  await page.locator('textarea').nth(0).fill('worked on pressure and knee slice');
+  await page.waitForTimeout(400);
+
+  const pressure = page.locator('.tag.suggest', { hasText: 'Pressure' });
+  if (!(await pressure.count())) throw new Error('Pressure was never suggested');
+  await pressure.locator('button.mute').click();
+  await page.waitForTimeout(300);
+  if (await page.locator('.tag.suggest', { hasText: 'Pressure' }).count()) {
+    throw new Error('muted suggestion still showing');
+  }
+
+  // And it stays muted on a fresh visit.
+  await page.goto(BASE + '#/log', { waitUntil: 'networkidle' });
+  await page.waitForSelector('textarea');
+  await page.locator('textarea').nth(0).fill('all about pressure');
+  await page.waitForTimeout(400);
+  if (await page.locator('.tag.suggest', { hasText: 'Pressure' }).count()) {
+    throw new Error('mute did not persist');
+  }
+});
+
+await step('teaching a word makes it suggestable', async () => {
+  await page.goto(BASE + '#/log', { waitUntil: 'networkidle' });
+  await page.waitForSelector('input[placeholder*="word you actually use"]');
+
+  await page.fill('input[placeholder*="word you actually use"]', 'the rodeo');
+  const teachCard = page.locator('.card', { hasText: 'Teach a word' });
+  await teachCard.locator('select').nth(0).selectOption('half-guard');
+  await teachCard.locator('select').nth(1).selectOption('sweep');
+  await teachCard.locator('select').nth(2).selectOption('dogfight');
+  await teachCard.locator('button', { hasText: 'Teach it' }).click();
+  await page.waitForTimeout(300);
+
+  await page.locator('textarea').nth(0).fill('hit the rodeo twice tonight');
+  await page.waitForTimeout(400);
+  if (!(await page.locator('.tag.suggest', { hasText: 'Dogfight' }).count())) {
+    throw new Error('taught word not suggested');
+  }
+});
+
+await page.screenshot({ path: `${SHOT}/08-teach.png`, fullPage: true });
+
+await step('settings lists the corrections and can undo them', async () => {
+  await page.goto(BASE + '#/settings', { waitUntil: 'networkidle' });
+  await page.waitForSelector('.card');
+  const text = await page.locator('#view').innerText();
+  if (!text.includes('the rodeo')) throw new Error('taught word missing from settings');
+  if (!/pressure/i.test(text)) throw new Error('muted word missing from settings');
+
+  const mutedRow = page.locator('.tag', { hasText: 'pressure' }).first();
+  await mutedRow.locator('button').click();
+  await page.waitForTimeout(500);
+
+  await page.goto(BASE + '#/log', { waitUntil: 'networkidle' });
+  await page.waitForSelector('textarea');
+  await page.locator('textarea').nth(0).fill('all about pressure');
+  await page.waitForTimeout(400);
+  if (!(await page.locator('.tag.suggest', { hasText: 'Pressure' }).count())) {
+    throw new Error('unmute did not restore the suggestion');
+  }
+});
+
 await step('gap prompt appears once a role is well covered', async () => {
   // Three more passing-only entries, so half guard passing is "filled" and the
   // empty roles next to it become a genuine gap.

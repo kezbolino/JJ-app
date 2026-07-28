@@ -166,6 +166,63 @@ export function fromMarkdown(text) {
   return entry;
 }
 
+// ---- ontology corrections ------------------------------------------------
+// Kept in the backup repo too, so the user's fixes to the technique list
+// survive a lost phone and reach their other devices.
+
+export function overridesToMarkdown(corrections) {
+  const lines = [
+    '---',
+    `updated: ${corrections.updatedAt || new Date().toISOString()}`,
+    '---',
+    '',
+    '# Ontology corrections',
+    '',
+    'Your fixes to the shipped technique list. Written by JJ-app —',
+    'edit these in the app, not here.',
+    '',
+    '## Taught words',
+    '',
+  ];
+
+  if (corrections.aliases?.length) {
+    for (const alias of corrections.aliases) lines.push(`- ${alias.term} -> ${tagToString(alias.tag)}`);
+  } else {
+    lines.push('_none_');
+  }
+
+  lines.push('', '## Muted words', '');
+  if (corrections.muted?.length) {
+    for (const m of corrections.muted) lines.push(`- ${m.term}`);
+  } else {
+    lines.push('_none_');
+  }
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+export function overridesFromMarkdown(text) {
+  const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text.replace(/\r\n/g, '\n'));
+  if (!match) throw new Error('Not an overrides file');
+
+  const updatedAt = /^updated:\s*(.+)$/m.exec(match[1])?.[1]?.trim() ?? '';
+  const blocks = splitSections(match[2]);
+
+  const items = name => (blocks[name] ?? '')
+    .split('\n')
+    .map(line => /^-\s+(.*)$/.exec(line.trim())?.[1]?.trim())
+    .filter(Boolean);
+
+  const aliases = [];
+  for (const line of items('taught words')) {
+    const [term, target] = line.split('->').map(s => s.trim());
+    if (term && target) aliases.push({ term, tag: tagFromString(target) });
+  }
+
+  return { aliases, muted: items('muted words').map(term => ({ term })), updatedAt };
+}
+
 /** A browsable index for the backup repo's front page. */
 export function buildIndex(entries) {
   const lines = [

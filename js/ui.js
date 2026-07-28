@@ -57,8 +57,13 @@ export function tagLabel(tag) {
   return technique ? technique.label : (pos?.label ?? tag.position);
 }
 
-/** A tag chip. Pass onRemove to make it removable, onAdd to make it a suggestion. */
-export function tagChip(tag, { onRemove, onAdd } = {}) {
+/**
+ * A tag chip.
+ *   onRemove — an × that takes it off this entry
+ *   onAdd    — the whole chip becomes tappable, to accept a suggestion
+ *   onMute   — an × that teaches the app to stop suggesting this word at all
+ */
+export function tagChip(tag, { onRemove, onAdd, onMute } = {}) {
   const isConcept = tag.kind === 'concept';
   const parts = [tagLabel(tag)];
   if (!isConcept) {
@@ -68,12 +73,21 @@ export function tagChip(tag, { onRemove, onAdd } = {}) {
     if (tag.role) bits.push(ROLE_LABEL[tag.role] ?? tag.role);
     if (bits.length) parts.push(h('span.role', bits.join(' · ')));
   }
+  // The label is the tap target when adding, so the mute × has to stop the
+  // click from bubbling up into "accept".
+  const mute = onMute && h('button.mute', {
+    onclick: event => { event.stopPropagation(); event.preventDefault(); onMute(); },
+    'aria-label': `Never suggest ${tagLabel(tag)}`,
+    title: 'Wrong — stop suggesting this word',
+  }, '⊘');
+
   return h(
     'span.tag' + (isConcept ? '.concept' : '') + (onAdd ? '.suggest' : ''),
     onAdd ? { onclick: onAdd, role: 'button', tabindex: 0 } : null,
     ...parts,
     onRemove && h('button', { onclick: onRemove, 'aria-label': `Remove ${tagLabel(tag)}` }, '×'),
-    onAdd && h('span.role', '+')
+    onAdd && h('span.role', '+'),
+    mute
   );
 }
 

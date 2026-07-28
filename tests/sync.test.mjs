@@ -188,6 +188,37 @@ await test('local-only notes are never deleted by a pull', async () => {
   await fresh.context.close();
 });
 
+await test('ontology corrections reach the other device', async () => {
+  await phone.page.evaluate(async () => {
+    const overrides = await import('/js/overrides.js');
+    await overrides.addAlias('the rodeo', { kind: 'pos', position: 'half-guard', role: 'sweep', technique: 'dogfight' });
+    await overrides.muteTerm('pressure');
+  });
+  await runSync(phone.page);
+
+  assert.ok(state.files['ontology-overrides.md'], 'corrections file was not written');
+  assert.match(state.files['ontology-overrides.md'], /the rodeo -> half-guard\/sweep\/dogfight/);
+
+  const laptop = await newDevice();
+  await runSync(laptop.page);
+  const theirs = await laptop.page.evaluate(async () =>
+    (await import('/js/overrides.js')).getOverrides());
+
+  assert.equal(theirs.aliases.length, 1, 'alias did not travel');
+  assert.equal(theirs.aliases[0].term, 'the rodeo');
+  assert.deepEqual(theirs.muted.map(m => m.term), ['pressure']);
+
+  // And the laptop's tagger honours them straight away.
+  const tags = await laptop.page.evaluate(async () => {
+    const { suggestTagsOnly } = await import('/js/tagger.js');
+    const { getOverrides } = await import('/js/overrides.js');
+    return suggestTagsOnly('hit the rodeo, all about pressure', await getOverrides());
+  });
+  assert.ok(tags.some(t => t.technique === 'dogfight'), 'taught word not applied on the other device');
+  assert.ok(!tags.some(t => t.concept === 'Pressure'), 'mute not applied on the other device');
+  await laptop.context.close();
+});
+
 await test('the repo is browsable — types are foldered, index lists everything', async () => {
   await addClass(phone.page, { type: 'question', body: 'Why do I keep getting flattened?' });
   await runSync(phone.page);

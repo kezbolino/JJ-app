@@ -4,6 +4,19 @@
 kezbolino trains, Claude does not. Wrong names, missing positions and bad
 groupings are expected — fixing them is the point.
 
+> **You don't have to edit this file to fix the app.** As of 2026-07-28 you can
+> correct the tagger from the Log screen:
+> - a suggestion is wrong → tap **⊘** and that word is never suggested again
+> - the app doesn't know your gym's word for something → **Teach a word**, map it
+>   onto the real technique, and it works from then on
+>
+> Corrections are stored on your device, sync to the notes repo, and are listed
+> with an undo under Settings → *Your ontology corrections*.
+>
+> This file is still the place for **structural** changes — a missing position, a
+> role that shouldn't exist, the gi/no-gi question below. Those need a code
+> change in `js/ontology.js` too.
+
 ## Why this exists
 
 Tags connect everything in the app. A flat tag list can't answer "you've written
@@ -133,9 +146,10 @@ Tagging must fold these together or the graph fragments. Gyms rename everything.
 | RNC | rear naked choke, mata leão |
 | Body Lock Pass | body lock, over-under lock |
 
-**This table will be permanently incomplete.** It should be editable in-app —
-when the tagger gets something wrong, you correct it once and it learns the
-alias.
+**This table will be permanently incomplete.** ✅ Built 2026-07-28: the tagger is
+now correctable in-app — mute a wrong suggestion, or teach it your word — so this
+table only needs the synonyms worth shipping as defaults for everyone. Anything
+specific to your gym belongs in your own corrections, not here.
 
 ---
 

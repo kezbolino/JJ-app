@@ -2,10 +2,11 @@
 // aren't a class: a video, a stray note, a question, something the coach said.
 
 import { h, card, empty, toast, fmtDate, giFlag, tagChip } from '../ui.js';
-import { suggestTags } from '../tagger.js';
+import { suggestTagsOnly } from '../tagger.js';
 import * as store from '../store.js';
 import * as backup from '../backup.js';
 import * as sync from '../sync.js';
+import * as overrides from '../overrides.js';
 import { parseVideoId, thumbFor, fetchTitle } from '../youtube.js';
 
 function addVideoCard(onSaved) {
@@ -25,7 +26,7 @@ function addVideoCard(onSaved) {
       type: 'video',
       title,
       body: tagsInput.value.trim(),
-      tags: suggestTags(`${title} ${tagsInput.value}`),
+      tags: suggestTagsOnly(`${title} ${tagsInput.value}`, await overrides.getOverrides()),
       video: { videoId, url, title, thumb: thumbFor(videoId) },
     }));
 
@@ -59,7 +60,7 @@ function quickNoteCard(onSaved) {
     await store.saveEntry(store.newEntry({
       type: typeSelect.value,
       body,
-      tags: suggestTags(body),
+      tags: suggestTagsOnly(body, await overrides.getOverrides()),
     }));
     bodyInput.value = '';
     toast('Saved');

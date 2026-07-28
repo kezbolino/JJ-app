@@ -16,6 +16,9 @@ Add it to your phone's home screen and it runs offline like a native app.
 - **Log a class** — date, coach, gi/no-gi, techniques, rolling notes, thoughts
 - **Tagging** — suggestions appear as you type, matched against the ontology and
   its synonyms; tap to accept, or add tags by hand. Nothing is tagged silently
+- **Correct it as you go** — tap ⊘ on a wrong suggestion and it's never suggested
+  again; **Teach a word** maps your gym's name for something onto the real
+  technique. Corrections sync and can be undone in Settings
 - **Coverage map** — every position broken down by role, gaps marked
 - **Technique pages** — entries and videos assembled automatically from tags
 - **Library** — save YouTube links, quick-capture notes / questions / coach
@@ -64,6 +67,7 @@ Tests (Playwright needed for the two browser ones):
 
 ```sh
 node tests/markdown.test.mjs   # backup format round-trips
+node tests/tagger.test.mjs     # tagging, including your corrections
 node tests/smoke.mjs           # the whole app loop
 node tests/sync.test.mjs       # sync, against a fake GitHub
 ```
@@ -78,10 +82,11 @@ node tests/sync.test.mjs       # sync, against a fake GitHub
 
 ## Next up
 
-1. **Review the ontology** — wrong names and missing positions are expected
-2. Voice capture — capture friction is the whole product
-3. Gi/no-gi per *technique*, not just per entry
-4. Sync on save, instead of tapping "Sync now"
+1. Voice capture — capture friction is the whole product
+2. Gi/no-gi per *technique*, not just per entry
+3. Sync on save, instead of tapping "Sync now"
+4. Structural ontology gaps (missing positions, gi/no-gi as an axis) — the
+   in-app corrections handle vocabulary, not structure
 
 ## A note on privacy
 

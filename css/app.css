@@ -128,6 +128,8 @@ a { color: var(--accent); text-decoration: none; }
 }
 .tag button:hover { color: var(--text); }
 .tag.suggest { border-color: var(--accent); cursor: pointer; }
+.tag button.mute { color: var(--line); font-size: .85rem; padding-left: 4px; }
+.tag button.mute:hover { color: var(--warm); }
 
 .gi-flag {
   font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
