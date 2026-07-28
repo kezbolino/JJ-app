@@ -8,7 +8,7 @@
 // they're wrong. ⊘ on a suggestion stops that word being suggested ever again;
 // "Teach a word" maps your gym's name for something onto the real technique.
 
-import { h, card, toast, tagChip, empty } from '../ui.js';
+import { h, card, toast, tagChip, empty, icon } from '../ui.js';
 import { POSITIONS, POSITION_BY_ID, CONCEPTS, rolesFor } from '../ontology.js';
 import { suggestTags, tagKey } from '../tagger.js';
 import * as overrides from '../overrides.js';
@@ -111,6 +111,7 @@ export default async function log(root, { id } = {}) {
 
   const tagsBox = h('div.tags');
   const suggestBox = h('div.tags');
+  const advanced = h('div', { hidden: true });
 
   const field = (key, placeholder) => h('textarea', {
     placeholder,
@@ -118,17 +119,21 @@ export default async function log(root, { id } = {}) {
     oninput: e => { entry.sections[key] = e.target.value; scheduleSuggest(); },
   });
 
+  const addChip = () => h('span.tag.add', {
+    role: 'button', tabindex: 0,
+    onclick: () => { advanced.hidden = false; advanced.scrollIntoView({ block: 'nearest' }); },
+  }, '+ Add');
+
   const renderTags = () => {
     tagsBox.replaceChildren(
-      ...(entry.tags.length
-        ? entry.tags.map(tag => tagChip(tag, {
-            onRemove: () => {
-              entry.tags = entry.tags.filter(t => tagKey(t) !== tagKey(tag));
-              renderTags();
-              renderSuggestions();
-            },
-          }))
-        : [empty('No tags yet — type above, or add one manually.')]));
+      ...entry.tags.map(tag => tagChip(tag, {
+        onRemove: () => {
+          entry.tags = entry.tags.filter(t => tagKey(t) !== tagKey(tag));
+          renderTags();
+          renderSuggestions();
+        },
+      })),
+      addChip());
   };
 
   const renderSuggestions = () => {
@@ -173,7 +178,7 @@ export default async function log(root, { id } = {}) {
   // --- teach the app one of your gym's words ---
   const teachPicker = tagPicker();
   const teachInput = h('input', { type: 'text', placeholder: 'The word you actually use…', maxLength: 40 });
-  const teachRow = h('div',
+  const teachRow = h('div.teach',
     teachInput,
     h('div.btn-row',
       ...teachPicker.fields,
@@ -191,6 +196,25 @@ export default async function log(root, { id } = {}) {
         },
       }, 'Teach it')));
 
+  // The advanced panel: add a tag by hand, or teach the app a word. Tucked
+  // behind "Show options" so the common path — type, tap a suggestion — stays
+  // uncluttered.
+  advanced.append(
+    h('div.field-label', { style: 'margin-top:4px' }, 'Add a tag by hand'),
+    manualRow,
+    h('hr.hr'),
+    h('div.field-label', 'Teach a word'),
+    h('p.small.muted', { style: 'margin:-4px 0 8px' },
+      'Your gym\'s name for something, mapped onto what it actually is.'),
+    teachRow);
+
+  const optsBtn = h('button.link', {
+    onclick: () => {
+      advanced.hidden = !advanced.hidden;
+      optsBtn.textContent = advanced.hidden ? 'Show options' : 'Hide options';
+    },
+  }, 'Show options');
+
   const save = async () => {
     await store.saveEntry(entry);
     toast(id ? 'Updated' : 'Logged');
@@ -204,39 +228,43 @@ export default async function log(root, { id } = {}) {
     location.hash = '#/';
   };
 
-  root.append(
-    h('h2', id ? 'Edit entry' : 'Log a class'),
+  root.append(...[
+    h('div.log-head',
+      h('h1.page-title', id ? 'Edit entry' : 'Log a class'),
+      h('a.page-action', { href: '#/' }, 'Cancel')),
 
-    card(null,
-      h('label', 'Date'),
-      h('input', { type: 'date', value: entry.date, oninput: e => { entry.date = e.target.value; } }),
-      h('label', 'Gi or no-gi'),
+    h('div.date-row',
+      h('div.date-field',
+        icon('calendar'),
+        h('input', { type: 'date', value: entry.date, oninput: e => { entry.date = e.target.value; } })),
       giSelector(entry)),
 
-    card('What we did',
-      h('label', 'Techniques'),
-      field('techniques', 'Knee slice pass, leg weave, cross face pressure…'),
-      h('label', 'Rolling notes'),
-      field('rolling', 'Passed Steve twice. Got guillotined three times…'),
-      h('label', 'Thoughts'),
+    h('div.field',
+      h('label.field-label', 'What we drilled'),
+      field('techniques', 'Knee slice pass, leg weave, cross face pressure…')),
+    h('div.field',
+      h('label.field-label', 'Rolling notes'),
+      field('rolling', 'Passed Steve twice. Got guillotined three times…')),
+    h('div.field',
+      h('label.field-label', 'Key thoughts & adjustments'),
       field('thoughts', 'Need to keep my hips lower when passing.')),
 
-    card('Tags', tagsBox, h('div', { style: 'height:10px' }), manualRow),
+    h('hr.hr'),
 
-    card('Suggested',
-      suggestBox,
-      h('p.small.muted', { style: 'margin-top:10px' },
-        'Tap to accept. ⊘ means it got the word wrong — it won\'t suggest that one again.')),
+    h('div.tags-head',
+      h('span.field-label', 'Categorization & tags'),
+      optsBtn),
+    tagsBox,
+    h('div.field-label', { style: 'margin:16px 0 8px' }, 'Suggested'),
+    suggestBox,
+    h('p.small.muted', { style: 'margin-top:8px' },
+      'Tap to accept. ⊘ means it got the word wrong — it won\'t suggest that one again.'),
+    advanced,
 
-    card('Teach a word',
-      h('p.small.muted', 'Your gym\'s name for something, mapped onto what it actually is.'),
-      teachRow),
-
-    h('div.btn-row',
-      h('button.btn.primary', { onclick: save }, id ? 'Save changes' : 'Save entry'),
-      h('a.btn', { href: '#/' }, 'Cancel'),
-      id && h('button.btn', { onclick: remove }, 'Delete')),
-  );
+    h('div.btn-row', { style: 'margin-top:20px' },
+      h('button.btn.primary.wide.cta', { onclick: save }, id ? 'Save changes' : 'Save entry')),
+    id && h('div.btn-row', h('button.btn', { onclick: remove }, 'Delete entry')),
+  ].filter(Boolean));
 
   renderTags();
   renderSuggestions();

@@ -42,8 +42,8 @@ const step = async (name, fn) => {
 
 await step('loads dashboard', async () => {
   await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.stat');
-  const zero = await page.locator('.stat .n').first().innerText();
+  await page.waitForSelector('.hero-num');
+  const zero = await page.locator('.hero-num').first().innerText();
   if (zero !== '0') throw new Error(`expected 0 classes, got ${zero}`);
 });
 
@@ -72,18 +72,18 @@ await step('accepts every suggestion', async () => {
     await chip.click();
     await page.waitForTimeout(60);
   }
-  const kept = await page.locator('.card:has(.card-title:text-is("Tags")) .tag').count();
+  const kept = await page.locator('.tag:not(.suggest):not(.add)').count();
   if (kept < 3) throw new Error(`tags not retained, got ${kept}`);
 });
 
 await step('saves and returns home with the class counted', async () => {
   await page.click('button.btn.primary:has-text("Save entry")');
-  await page.waitForSelector('.stat');
+  await page.waitForSelector('.hero-stat');
   await page.waitForTimeout(200);
-  const week = await page.locator('.stat .n').first().innerText();
+  const week = await page.locator('.hero-stat .n').first().innerText();
   if (week !== '1') throw new Error(`expected 1 class this week, got ${week}`);
-  const themes = await page.locator('.card:has-text("Recent class themes") .tag').count();
-  if (!themes) throw new Error('no recent themes rendered');
+  const sessionTags = await page.locator('.card.session .tag').count();
+  if (!sessionTags) throw new Error('no last-session tags rendered');
 });
 
 await page.screenshot({ path: `${SHOT}/03-home.png`, fullPage: true });
@@ -107,7 +107,7 @@ await step('position page assembles entries from tags', async () => {
 await page.screenshot({ path: `${SHOT}/05-position.png`, fullPage: true });
 
 await step('search finds it', async () => {
-  await page.click('#btn-search');
+  await page.goto(BASE + '#/search', { waitUntil: 'networkidle' });
   await page.waitForSelector('#view input');
   await page.fill('#view input', 'guillotine');
   await page.waitForTimeout(200);
@@ -117,10 +117,10 @@ await step('search finds it', async () => {
 
 await step('quick capture + backup export work', async () => {
   await page.click('a[data-tab="/library"]');
-  await page.waitForSelector('textarea');
-  await page.fill('textarea', 'Why do I keep getting flattened in half guard?');
+  await page.waitForSelector('.capture-row input');
+  await page.fill('.capture-row input', 'Why do I keep getting flattened in half guard?');
   await page.selectOption('select', 'question');
-  await page.click('button.btn:has-text("Save question")');
+  await page.click('.capture-row button.btn.primary');
   await page.waitForTimeout(400);
   const text = await page.locator('#view').innerText();
   if (!/everything · 2/i.test(text)) throw new Error('quick note not saved');
@@ -154,10 +154,11 @@ await step('muting a bad suggestion sticks', async () => {
 
 await step('teaching a word makes it suggestable', async () => {
   await page.goto(BASE + '#/log', { waitUntil: 'networkidle' });
-  await page.waitForSelector('input[placeholder*="word you actually use"]');
+  await page.waitForSelector('textarea');
+  await page.click('button.link:has-text("Show options")');   // reveal the advanced panel
 
-  await page.fill('input[placeholder*="word you actually use"]', 'the rodeo');
-  const teachCard = page.locator('.card', { hasText: 'Teach a word' });
+  const teachCard = page.locator('.teach');
+  await teachCard.locator('input[placeholder*="word you actually use"]').fill('the rodeo');
   await teachCard.locator('select').nth(0).selectOption('half-guard');
   await teachCard.locator('select').nth(1).selectOption('sweep');
   await teachCard.locator('select').nth(2).selectOption('dogfight');
@@ -207,7 +208,7 @@ await step('gap prompt appears once a role is well covered', async () => {
     }
   });
   await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.stat');
+  await page.waitForSelector('.hero-stat');
   const text = await page.locator('#view').innerText();
   if (!/worth a look/i.test(text)) throw new Error('no gap prompt rendered');
   console.log('   prompt:', text.split(/worth a look/i)[1].split('\n').filter(Boolean)[0]);
