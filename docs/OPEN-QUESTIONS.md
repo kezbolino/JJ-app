@@ -216,7 +216,7 @@ in direct conflict:
 
 - clear site data → gone
 - lose or replace the phone → gone
-- iOS evicts storage from PWAs not opened recently → gone
+- the browser evicts storage under pressure → gone
 - notes written on the phone are invisible in the desktop browser, and vice versa
 
 There is no undo. **This is the highest-severity risk in the project** — higher
@@ -230,7 +230,7 @@ than tagging accuracy, because bad tags can be fixed and lost journals cannot.
 | + manual JSON export | ❌ | manual | free | relies on user discipline; better than nothing |
 | Sync to a private GitHub data repo | ✅ | ✅ | free | needs a token in the browser — separate private repo, never this one |
 | Supabase / Firebase free tier | ✅ | ✅ | free tier | real backend, real auth, more moving parts |
-| iCloud/Drive file the PWA reads | partial | ✅ | free | awkward on iOS |
+| Cloud-drive file the PWA reads | partial | ✅ | free | awkward on mobile |
 
 **Must be decided before the first schema is written.** Everything else is
 reversible; this isn't.
@@ -265,3 +265,64 @@ forget, and it feeds the focus suggestion directly.
 Honest about what it is: a mirror of what you've been doing, not a preview of
 what's next. Still useful — most people don't consciously track that their gym
 has been on passing for three weeks.
+
+---
+
+## 14. Voice capture — PARKED (2026-07-28)
+
+Agreed to be the highest-value addition after v1 (see §3: capture friction is
+the whole product), but **parked, not started**, at the user's request.
+
+**Platform: Android.** Assume Chrome on Android throughout — an earlier draft of
+these notes assumed iOS and was wrong.
+
+### Two jobs, not one
+
+1. **Speech → text.** The new work.
+2. **Text → structured entry.** Mostly solved already — `js/tagger.js` catches
+   "underhook" and files it. Only the Problem/Cause breakdown in `VISION.md`
+   feature 6 needs an LLM, and it's the least valuable part. **Save the raw
+   transcript as a note and let the tagger tag it** — ~90% of the value, none of
+   the cost.
+
+### Options for job 1
+
+| Approach | On-device? | Cost | Offline |
+|---|---|---|---|
+| **Web Speech API** (`webkitSpeechRecognition`) | No — audio goes to Google | free, no key | ❌ |
+| Cloud STT (Whisper API, Deepgram) | No — audio uploaded | ~£0.005/min + another key | ❌ |
+| Whisper via WASM | **Yes** | free | ✅ |
+| Gboard's own mic | Partly | free | partly |
+
+**Recommendation: Web Speech API.** Free, no key, ~100 lines, and Chrome on
+Android supports it properly — including inside an installed PWA, which is the
+main thing that would have been risky on iOS. It is *not* private and *not*
+offline: audio goes to Google's servers. Whisper-in-WASM is the honest
+on-device answer but means a 50–150 MB model download onto a phone, for an app
+whose whole appeal is a handful of small files and no build step. Wrong trade
+now; revisit if offline capture or privacy turns out to matter.
+
+### Jargon accuracy
+
+General-purpose recognition will mangle "De La Riva", "omoplata", "mata leão",
+"kimura". **The in-app corrections built on 2026-07-28 are the mitigation** —
+teach it whatever mush the recogniser produces, once, and it maps thereafter.
+The two features are worth more together than separately.
+
+### Truly hands-free is out of scope for a PWA
+
+A PWA cannot be launched by voice and cannot record in the background; the app
+must be open and on screen. So the "capture while driving home" idea in
+`VISION.md` is not achievable this way (and is illegal to do handheld in the UK
+anyway).
+
+**Better route, needing no app changes at all:** an Android automation
+(Assistant routine, Tasker, or the HTTP Shortcuts app) that dictates and writes
+a markdown file straight into `jj-app-data` via the GitHub API. The app picks it
+up on the next sync. This only works because the backup format is
+human-readable markdown rather than a JSON blob — see `docs/DATA-MODEL.md`.
+
+### Before building
+
+Test the mic inside the installed PWA on the actual phone first. Cheap to check,
+expensive to discover late.

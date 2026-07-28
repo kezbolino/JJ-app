@@ -16,7 +16,9 @@ Part of the Project Hub → `github.com/kezbolino/project-hub`.
 ## Shape
 
 A **static offline PWA**, same model as `kezbolino/social-media-app` (Wingman) —
-*not* a localhost Node tool like Distill. Phone-first. The user builds remotely
+*not* a localhost Node tool like Distill. Phone-first, and the phone is
+**Android/Chrome** — don't assume iOS or Safari when reasoning about storage
+limits, PWA install behaviour, mic access or OS automation. The user builds remotely
 via browser and phone, so **don't assume a local dev setup**: anything requiring
 `npm run` on their machine is the wrong choice.
 
@@ -123,6 +125,10 @@ data if forgotten:
   role means nothing — flagging it just makes noise.
 - **Reuse from Distill:** `kezbolino/distill` has a single `LLMProvider`
   interface with a keyless `mock` provider. Use it when tagging goes AI.
+- **Voice capture is parked, not forgotten.** Design already worked out in
+  `docs/OPEN-QUESTIONS.md` §14 — read it before starting rather than
+  re-deriving. Short version: Web Speech API, save the raw transcript and let
+  the existing tagger handle it, no LLM.
 
 ## Session log
 
@@ -160,3 +166,6 @@ data if forgotten:
   search and from the markdown front matter. `fromMarkdown` ignores the key, so
   notes already in the backup repo still parse, and their old versions remain in
   that repo's git history. **Don't reintroduce it unasked.** sw CACHE → v4.
+- 2026-07-28 — User is on **Android**, not iOS; corrected the docs that assumed
+  otherwise. Worked out the voice-capture design and **parked it** at their
+  request — see `docs/OPEN-QUESTIONS.md` §14. No code written for it.

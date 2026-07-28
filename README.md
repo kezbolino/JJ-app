@@ -82,7 +82,7 @@ node tests/sync.test.mjs       # sync, against a fake GitHub
 
 ## Next up
 
-1. Voice capture — capture friction is the whole product
+1. Voice capture — parked; design notes in [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) §14
 2. Gi/no-gi per *technique*, not just per entry
 3. Sync on save, instead of tapping "Sync now"
 4. Structural ontology gaps (missing positions, gi/no-gi as an axis) — the
