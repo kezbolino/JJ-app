@@ -49,9 +49,6 @@ function route() {
   });
 }
 
-document.getElementById('btn-search')
-  .addEventListener('click', () => { location.hash = '#/search'; });
-
 window.addEventListener('hashchange', route);
 route();
 

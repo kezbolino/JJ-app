@@ -122,6 +122,23 @@ export function countClasses(entries) {
   };
 }
 
+/** Gi vs no-gi split across class entries that recorded one. null if none did. */
+export function giRatio(entries) {
+  const withGi = entries.filter(e => e.type === 'class' && (e.gi === 'gi' || e.gi === 'nogi'));
+  if (!withGi.length) return null;
+  const gi = withGi.filter(e => e.gi === 'gi').length;
+  return { gi, nogi: withGi.length - gi, pct: Math.round((gi / withGi.length) * 100) };
+}
+
+/**
+ * Entries not yet mirrored to the backup repo: never pushed (no syncPath), or
+ * edited since the last sync. Only meaningful once sync is configured.
+ */
+export function pendingSync(entries, lastSyncAt) {
+  return entries.filter(e =>
+    !e.syncPath || (lastSyncAt && e.updatedAt && e.updatedAt > lastSyncAt)).length;
+}
+
 /**
  * Coverage: how many entries touch each (position, role) cell.
  * This is the matrix everything downstream reads — the pentagon, the gap

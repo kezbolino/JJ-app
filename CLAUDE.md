@@ -169,3 +169,23 @@ data if forgotten:
 - 2026-07-28 — User is on **Android**, not iOS; corrected the docs that assumed
   otherwise. Worked out the voice-capture design and **parked it** at their
   request — see `docs/OPEN-QUESTIONS.md` §14. No code written for it.
+- 2026-07-28 — **Figma redesign** implemented (layout only — colour scheme left
+  as-is at the user's request; the app keeps its blue accent, not the Figma
+  orange). Global sticky topbar removed; each view now owns its header. Tab bar
+  gained SVG icons (`js/ui.js` `icon()` / `SHAPES`, drawn in the SVG namespace
+  since `h()` can't make SVG). Home: hero card (total classes + week / 30-day /
+  gi-nogi% trio), focus as a pin banner with inline EDIT, single "Last session"
+  card, big CTA. The **"recent class themes" panel was dropped from Home** to
+  match the redesign — not deleted from the model, just no longer surfaced there;
+  restore if wanted. Map: added "Your map" header, a decorative radar backdrop
+  and an all-time "Exposure breakdown" above the untouched position×role
+  coverage (the sacred bit, kept). Log: date+gi on one row, flat uppercase field
+  labels, manual-add + teach-a-word tucked behind "Show options". Library:
+  in-page search field (topbar search button is gone), "N not backed up yet"
+  banner when sync is configured and dirty, typed sections (Saved videos / Notes
+  / Everything). Two honest calls: no fabricated "mat hours" badge, and the map
+  % is labelled attention-not-skill. Watch for `root.append(null|undefined)` —
+  Node stringifies them to visible "null"/"undefined"; conditional children in
+  a `root.append` must go through `[...].filter(Boolean)`. Added `giRatio` and
+  `pendingSync` to `store.js`; updated `tests/smoke.mjs` selectors to the new
+  DOM. sw CACHE → v5.
