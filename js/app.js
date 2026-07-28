@@ -2,6 +2,7 @@
 
 import { clear, h } from './ui.js';
 import home from './views/home.js';
+import focus from './views/focus.js';
 import log from './views/log.js';
 import map from './views/map.js';
 import position from './views/position.js';
@@ -25,7 +26,7 @@ function route() {
   clear(view);
   window.scrollTo(0, 0);
 
-  const tab = head === 'settings' ? '/library' : '/' + (head ?? '');
+  const tab = head === 'settings' ? '/library' : head === 'focus' ? '/' : '/' + (head ?? '');
   for (const link of document.querySelectorAll('.tabbar a')) {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
     if (link.dataset.tab === tab) link.setAttribute('aria-current', 'page');
@@ -34,6 +35,7 @@ function route() {
   const render = () => {
     switch (head) {
       case undefined:  return home(view);
+      case 'focus':    return focus(view);
       case 'log':      return log(view, { id: a });
       case 'map':      return a ? position(view, { positionId: a, role: b ?? null }) : map(view);
       case 'library':  return library(view);

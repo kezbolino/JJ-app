@@ -105,8 +105,20 @@ export async function getSetting(key, fallback) {
 
 export const setSetting = (key, value) => db.put('settings', { key, value });
 
-export const getFocuses = () => getSetting('focuses', []);
-export const setFocuses = list => setSetting('focuses', list);
+// "Things you're working on" — flashcards. Each is { front, back }: front is
+// the thing (e.g. "half guard passing"), back is your cues/notes to drill.
+// Stored as objects, but old installs saved plain strings, so normalise on read
+// and never assume the shape coming out of IndexedDB.
+export function normalizeFocus(f) {
+  if (typeof f === 'string') return { front: f, back: '' };
+  return { front: String(f?.front ?? ''), back: String(f?.back ?? '') };
+}
+
+export async function getFocuses() {
+  const list = await getSetting('focuses', []);
+  return (Array.isArray(list) ? list : []).map(normalizeFocus).filter(f => f.front);
+}
+export const setFocuses = list => setSetting('focuses', list.map(normalizeFocus));
 
 // ---- queries -------------------------------------------------------------
 

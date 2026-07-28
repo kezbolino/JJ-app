@@ -29,38 +29,16 @@ function heroCard(counts, gi) {
       stat(gi ? `${gi.pct}%` : '—', 'Gi / No-gi', true)));
 }
 
-// Focus lives as a banner with an EDIT that reveals the editor in place —
-// keeping the front door calm, editing only when asked for.
-function focusPanel(focuses, onChange) {
-  const editor = h('div', { hidden: true });
-  const input = h('input', { type: 'text', placeholder: 'Add a focus…', maxLength: 40 });
-  const add = () => {
-    const value = input.value.trim();
-    if (!value || focuses.includes(value)) return;
-    onChange([...focuses, value]);
-  };
-
-  editor.append(
-    focuses.length
-      ? h('div.tags', { style: 'margin:8px 0' }, focuses.map(f =>
-          h('span.tag', f, h('button', {
-            onclick: () => onChange(focuses.filter(x => x !== f)),
-            'aria-label': `Remove ${f}`,
-          }, '×'))))
-      : empty('Nothing set. What are you working on?'),
-    h('div.btn-row', input, h('button.btn.small', { onclick: add }, 'Add')));
-
-  const toggle = h('button.b-edit', {
-    onclick: () => { editor.hidden = !editor.hidden; },
-  }, 'Edit');
-
-  return h('div',
-    h('div.banner',
-      h('span.b-ico', icon('pin')),
-      h('span.b-txt' + (focuses.length ? '' : '.muted'),
-        focuses.length ? `Focus: ${focuses.join(' · ')}` : 'No focus set this week'),
-      toggle),
-    editor);
+// The focus list is now a flashcard deck of its own — the front door just shows
+// what's in it and links across. Editing and flipping live on the Working-on
+// page, keeping the dashboard calm.
+function focusPanel(focuses) {
+  const fronts = focuses.map(f => f.front);
+  return h('a.banner', { href: '#/focus' },
+    h('span.b-ico', icon('pin')),
+    h('span.b-txt' + (fronts.length ? '' : '.muted'),
+      fronts.length ? `Working on: ${fronts.join(' · ')}` : 'Nothing yet — add flashcards'),
+    h('span.b-edit', fronts.length ? 'Drill' : 'Add'));
 }
 
 function gapPanel(gaps) {
@@ -103,10 +81,7 @@ export default async function home(root) {
   root.append(...[
     brandRow(),
     heroCard(store.countClasses(entries), store.giRatio(entries)),
-    focusPanel(focuses, async next => {
-      await store.setFocuses(next);
-      location.reload();
-    }),
+    focusPanel(focuses),
     gapPanel(store.findGaps(entries)),
     sectionHead('Last session', h('a', { href: '#/library' }, 'History ›')),
     lastSession(entries),
