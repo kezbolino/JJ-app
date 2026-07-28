@@ -13,7 +13,7 @@ Add it to your phone's home screen and it runs offline like a native app.
 
 - **Dashboard** — classes this week / 30 days / all time, your current focuses,
   recent class themes read back off your own entries, and a coverage prompt
-- **Log a class** — date, coach, gi/no-gi, techniques, rolling notes, thoughts
+- **Log a class** — date, gi/no-gi, techniques, rolling notes, thoughts
 - **Tagging** — suggestions appear as you type, matched against the ontology and
   its synonyms; tap to accept, or add tags by hand. Nothing is tagged silently
 - **Correct it as you go** — tap ⊘ on a wrong suggestion and it's never suggested

@@ -12,7 +12,6 @@ function entryRow(entry) {
   return h('a.entry', { href: `#/log/${entry.id}` },
     h('div.entry-head',
       h('span.entry-date', fmtDate(entry.date)),
-      entry.coach && h('span.entry-sub', entry.coach),
       giFlag(entry.gi)),
     entry.body && h('div.entry-body', entry.body.slice(0, 180) + (entry.body.length > 180 ? '…' : '')),
     (entry.tags ?? []).length ? h('div.tags', entry.tags.slice(0, 5).map(t => tagChip(t))) : null);

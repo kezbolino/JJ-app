@@ -12,7 +12,7 @@ export const ENTRY_TYPES = ['class', 'note', 'question', 'video', 'principle'];
  *
  * {
  *   id, type, date: 'YYYY-MM-DD',
- *   coach, gi: 'gi' | 'nogi' | null,
+ *   gi: 'gi' | 'nogi' | null,
  *   title,
  *   sections: { techniques, rolling, thoughts },   // class entries
  *   body,                                          // free text / joined sections
@@ -27,7 +27,6 @@ export function newEntry(patch = {}) {
     id: crypto.randomUUID(),
     type: 'class',
     date: todayISO(),
-    coach: '',
     gi: null,
     title: '',
     sections: { techniques: '', rolling: '', thoughts: '' },
@@ -209,7 +208,7 @@ export function search(entries, query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   return entries.filter(e => {
-    if (`${e.title} ${e.body} ${e.coach}`.toLowerCase().includes(q)) return true;
+    if (`${e.title} ${e.body}`.toLowerCase().includes(q)) return true;
     return (e.tags ?? []).some(t => {
       const label = t.kind === 'concept' ? t.concept : POSITION_BY_ID[t.position]?.label ?? '';
       return label.toLowerCase().includes(q);

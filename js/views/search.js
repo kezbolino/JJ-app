@@ -21,7 +21,7 @@ export default async function search(root, { q = '' } = {}) {
         : hits.length
           ? hits.map(e => h('a.entry', { href: `#/log/${e.id}` },
               h('div.entry-head', h('span.entry-date', fmtDate(e.date)),
-                e.coach && h('span.entry-sub', e.coach), giFlag(e.gi)),
+                giFlag(e.gi)),
               e.body && h('div.entry-body', e.body.slice(0, 160) + (e.body.length > 160 ? '…' : '')),
               (e.tags ?? []).length ? h('div.tags', e.tags.slice(0, 4).map(t => tagChip(t))) : null))
           : empty('Nothing found.')));

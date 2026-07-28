@@ -52,7 +52,7 @@ await page.screenshot({ path: `${SHOT}/01-empty.png` });
 await step('logs a class with auto-suggested tags', async () => {
   await page.click('a.btn.primary');            // "Log a class"
   await page.waitForSelector('textarea');
-  await page.fill('input[type=text]', 'John');  // coach
+
   await page.click('.seg button:has-text("Gi")');
   const areas = page.locator('textarea');
   await areas.nth(0).fill('Knee slice pass, leg weave pass, cross face pressure');

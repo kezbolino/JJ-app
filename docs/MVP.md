@@ -37,7 +37,7 @@ manual upkeep, nothing to forget. See `OPEN-QUESTIONS.md` §12.
 
 ### 2. Class journal (capture)
 
-Free text with light structure — date, coach, techniques, rolling notes,
+Free text with light structure — date, gi/no-gi, techniques, rolling notes,
 personal thoughts. Must be fast. Capture friction is the product.
 
 ### 3. Tagging

@@ -70,7 +70,6 @@ function recentPanel(entries) {
     recent.map(e => h('a.entry', { href: `#/log/${e.id}` },
       h('div.entry-head',
         h('span.entry-date', fmtDate(e.date)),
-        e.coach && h('span.entry-sub', e.coach),
         giFlag(e.gi)),
       e.body && h('div.entry-body', e.body.slice(0, 110) + (e.body.length > 110 ? '…' : '')),
       (e.tags ?? []).length ? h('div.tags', e.tags.slice(0, 4).map(t => tagChip(t))) : null)),

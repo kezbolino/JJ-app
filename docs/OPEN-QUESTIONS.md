@@ -189,7 +189,7 @@ Built in `js/sync.js` + `js/markdown.js` + `js/views/settings.js`:
 
 - one `.md` file per entry, foldered by type (`class/`, `note/`, `question/`,
   `video/`, `principle/`), plus a generated `README.md` index
-- small front-matter header carries id, date, coach, gi, tags and timestamps;
+- small front-matter header carries id, date, gi, tags and timestamps;
   the body is ordinary markdown, so the repo reads as notes and opens in Obsidian
 - an entire sync is **one commit** (Git Data API), not one commit per note
 - pull-then-push, newest `updatedAt` wins

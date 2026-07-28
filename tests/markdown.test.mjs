@@ -21,7 +21,6 @@ const classEntry = {
   id: '3f2a1b9c-0000-4000-8000-000000000001',
   type: 'class',
   date: '2026-07-27',
-  coach: 'John',
   gi: 'gi',
   title: '',
   sections: {
@@ -42,7 +41,7 @@ const classEntry = {
 
 test('class entry survives a round trip', () => {
   const back = fromMarkdown(toMarkdown(classEntry));
-  for (const key of ['id', 'type', 'date', 'coach', 'gi', 'createdAt', 'updatedAt']) {
+  for (const key of ['id', 'type', 'date', 'gi', 'createdAt', 'updatedAt']) {
     assert.equal(back[key], classEntry[key], `${key} changed`);
   }
   assert.deepEqual(back.sections, classEntry.sections);
@@ -61,7 +60,6 @@ test('question entry survives a round trip', () => {
     ...classEntry,
     id: 'aaaa1111-0000-4000-8000-000000000002',
     type: 'question',
-    coach: '',
     gi: null,
     sections: { techniques: '', rolling: '', thoughts: '' },
     body: 'Why do I keep getting flattened in half guard?',
@@ -79,7 +77,6 @@ test('video entry keeps its url and id', () => {
     ...classEntry,
     id: 'bbbb2222-0000-4000-8000-000000000003',
     type: 'video',
-    coach: '',
     gi: null,
     title: 'Lachlan Giles — Half Guard Passing',
     sections: { techniques: '', rolling: '', thoughts: '' },
@@ -97,11 +94,11 @@ test('awkward characters survive', () => {
   const awkward = {
     ...classEntry,
     id: 'cccc3333-0000-4000-8000-000000000004',
-    coach: 'Ana: the "boss"',
+    title: 'Ana: the "boss" said this',
     sections: { techniques: 'mata leão — from the back', rolling: '', thoughts: '' },
   };
   const back = fromMarkdown(toMarkdown(awkward));
-  assert.equal(back.coach, awkward.coach);
+  assert.equal(back.title, awkward.title);
   assert.equal(back.sections.techniques, awkward.sections.techniques);
 });
 
@@ -109,23 +106,20 @@ test('empty optional fields do not appear', () => {
   const bare = {
     ...classEntry,
     id: 'dddd4444-0000-4000-8000-000000000005',
-    coach: '',
     gi: null,
     tags: [],
   };
   const md = toMarkdown(bare);
-  assert.ok(!md.includes('coach:'), 'empty coach was written');
   assert.ok(!md.includes('gi:'), 'null gi was written');
   assert.ok(!md.includes('tags:'), 'empty tags were written');
   const back = fromMarkdown(md);
-  assert.equal(back.coach, '');
   assert.equal(back.gi, null);
   assert.deepEqual(back.tags, []);
 });
 
 test('paths are stable and type-sorted', () => {
   assert.equal(pathFor(classEntry), 'class/2026-07-27-3f2a1b9c.md');
-  assert.equal(pathFor(classEntry), pathFor({ ...classEntry, coach: 'someone else' }));
+  assert.equal(pathFor(classEntry), pathFor({ ...classEntry, title: 'renamed' }));
 });
 
 test('index links every entry', () => {

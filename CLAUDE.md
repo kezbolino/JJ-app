@@ -155,3 +155,8 @@ data if forgotten:
   with undo in Settings. `suggestTags` now returns `{tag, term}` so a bad
   suggestion can be muted at source; `suggestTagsOnly` is the old shape. Added
   `tests/tagger.test.mjs`. Suite is 43 tests. sw CACHE → v3.
+- 2026-07-28 — Removed the `coach` field at the user's request ("remove the
+  teacher's name, it's not necessary"). Gone from the form, from display, from
+  search and from the markdown front matter. `fromMarkdown` ignores the key, so
+  notes already in the backup repo still parse, and their old versions remain in
+  that repo's git history. **Don't reintroduce it unasked.** sw CACHE → v4.

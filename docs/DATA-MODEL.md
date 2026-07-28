@@ -14,7 +14,6 @@ tagging path.
   id:        crypto.randomUUID(),
   type:      'class' | 'note' | 'question' | 'video' | 'principle',
   date:      '2026-07-27',
-  coach:     'John',
   gi:        'gi' | 'nogi' | null,
   title:     '',
   sections:  { techniques: '', rolling: '', thoughts: '' },  // class entries
@@ -27,6 +26,11 @@ tagging path.
 ```
 
 `gi` is nullable on purpose — a note scribbled on the train belongs to neither.
+
+There was a `coach` field. **Removed 2026-07-28 at the user's request** — they
+didn't want the teacher's name recorded. Notes already pushed to the backup repo
+still have it in git history, and `fromMarkdown` simply ignores the key rather
+than choking on it, so old files still parse. Don't reintroduce it unasked.
 
 ## Tags are pairs, never words
 
@@ -88,7 +92,6 @@ README.md          ← generated index
 id: 3f2a1b9c-0000-4000-8000-000000000001
 type: class
 date: 2026-07-27
-coach: John
 gi: gi
 tags: [half-guard/pass/knee-slice, half-guard/pass/leg-weave, concept:Pressure]
 created: "2026-07-27T20:11:00.000Z"

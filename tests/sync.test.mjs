@@ -56,7 +56,7 @@ const phone = await newDevice();
 await test('first sync writes markdown into an empty repo', async () => {
   await addClass(phone.page, {
     date: '2026-07-27',
-    coach: 'John',
+
     gi: 'gi',
     sections: { techniques: 'Knee slice pass', rolling: 'Passed Steve twice', thoughts: 'Hips lower' },
     tags: [{ kind: 'pos', position: 'half-guard', role: 'pass', technique: 'knee-slice' }],
@@ -69,7 +69,7 @@ await test('first sync writes markdown into an empty repo', async () => {
   const notePath = Object.keys(files).find(p => p.startsWith('class/'));
   assert.ok(notePath, `no class file written, got ${Object.keys(files)}`);
   assert.match(files[notePath], /^---\n/, 'no front matter');
-  assert.match(files[notePath], /coach: John/);
+  assert.match(files[notePath], /gi: gi/);
   assert.match(files[notePath], /## Techniques\n\nKnee slice pass/);
   assert.ok(files['README.md']?.includes(notePath), 'index does not link the note');
 });
@@ -88,7 +88,7 @@ await test('a second device pulls the notes down', async () => {
 
   const entries = await readEntries(laptop.page);
   assert.equal(entries.length, 1);
-  assert.equal(entries[0].coach, 'John');
+
   assert.equal(entries[0].gi, 'gi');
   assert.equal(entries[0].sections.thoughts, 'Hips lower');
   assert.deepEqual(entries[0].tags, [
@@ -122,8 +122,8 @@ await test('notes from two devices merge rather than overwrite', async () => {
   const laptop = await newDevice();
   await runSync(laptop.page);
 
-  await addClass(laptop.page, { date: '2026-07-28', coach: 'Ana', sections: { techniques: 'Triangle', rolling: '', thoughts: '' } });
-  await addClass(phone.page, { date: '2026-07-29', coach: 'Sam', sections: { techniques: 'Upa', rolling: '', thoughts: '' } });
+  await addClass(laptop.page, { date: '2026-07-28', title: 'Ana class', sections: { techniques: 'Triangle', rolling: '', thoughts: '' } });
+  await addClass(phone.page, { date: '2026-07-29', title: 'Sam class', sections: { techniques: 'Upa', rolling: '', thoughts: '' } });
 
   await runSync(laptop.page);
   await runSync(phone.page);
@@ -141,7 +141,7 @@ await test('deleting locally removes the file from the repo', async () => {
   await phone.page.evaluate(async () => {
     const store = await import('/js/store.js');
     const entries = await store.allEntries();
-    await store.deleteEntry(entries.find(e => e.coach === 'Sam').id);
+    await store.deleteEntry(entries.find(e => e.title === 'Sam class').id);
   });
   const result = await runSync(phone.page);
   assert.equal(result.deleted, 1, 'file was not deleted');
@@ -158,7 +158,7 @@ await test('a deletion propagates to the other device instead of bouncing back',
   const target = await phone.page.evaluate(async () => {
     const store = await import('/js/store.js');
     const entries = await store.allEntries();
-    const doomed = entries.find(e => e.coach === 'Ana');
+    const doomed = entries.find(e => e.title === 'Ana class');
     await store.deleteEntry(doomed.id);
     return doomed.id;
   });
@@ -180,11 +180,11 @@ await test('a deletion propagates to the other device instead of bouncing back',
 
 await test('local-only notes are never deleted by a pull', async () => {
   const fresh = await newDevice();
-  await addClass(fresh.page, { date: '2026-08-01', coach: 'Offline', sections: { techniques: 'Armbar', rolling: '', thoughts: '' } });
+  await addClass(fresh.page, { date: '2026-08-01', title: 'Offline class', sections: { techniques: 'Armbar', rolling: '', thoughts: '' } });
   const result = await runSync(fresh.page);
   assert.equal(result.removed, 0, 'pull removed an unsynced local note');
   const entries = await readEntries(fresh.page);
-  assert.ok(entries.some(e => e.coach === 'Offline'), 'local-only note vanished');
+  assert.ok(entries.some(e => e.title === 'Offline class'), 'local-only note vanished');
   await fresh.context.close();
 });
 

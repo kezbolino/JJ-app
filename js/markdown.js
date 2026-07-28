@@ -60,7 +60,6 @@ export function toMarkdown(entry) {
   field('id', entry.id);
   field('type', entry.type);
   field('date', entry.date);
-  field('coach', entry.coach);
   field('gi', entry.gi);
   if (entry.tags?.length) lines.push(`tags: [${entry.tags.map(tagToString).join(', ')}]`);
   if (entry.video?.url) {
@@ -131,7 +130,6 @@ export function fromMarkdown(text) {
     id: unquote(meta.id ?? ''),
     type: unquote(meta.type ?? 'note'),
     date: unquote(meta.date ?? ''),
-    coach: unquote(meta.coach ?? ''),
     gi: meta.gi ? unquote(meta.gi) : null,
     title: titleMatch ? titleMatch[1].trim() : '',
     sections: { techniques: '', rolling: '', thoughts: '' },
@@ -242,7 +240,7 @@ export function buildIndex(entries) {
     lines.push('## Classes', '');
     for (const e of classes) {
       const tags = (e.tags ?? []).slice(0, 4).map(tagToString).join(', ');
-      lines.push(`- [${e.date}](${pathFor(e)})${e.coach ? ` · ${e.coach}` : ''}${tags ? ` · ${tags}` : ''}`);
+      lines.push(`- [${e.date}](${pathFor(e)})${tags ? ` · ${tags}` : ''}`);
     }
     lines.push('');
   }

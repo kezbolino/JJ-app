@@ -210,9 +210,6 @@ export default async function log(root, { id } = {}) {
     card(null,
       h('label', 'Date'),
       h('input', { type: 'date', value: entry.date, oninput: e => { entry.date = e.target.value; } }),
-      h('label', 'Coach'),
-      h('input', { type: 'text', value: entry.coach, placeholder: 'Who taught it?',
-                   oninput: e => { entry.coach = e.target.value; } }),
       h('label', 'Gi or no-gi'),
       giSelector(entry)),
 
