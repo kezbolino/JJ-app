@@ -4,14 +4,49 @@
 // curriculum, so there is no external source to read). Plus one coverage
 // prompt once there is enough written down to make it honest.
 
-import { h, card, empty, fmtDate, giFlag, tagChip, icon, sectionHead } from '../ui.js';
+import { h, card, empty, fmtDate, giFlag, tagChip, icon, sectionHead, toast, clear } from '../ui.js';
 import { positionLabel, ROLE_LABEL } from '../ontology.js';
 import * as store from '../store.js';
+import * as sync from '../sync.js';
 
-function brandRow() {
-  return h('div.brand-row',
-    h('h1.brand-jj', 'JJ'),
-    h('a.avatar-btn', { href: '#/settings', 'aria-label': 'Settings' }, icon('user')));
+// The top-right button is now a sync control (it used to open Settings — that's
+// still reachable from Library). Not configured yet → it links to Settings to
+// set sync up. Configured → tap to sync now; a dot shows when there are local
+// changes not yet pushed. The app also syncs itself once a day (see home()),
+// so the button is mostly a manual nudge and a status light.
+function syncButton({ configured, pending, root }) {
+  if (!configured) {
+    return h('a.avatar-btn', { href: '#/settings', 'aria-label': 'Set up sync' }, icon('cloud'));
+  }
+  const btn = h('button.avatar-btn' + (pending ? '.pending' : ''),
+    { 'aria-label': pending ? `Sync now (${pending} unsaved)` : 'Sync now', title: 'Sync now' },
+    icon('cloud'));
+  btn.addEventListener('click', async () => {
+    const ok = await runSync(btn);
+    if (ok) { clear(root); home(root); }  // refresh counts + the pending dot
+  });
+  return btn;
+}
+
+// Shared by the button and the daily auto-sync. `quiet` suppresses the toast
+// (auto-sync shouldn't nag, especially when the phone is just offline).
+async function runSync(btn, { quiet = false } = {}) {
+  if (btn?.dataset.busy) return;
+  if (btn) { btn.dataset.busy = '1'; btn.classList.add('busy'); }
+  try {
+    const r = await sync.sync();
+    if (!quiet) toast(`Synced · ↑${r.pushed} ↓${r.added + r.updated}`);
+    return true;
+  } catch (err) {
+    if (!quiet) toast(`Sync failed — ${err.message}`);
+    return false;
+  } finally {
+    if (btn) { delete btn.dataset.busy; btn.classList.remove('busy'); }
+  }
+}
+
+function brandRow(syncCtl) {
+  return h('div.brand-row', h('h1.brand-jj', 'JJ'), syncCtl);
 }
 
 function heroCard(counts, gi) {
@@ -79,8 +114,22 @@ export default async function home(root) {
   const entries = await store.allEntries();
   const focuses = await store.getFocuses();
 
+  const config = await sync.getConfig();
+  const configured = sync.isConfigured(config);
+  const lastSync = await sync.getLastSync();
+  const pending = configured ? store.pendingSync(entries, lastSync) : 0;
+
+  // Daily autosaver: if sync is set up and we haven't synced yet today, do it
+  // in the background, then re-render so counts and the pending dot refresh.
+  // Fully quiet — a failed sync (usually just offline) shouldn't interrupt.
+  if (configured && (!lastSync || lastSync.slice(0, 10) < store.todayISO())) {
+    runSync(null, { quiet: true }).then(ok => {
+      if (ok) { clear(root); home(root); }
+    });
+  }
+
   root.append(...[
-    brandRow(),
+    brandRow(syncButton({ configured, pending, root })),
     heroCard(store.countClasses(entries), store.giRatio(entries)),
     focusPanel(focuses),
     gapPanel(store.findGaps(entries)),
