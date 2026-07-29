@@ -4,6 +4,32 @@ import { h, card, toast, empty, tagChip } from '../ui.js';
 import * as sync from '../sync.js';
 import * as backup from '../backup.js';
 import * as overrides from '../overrides.js';
+import * as appearance from '../appearance.js';
+
+// A segmented picker over [value, label] pairs; taps apply immediately so the
+// change is visible on the buttons/text on this very screen.
+function pickerCard(title, hint, options, current, onPick) {
+  const seg = h('div.seg');
+  const paint = () => {
+    for (const btn of seg.children) btn.setAttribute('aria-pressed', String(btn.dataset.val === current()));
+  };
+  for (const [val, label] of options) {
+    const btn = h('button', { type: 'button' }, label);
+    btn.dataset.val = val;
+    btn.addEventListener('click', () => { onPick(val); paint(); });
+    seg.append(btn);
+  }
+  paint();
+  return card(title, hint && h('p.small.muted', hint), seg);
+}
+
+function appearanceCard() {
+  return h('div',
+    pickerCard('App font', '🔤 The face the whole app is set in.',
+      appearance.FONTS, appearance.getFont, appearance.setFont),
+    pickerCard('Button style', '🎨 Chunky pressable pills, or an iOS-flat feel.',
+      appearance.BUTTON_STYLES, appearance.getButtonStyle, appearance.setButtonStyle));
+}
 
 function fmtWhen(iso) {
   if (!iso) return 'never';
@@ -129,6 +155,9 @@ export default async function settings(root) {
       h('div.btn-row', h('button.btn.primary.wide', { onclick: runSync }, 'Sync now'))),
 
     correctionsCard(corrections, reload),
+
+    h('h2', { style: 'margin-top:28px' }, 'Appearance'),
+    appearanceCard(),
 
     card('Manual backup',
       h('p.small.muted', 'A single JSON file, for when you want a copy off GitHub entirely.'),
