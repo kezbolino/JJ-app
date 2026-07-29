@@ -135,6 +135,10 @@ a { color: var(--accent); text-decoration: none; }
   margin-bottom: 12px;
 }
 .card > :last-child { margin-bottom: 0; }
+/* Cards are sometimes anchors (e.g. the Home "last session" card). Anchors are
+   inline by default, which collapses the card background to slivers and lets
+   the block children spill out — force block so it contains its content. */
+a.card { display: block; }
 
 .card-title {
   font-size: .74rem; text-transform: uppercase; letter-spacing: .1em;
