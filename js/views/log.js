@@ -107,6 +107,22 @@ export default async function log(root, { id } = {}) {
   if (!entry) { root.append(empty('That entry no longer exists.')); return; }
   entry.sections ??= { techniques: '', rolling: '', thoughts: '' };
 
+  // A voice note shared in from a transcriber (see app.js consumeShare) lands
+  // here as raw text. Drop it into the freeform "Rolling notes" field of a new
+  // entry so nothing's mislabelled, and let the tagger pick tags out of it as
+  // usual. Consumed once; editing an existing entry never pulls it in.
+  let sharedIn = false;
+  if (!id) {
+    const shared = sessionStorage.getItem('pendingShare');
+    if (shared) {
+      sessionStorage.removeItem('pendingShare');
+      entry.sections.rolling = entry.sections.rolling
+        ? `${entry.sections.rolling}\n${shared}`
+        : shared;
+      sharedIn = true;
+    }
+  }
+
   let corrections = await overrides.getOverrides();
 
   const tagsBox = h('div.tags');
@@ -249,6 +265,9 @@ export default async function log(root, { id } = {}) {
       h('label.field-label', 'Key thoughts & adjustments'),
       field('thoughts', 'Need to keep my hips lower when passing.')),
 
+    h('p.mic-hint', icon('mic'),
+      'Tip: tap a field and switch to your voice keyboard to talk your notes in.'),
+
     h('hr.hr'),
 
     h('div.tags-head',
@@ -268,4 +287,5 @@ export default async function log(root, { id } = {}) {
 
   renderTags();
   renderSuggestions();
+  if (sharedIn) toast('Voice note added — review and save');
 }

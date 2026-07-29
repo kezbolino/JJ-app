@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v7';
+const CACHE = 'jj-app-v9';
 
 const SHELL = [
   './',
@@ -54,11 +54,15 @@ self.addEventListener('fetch', event => {
 
   const sameOrigin = new URL(request.url).origin === location.origin;
 
-  // App shell: cache first. Everything else (thumbnails, oEmbed): network,
+  // App shell: cache first. The share target opens `./?share_text=…`, whose
+  // query defeats an exact cache match — fall back to ignoreSearch so the
+  // shell still serves offline. Everything else (thumbnails, oEmbed): network,
   // falling back to cache so saved thumbnails still render offline.
   event.respondWith(
     sameOrigin
-      ? caches.match(request).then(hit => hit ?? fetch(request))
+      ? caches.match(request)
+          .then(hit => hit ?? caches.match(request, { ignoreSearch: true }))
+          .then(hit => hit ?? fetch(request))
       : fetch(request)
           .then(res => {
             const copy = res.clone();

@@ -125,10 +125,17 @@ data if forgotten:
   role means nothing — flagging it just makes noise.
 - **Reuse from Distill:** `kezbolino/distill` has a single `LLMProvider`
   interface with a keyless `mock` provider. Use it when tagging goes AI.
-- **Voice capture is parked, not forgotten.** Design already worked out in
-  `docs/OPEN-QUESTIONS.md` §14 — read it before starting rather than
-  re-deriving. Short version: Web Speech API, save the raw transcript and let
-  the existing tagger handle it, no LLM.
+- **Voice capture is an offline voice keyboard, not in-app transcription.**
+  `docs/OPEN-QUESTIONS.md` §14 (now RESOLVED). The primary path: the user
+  dictates straight into a log field with a FOSS on-device voice keyboard
+  (**Sayboard**, Vosk, from F-Droid — chosen because the phone is **CalyxOS**,
+  which is de-Googled, so Gboard's offline voice needs Google Speech Services
+  that simply aren't present). Zero code: the keyboard types into the textarea
+  and the existing tagger tags it. JJ-app also registers as an Android **Web
+  Share Target** (secondary path, for a standalone transcriber). No
+  Whisper/WASM/model in the app — deliberately rejected to keep the "small
+  files, no deps" shape. Don't add in-browser transcription without re-reading
+  §14.
 
 ## Session log
 
@@ -232,3 +239,37 @@ data if forgotten:
   algorithm chosen with the user (Map section; ontology + own notes). Added
   `tests/moves.test.mjs` (7 tests) and a smoke step (star → Map → adjacent moves).
   sw CACHE → v7, `js/moves.js` added to SHELL.
+- 2026-07-29 — **Voice notes via a share target (§14 resolved).** User wanted
+  local, private, offline transcription and found a standalone on-device
+  transcriber (Scrib) on F-Droid. Chose *not* to run Whisper in the PWA — a
+  model + WASM/WebGPU runtime is tens of MB and breaks the "small files, no
+  deps" identity. Instead JJ-app is now an Android **Web Share Target**: record
+  and transcribe in the dedicated app → Share → JJ-app opens a fresh log entry
+  with the transcript in "Rolling notes", and the existing tagger tags it. No
+  audio/model/key touches this app. `share_target` added to
+  `manifest.webmanifest` (GET → `./?share_text=…`); `consumeShare()` in
+  `js/app.js` stashes the text in sessionStorage, `replaceState`s the query away
+  and routes to `#/log` (single render, reload can't re-import); `js/views/log.js`
+  reads the stash once for new entries only and toasts; `sw.js` gained an
+  `ignoreSearch` fallback so the shared URL serves the shell offline. sw CACHE →
+  v8. All four suites green; drove the real share flow in a browser (share URL →
+  prefilled new entry → tags surfaced → reload doesn't double up), no suite
+  covers it. Note this needs testing in the *installed* PWA on the actual phone
+  (§14: mic/PWA quirks are cheap to check, expensive to find late) — the share
+  target only appears in Android's share sheet once JJ-app is installed.
+- 2026-07-29 — **Voice capture landed as a voice keyboard; added an in-app
+  hint.** Followed the share-target work by trialling capture on the real phone.
+  Scrib turned out to transcribe existing audio files only (no recorder), so
+  recorder→Scrib→JJ was three apps — too clunky. Pivoted to dictating straight
+  into a log field with an offline voice keyboard. Gboard's offline voice was a
+  dead end: the phone runs **CalyxOS** (de-Googled), and Gboard's on-device
+  speech depends on Google Speech Services, which isn't installed and can't be
+  added — "On-device speech recognition" is simply empty there. Landed on
+  **Sayboard** (FOSS, Vosk, F-Droid, self-contained model, no Google, fully
+  offline) — works. So the real capture path needs *no app code*: keyboard types
+  into the textarea, tagger tags it; the Web Share Target stays as a secondary
+  path. To make the path discoverable (no visible in-app cue otherwise), added a
+  `mic` icon to `js/ui.js` `SHAPES` and a one-line hint under the log fields
+  ("tap a field and switch to your voice keyboard") — `.mic-hint` in
+  `css/app.css`, accent-coloured 16px icon. sw CACHE → v9. All four suites green;
+  verified the hint renders at the right size in a browser.

@@ -268,7 +268,30 @@ has been on passing for three weeks.
 
 ---
 
-## 14. Voice capture — PARKED (2026-07-28)
+## 14. Voice capture — RESOLVED (2026-07-29)
+
+**Decision: don't transcribe in-app at all. Receive text from a standalone
+on-device transcriber via the Web Share Target API.** The user found an
+offline, no-network F-Droid transcriber (Scrib) and wanted local + private.
+Rather than ship a Whisper model + WASM/WebGPU runtime inside the PWA — tens of
+MB, breaking the "handful of small files, no build step, no deps" identity this
+app is built on — JJ-app now registers as an Android **share target**
+(`manifest.webmanifest`). You record and transcribe in the dedicated app, hit
+Share → JJ-app, and the plain text opens a fresh log entry (dropped into the
+freeform "Rolling notes" field) which the existing `js/tagger.js` tags as
+usual. No audio, no model, no key, no repo bloat; the heavy ML lives in a
+dedicated native app. Wiring: `share_target` in the manifest (GET →
+`./?share_text=…`), `consumeShare()` in `js/app.js` stashes the text and routes
+to `#/log`, `js/views/log.js` reads it once, and `sw.js` gained an
+`ignoreSearch` fallback so the shared URL resolves to the shell offline. The
+jargon-accuracy mitigation below still applies — teach the recogniser's mush to
+the tagger once via in-app corrections.
+
+The original parked analysis is kept below for the record.
+
+---
+
+### Original analysis — PARKED (2026-07-28)
 
 Agreed to be the highest-value addition after v1 (see §3: capture friction is
 the whole product), but **parked, not started**, at the user's request.

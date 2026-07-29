@@ -51,6 +51,29 @@ function route() {
   });
 }
 
+// Web Share Target. Android's share sheet opens the app at `./?share_text=…`
+// (see manifest.webmanifest). A standalone transcriber like Scrib records and
+// transcribes fully on-device, then shares the plain text here. We stash it,
+// strip the query so a reload can't re-import it, and land on a fresh log
+// entry; log.js reads the stash and the existing tagger tags it — no AI, no
+// audio ever touching this app. See docs/OPEN-QUESTIONS.md §14.
+function consumeShare() {
+  if (!location.search) return;
+  const params = new URLSearchParams(location.search);
+  const text = (params.get('share_text') || '').trim();
+  const title = (params.get('share_title') || '').trim();
+  const note = text || title;
+  // replaceState (not location.hash =) so no extra hashchange fires: route()
+  // below renders the log screen exactly once.
+  if (note) {
+    sessionStorage.setItem('pendingShare', note);
+    history.replaceState(null, '', location.pathname + '#/log');
+  } else {
+    history.replaceState(null, '', location.pathname + (location.hash || ''));
+  }
+}
+
+consumeShare();
 window.addEventListener('hashchange', route);
 route();
 
