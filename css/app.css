@@ -298,6 +298,12 @@ a.banner .b-txt.muted { color: var(--muted); }
 .session .s-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .session .s-when { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .85rem; }
 .session .s-when svg { width: 15px; height: 15px; }
+.session .s-edit {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+  color: var(--accent); font-size: .78rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.session .s-edit svg { width: 14px; height: 14px; }
 .session .s-title { font-weight: 650; font-size: 1.02rem; margin-bottom: 6px; }
 .session .s-body { color: var(--muted); font-size: .9rem; white-space: pre-wrap; }
 
