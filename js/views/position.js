@@ -3,7 +3,7 @@
 // Assembled entirely from tags. Nothing is filed here by hand: write about a
 // knee slice in a class entry and it shows up under Half Guard / Pass.
 
-import { h, card, empty, fmtDate, giFlag, tagChip } from '../ui.js';
+import { h, card, empty, toast, fmtDate, giFlag, tagChip, icon } from '../ui.js';
 import { POSITION_BY_ID, ROLE_LABEL, rolesFor } from '../ontology.js';
 import * as store from '../store.js';
 import { coverageBars } from './map.js';
@@ -32,6 +32,8 @@ export default async function position(root, { positionId, role }) {
   const all = await store.allEntries();
   const cov = store.coverage(all);
   const tagged = store.entriesForPosition(all, positionId, role);
+  const likedSet = new Set((await store.getLikedMoves()).map(m => `${m.position}/${m.technique}`));
+  const reload = () => { root.replaceChildren(); position(root, { positionId, role }); };
 
   const videos = tagged.filter(e => e.type === 'video' && e.video);
   const written = tagged.filter(e => e.type !== 'video');
@@ -47,12 +49,27 @@ export default async function position(root, { positionId, role }) {
     root.append(h('p.small', h('a', { href: `#/map/${positionId}` }, 'Show all roles')));
   }
 
-  root.append(card('Techniques in this position',
-    h('div.tags', rolesFor(positionId).map(r => {
+  const techChip = t => {
+    const on = likedSet.has(`${positionId}/${t.id}`);
+    const star = h('button.starbtn' + (on ? '.on' : ''), {
+      'aria-label': (on ? 'Unstar ' : 'Star ') + t.label,
+      onclick: async () => {
+        await store.toggleLikedMove({ position: positionId, technique: t.id });
+        toast(on ? 'Unstarred' : 'Starred');
+        reload();
+      },
+    }, icon('star'));
+    return h('span.tag', t.label, star);
+  };
+
+  root.append(card('Techniques — ★ the ones you like',
+    rolesFor(positionId).map(r => {
       const techniques = pos.techniques.filter(t => t.role === r.id);
       if (!techniques.length) return null;
-      return h('span.tag', h('span.role', r.label + ':'), techniques.map(t => t.label).join(', '));
-    }).filter(Boolean))));
+      return h('div', { style: 'margin-bottom:12px' },
+        h('div.card-title', { style: 'margin-bottom:6px' }, r.label),
+        h('div.tags', techniques.map(techChip)));
+    }).filter(Boolean)));
 
   root.append(card(`Entries · ${written.length}`,
     written.length ? written.map(entryRow) : empty('Nothing written about this yet.')));

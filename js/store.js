@@ -3,6 +3,7 @@
 import * as db from './db.js';
 import { POSITIONS, POSITION_BY_ID, rolesFor } from './ontology.js';
 import { tagKey } from './tagger.js';
+import { suggestMoves, moveKey } from './moves.js';
 
 export const ENTRY_TYPES = ['class', 'note', 'question', 'video', 'principle'];
 
@@ -119,6 +120,23 @@ export async function getFocuses() {
   return (Array.isArray(list) ? list : []).map(normalizeFocus).filter(f => f.front);
 }
 export const setFocuses = list => setSetting('focuses', list.map(normalizeFocus));
+
+// Liked moves — the seed for "Your game" suggestions. A move is { position,
+// technique }. Stored as a setting, so (like focuses) it's device-local and
+// not yet part of the notes-repo sync.
+export const getLikedMoves = () => getSetting('likedMoves', []);
+export const setLikedMoves = list => setSetting('likedMoves', list);
+
+/** Star or unstar a move; returns the new list. */
+export async function toggleLikedMove(move) {
+  const liked = await getLikedMoves();
+  const has = liked.some(m => moveKey(m) === moveKey(move));
+  const next = has
+    ? liked.filter(m => moveKey(m) !== moveKey(move))
+    : [...liked, { position: move.position, technique: move.technique }];
+  await setLikedMoves(next);
+  return next;
+}
 
 // ---- queries -------------------------------------------------------------
 
@@ -254,4 +272,4 @@ export function activePositions(entries) {
     .sort((a, b) => b.count - a.count);
 }
 
-export { rolesFor, tagKey };
+export { rolesFor, tagKey, suggestMoves };
