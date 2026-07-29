@@ -106,6 +106,24 @@ await step('position page assembles entries from tags', async () => {
 
 await page.screenshot({ path: `${SHOT}/05-position.png`, fullPage: true });
 
+await step('starring a move surfaces adjacent ones on the map', async () => {
+  // Star Knee Slice from the techniques list on the position page.
+  const techniques = page.locator('.card', { hasText: 'the ones you like' });
+  await techniques.locator('.tag', { hasText: 'Knee Slice' }).first().locator('.starbtn').click();
+  await page.waitForTimeout(200);
+
+  await page.click('a[data-tab="/map"]');
+  await page.waitForSelector('.card:has-text("Your game")');
+  const game = await page.locator('.card', { hasText: 'Your game' }).innerText();
+  if (!/knee slice/i.test(game)) throw new Error('starred move missing from Your game');
+
+  // Its half-guard passing siblings (e.g. Leg Weave) should be offered.
+  const explore = page.locator('.card', { hasText: 'Moves to explore' });
+  if (!(await explore.locator('.sug').count())) throw new Error('no adjacent moves suggested');
+});
+
+await page.screenshot({ path: `${SHOT}/09-your-game.png`, fullPage: true });
+
 await step('search finds it', async () => {
   await page.goto(BASE + '#/search', { waitUntil: 'networkidle' });
   await page.waitForSelector('#view input');

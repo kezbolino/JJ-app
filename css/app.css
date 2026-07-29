@@ -338,6 +338,28 @@ a.banner .b-txt.muted { color: var(--muted); }
 .exp-fill { height: 100%; background: var(--accent); border-radius: 4px; }
 .exp-pct { font-size: .85rem; color: var(--muted); min-width: 2.8em; text-align: right; font-variant-numeric: tabular-nums; }
 
+/* ---- your game: liked moves + suggestions ---- */
+
+.starbtn {
+  background: none; border: 0; cursor: pointer; padding: 0 0 0 2px;
+  color: var(--muted); display: inline-flex; align-items: center; line-height: 1;
+}
+.starbtn svg { width: 17px; height: 17px; }
+.starbtn:hover { color: var(--warm); }
+.starbtn.on { color: var(--warm); }
+.starbtn.on svg { fill: var(--warm); }
+
+.suggestions { display: flex; flex-direction: column; }
+.sug {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--line); color: inherit;
+}
+.sug:last-child { border-bottom: 0; }
+.sug-main { flex: 1; min-width: 0; }
+.sug-name { font-weight: 600; font-size: .95rem; }
+.sug-reason { display: block; font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.sug .starbtn svg { width: 20px; height: 20px; }
+
 /* ---- flashcards (working on) ---- */
 
 .deck { margin-bottom: 20px; }

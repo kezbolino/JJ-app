@@ -114,6 +114,7 @@ const SHAPES = {
   plus:     [['line', 12, 5, 12, 19], ['line', 5, 12, 19, 12]],
   cloud:    [['path', 'M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.3A3.5 3.5 0 0 1 17 18H7Z']],
   edit:     [['path', 'M4 20h4L18.5 9.5a2 2 0 0 0-2.83-2.83L5 17v3Z'], ['line', 14, 6, 18, 10]],
+  star:     [['path', 'M12 3.6l2.47 5 5.53.8-4 3.9.94 5.5L12 16.2 7.06 18.8 8 13.3l-4-3.9 5.53-.8z']],
 };
 
 /** icon('search') → an <svg> node, sized by CSS (font/width). */

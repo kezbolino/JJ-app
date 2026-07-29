@@ -13,6 +13,7 @@ const SHELL = [
   'js/ui.js',
   'js/db.js',
   'js/store.js',
+  'js/moves.js',
   'js/ontology.js',
   'js/tagger.js',
   'js/overrides.js',
