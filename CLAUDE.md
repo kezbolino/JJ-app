@@ -273,3 +273,21 @@ data if forgotten:
   ("tap a field and switch to your voice keyboard") — `.mic-hint` in
   `css/app.css`, accent-coloured 16px icon. sw CACHE → v9. All four suites green;
   verified the hint renders at the right size in a browser.
+- 2026-07-29 — **Version footer + sync button + daily autosaver.** Three small
+  home/chrome tweaks. (1) A visible version number: new single-source module
+  `js/version.js` (`VERSION`), rendered as a `JJ-app v10` footer via `#appfoot`
+  in `index.html` + `.appfoot` CSS, set from `js/app.js`. **`VERSION` and `CACHE`
+  in `sw.js` now move together on every deploy** — the footer only means "latest"
+  if they match. (2) The Home top-right button (was the profile/⚙ avatar →
+  Settings) is now a **sync control** using `icon('cloud')`: unconfigured → links
+  to Settings to set up sync; configured → taps to `sync.sync()` now, spins while
+  busy (`.busy`), shows a `--warm` dot when `store.pendingSync` > 0 (`.pending`).
+  Settings is still reachable — Library links to it twice. (3) **Daily
+  autosaver**: `home()` fires a quiet background `sync.sync()` if configured and
+  `lastSyncAt` is older than today (calendar-day gate), then re-renders. sw CACHE
+  → v10, `js/version.js` added to SHELL. All five suites green; screenshot-checked
+  the footer + cloud button. NB: reported "front page elements all over the place"
+  could **not** be reproduced on clean `main` (home renders correctly, empty and
+  with data) — most likely a stale/partial service-worker cache on the installed
+  PWA; the v10 bump forces a fresh consistent shell. Awaiting a phone screenshot
+  if v10 doesn't clear it.
