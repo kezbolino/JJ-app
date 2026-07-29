@@ -202,3 +202,21 @@ data if forgotten:
   (they don't sync). sw CACHE → v6, `js/views/focus.js` added to SHELL. All four
   test suites green; drove the new deck in a browser (add/flip/next/remove +
   Home banner) since no suite covers it.
+- 2026-07-29 — **"Your game" — liked moves + adjacency suggestions.** New block
+  at the top of the Map: star moves you like, and the app suggests similar or
+  adjacent ones to drill. A move is `{position, technique}` (same shape as a
+  technique tag). Suggestion engine is a new pure module `js/moves.js`
+  (`suggestMoves(entries, liked)`), ontology-only so it unit-tests in node —
+  **no AI, literal like the tagger**. Adjacency: +3 same position & role
+  (siblings), +3 the same move in another position (e.g. Kimura closed-guard →
+  Kimura side-control), +2/class it's journaled alongside a liked move (capped);
+  scores add, strongest reason shown, liked moves never suggested back. Liked
+  moves are a `likedMoves` **setting** via `store.getLikedMoves` /
+  `toggleLikedMove` — so, like focuses, they're **device-local and don't sync
+  yet** (would need extending the notes-repo format; deferred). Star affordance:
+  `.starbtn` + `icon('star')` (gold `--warm` when on) on each technique on the
+  position page (`Techniques — ★ the ones you like`) and on each suggestion; the
+  Map block also has a Position→Move picker to star without hunting. Placement +
+  algorithm chosen with the user (Map section; ontology + own notes). Added
+  `tests/moves.test.mjs` (7 tests) and a smoke step (star → Map → adjacent moves).
+  sw CACHE → v7, `js/moves.js` added to SHELL.

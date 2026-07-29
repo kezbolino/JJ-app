@@ -4,8 +4,8 @@
 // written about, not what you are good at. An empty bar next to a full one is
 // a gap in your notes, and that is all it ever claims to be.
 
-import { h, card, empty } from '../ui.js';
-import { POSITIONS, ROLE_LABEL, rolesFor } from '../ontology.js';
+import { h, card, empty, toast, tagChip, icon } from '../ui.js';
+import { POSITIONS, POSITION_BY_ID, TECHNIQUE_BY_ID, ROLE_LABEL, rolesFor, positionLabel, techniqueLabel } from '../ontology.js';
 import * as store from '../store.js';
 
 export function coverageBars(positionId, roleCounts, { linkRole = null } = {}) {
@@ -78,14 +78,91 @@ function exposure(active) {
   }));
 }
 
+// A picker that narrows Position → Move, for starring a move by hand.
+function movePicker() {
+  const pos = h('select',
+    h('option', { value: '' }, 'Position…'),
+    POSITIONS.map(p => h('option', { value: p.id }, p.label)));
+  const tech = h('select', { disabled: true }, h('option', { value: '' }, 'Move…'));
+
+  pos.addEventListener('change', () => {
+    const p = POSITION_BY_ID[pos.value];
+    tech.disabled = !p;
+    tech.replaceChildren(
+      h('option', { value: '' }, 'Move…'),
+      ...(p ? p.techniques.map(t =>
+        h('option', { value: t.id }, `${t.label} · ${ROLE_LABEL[t.role] ?? t.role}`)) : []));
+  });
+
+  return {
+    fields: [pos, tech],
+    read() { return pos.value && tech.value ? { position: pos.value, technique: tech.value } : null; },
+  };
+}
+
+function likedTag(m) {
+  const info = TECHNIQUE_BY_ID[`${m.position}/${m.technique}`];
+  return { kind: 'pos', position: m.position, technique: m.technique, role: info?.role ?? null };
+}
+
+function suggestionRow(s, onStar) {
+  const label = techniqueLabel(s.position, s.technique);
+  const star = h('button.starbtn', {
+    'aria-label': `Star ${label}`,
+    onclick: e => { e.preventDefault(); e.stopPropagation(); onStar({ position: s.position, technique: s.technique }); },
+  }, icon('star'));
+  return h('a.sug', { href: `#/map/${s.position}` },
+    h('div.sug-main', h('span.sug-name', label), h('span.sug-reason', s.reason)),
+    star);
+}
+
+// "Your game": the moves you like, plus adjacent ones worth drilling next.
+function yourGame(entries, liked, reload) {
+  const onStar = async move => { await store.toggleLikedMove(move); reload(); };
+
+  const picker = movePicker();
+  const addRow = h('div.btn-row',
+    ...picker.fields,
+    h('button.btn.small', {
+      onclick: () => {
+        const m = picker.read();
+        if (!m) { toast('Pick a move first'); return; }
+        onStar(m);
+      },
+    }, 'Star it'));
+
+  const chips = liked.length
+    ? h('div.tags', liked.map(m => tagChip(likedTag(m), { onRemove: () => onStar(m) })))
+    : empty('No moves starred yet. Star the ones you like below, or ★ them on any position page.');
+
+  const blocks = [card('Your game',
+    h('p.small.muted', { style: 'margin:-2px 0 10px' },
+      'Star moves you like — the app points you to adjacent ones to drill next.'),
+    chips,
+    h('div', { style: 'height:10px' }), addRow)];
+
+  if (liked.length) {
+    const suggestions = store.suggestMoves(entries, liked, { limit: 8 });
+    blocks.push(card('Moves to explore',
+      suggestions.length
+        ? h('div.suggestions', suggestions.map(s => suggestionRow(s, onStar)))
+        : empty('Star a few more and related moves will surface here.')));
+  }
+  return blocks;
+}
+
 export default async function map(root) {
   const entries = await store.allEntries();
   const active = store.activePositions(entries);
+  const liked = await store.getLikedMoves();
+  const reload = () => { root.replaceChildren(); map(root); };
 
   root.append(h('div.page-head',
     h('div',
       h('h1.page-title', 'Your map'),
       h('p.page-sub', 'See where you are spending your mat time'))));
+
+  root.append(...yourGame(entries, liked, reload));
 
   if (!active.length) {
     root.append(card(null, empty('Nothing logged yet. The map fills in as you write.')));
