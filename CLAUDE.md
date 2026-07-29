@@ -189,3 +189,16 @@ data if forgotten:
   a `root.append` must go through `[...].filter(Boolean)`. Added `giRatio` and
   `pendingSync` to `store.js`; updated `tests/smoke.mjs` selectors to the new
   DOM. sw CACHE → v5.
+- 2026-07-28 — **"Working on" is now flashcards.** The focus list (the "things
+  you're working on") became a flippable deck. Each focus is now `{front, back}`
+  instead of a plain string — front is the thing, back is your cues/notes to
+  drill; `store.getFocuses`/`setFocuses` normalise on read so old string data
+  still loads (see `normalizeFocus`). New view `js/views/focus.js` at `#/focus`:
+  one card at a time, tap to flip (CSS 3D `rotateY`), prev/next with a counter,
+  and an "Edit deck" panel to add (front required, back optional) / remove.
+  Editing moved off Home — the Home focus banner is now a link into the deck
+  ("Working on: … · Drill"), no longer an inline editor. Router gained the
+  `focus` case and maps its tab to Home. Focuses are still device-local settings
+  (they don't sync). sw CACHE → v6, `js/views/focus.js` added to SHELL. All four
+  test suites green; drove the new deck in a browser (add/flip/next/remove +
+  Home banner) since no suite covers it.
