@@ -2,6 +2,7 @@
 
 import { clear, h } from './ui.js';
 import { VERSION } from './version.js';
+import * as appearance from './appearance.js';
 import home from './views/home.js';
 import focus from './views/focus.js';
 import log from './views/log.js';
@@ -12,6 +13,8 @@ import search from './views/search.js';
 import settings from './views/settings.js';
 
 const view = document.getElementById('view');
+
+appearance.apply();
 
 const foot = document.getElementById('appfoot');
 if (foot) foot.textContent = `JJ-app ${VERSION}`;

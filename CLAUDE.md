@@ -304,3 +304,37 @@ data if forgotten:
   as the smoke test does). One-line fix: `a.card { display: block; }`. Verified by
   logging a class through the form and screenshotting a proper contained card. sw
   CACHE → v11, VERSION → v11. All five suites green.
+- 2026-07-29 — **Style-guide adopted into the real CSS (Duolingo/Brilliant
+  language).** User supplied a design system and asked to adopt it in
+  `css/app.css` (not just document it). Applied the *language* onto JJ-app's
+  existing class taxonomy — no class renames — so all smoke selectors and the
+  sacred position×role coverage map are untouched. **Colours stayed the app's
+  own blue** (the Figma orange was declined earlier; the guide names no colours).
+  Landed: (1) **Typography** — brand face **Nunito**, self-hosted at
+  `fonts/nunito.woff2` (39 KB variable woff2, weight 400–900, pulled from the
+  `@fontsource-variable/nunito` npm tarball since CDNs are proxy-blocked; OFL,
+  redistributable). One `--font-family` var on `:root`, body weight 500,
+  buttons/labels/headings 700–800. (2) **Chunky pill buttons** — `.btn` is now a
+  full pill (`--btn-radius: 999px`) with a solid colour *edge* via
+  `box-shadow: 0 4px 0 <edge>`; `:active` does `translateY(4px)` and the shadow
+  collapses to 0 (fast down, springy back). `.primary` uses an accent edge,
+  `.cta` a chunkier 6px edge + a slow `breathe`. (3) **Nav** — a soft tinted pill
+  springs in behind the active tab's icon (`.tabbar a::before`, CSS overrides the
+  inline SVG `stroke-width` on the active tab). (4) Inputs → 12px radius, focus
+  swaps border to primary + a soft ring (no hard outline). (5) Coverage/exposure
+  bars → recessed inset groove + 0.8s sweep (map *structure* unchanged). (6)
+  **Motion** — one master `--spring` var everywhere; `.view > *` rises in a
+  staggered cascade on every route (router rebuilds the nodes, so it re-fires =
+  the incoming-screen entrance, no JS); chips pop; a full `prefers-reduced-motion`
+  disable list at the bottom. Entrance animations fill **backwards** only — a
+  forwards fill would freeze the 3D button press mid-air (learned trap, per the
+  guide). (7) **Alt styles wired as the guide describes** — new `js/appearance.js`
+  persists an App-font pick (Nunito/System/Serif/Mono; only Nunito bundled, rest
+  are system faces) and a Button-style pick (Chunky / iOS-flat) to localStorage
+  (device-local, unsynced, like focuses), applied as `<html data-font>` /
+  `<html data-btn>`; `app.js` calls `appearance.apply()` on boot; Settings gained
+  an **Appearance** card (segmented pickers that apply live). `data-btn="ios"`
+  flattens the plunge to a dim+shrink. sw CACHE → v12, VERSION → v12;
+  `fonts/nunito.woff2` and `js/appearance.js` added to SHELL. All five suites
+  green; screenshot-verified home/map/log/settings + the iOS-flat/serif variant
+  (seeded through the real Log form). No suite covers the CSS/appearance toggles.

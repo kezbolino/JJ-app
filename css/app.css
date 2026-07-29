@@ -1,4 +1,22 @@
-/* JJ-app — calm, minimal, mobile-first. */
+/* JJ-app — calm, minimal, mobile-first.
+ *
+ * Design language (see docs / the app style guide): one brand face wired
+ * through --font-family and swappable via <html data-font>; full-pill
+ * "chunky" buttons with a solid colour edge that presses in (Duolingo/
+ * Brilliant feel), an iOS-flat alt via <html data-btn="ios">; a soft tinted
+ * pill behind the active nav tab; and one master spring easing everywhere.
+ * Colours stay the app's own blue accent (the Figma orange was declined). */
+
+/* Brand face, self-hosted so it renders on the de-Googled phone (no CDN, no
+ * Google Fonts link — keeps the app offline and dependency-free). Variable
+ * weight 400–900 covers the whole scale below from one 39 KB file. */
+@font-face {
+  font-family: "Nunito";
+  src: url("../fonts/nunito.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   --bg: #0d0f14;
@@ -10,9 +28,24 @@
   --accent: #6ea8fe;
   --warm: #f0b429;
   --good: #57caa0;
-  --radius: 14px;
+  --radius: 16px;
+  --btn-radius: 999px;
   --pad: 16px;
   --tabbar-h: 58px;
+
+  /* One brand face for all UI chrome, inherited from body. Swap the whole app
+   * with <html data-font="…"> (Settings → App font); the hooks are below. */
+  --font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* One master easing — used by every press, pop, pill and entrance. It
+   * overshoots and settles, which is what makes the buttons feel springy. */
+  --spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* The solid "edge" a chunky button presses into, per fill. */
+  --btn-edge: color-mix(in srgb, var(--line) 55%, #000 45%);
+  --btn-edge-accent: color-mix(in srgb, var(--accent) 50%, #000 50%);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, .28);
+
   color-scheme: dark;
 }
 
@@ -27,9 +60,19 @@
     --accent: #2f6fd0;
     --warm: #a5730a;
     --good: #1c8f68;
+    --btn-edge: color-mix(in srgb, var(--line) 70%, #b7bdca 30%);
+    --btn-edge-accent: color-mix(in srgb, var(--accent) 62%, #0a2a5e 38%);
+    --shadow-card: 0 1px 3px rgba(20, 30, 60, .08);
     color-scheme: light;
   }
 }
+
+/* App-font alternates — the mechanism the guide describes. Only Nunito is
+ * bundled; the rest resolve to reliable system faces so the switcher works
+ * without shipping more binaries. */
+html[data-font="system"] { --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+html[data-font="serif"]  { --font-family: Georgia, "Times New Roman", serif; }
+html[data-font="mono"]   { --font-family: ui-monospace, "Courier Prime", "Courier New", monospace; }
 
 * { box-sizing: border-box; }
 
@@ -37,12 +80,13 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-family);
+  font-size: 16px; line-height: 1.5; font-weight: 500;
   -webkit-font-smoothing: antialiased;
   padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
 }
 
-h1, h2, h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 650; }
+h1, h2, h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 800; }
 h2 { font-size: 1.25rem; }
 h3 { font-size: 1rem; }
 p { margin: 0 0 .75rem; }
@@ -71,13 +115,26 @@ a { color: var(--accent); text-decoration: none; }
   border-top: 1px solid var(--line);
 }
 .tabbar a {
+  position: relative;
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 3px;
-  color: var(--muted); font-size: .66rem; letter-spacing: .05em;
-  text-transform: uppercase; font-weight: 600;
+  color: var(--muted); font-size: .63rem; letter-spacing: .05em;
+  text-transform: uppercase; font-weight: 700;
 }
-.tabbar a svg { width: 22px; height: 22px; }
+.tabbar a svg, .tabbar a span { position: relative; z-index: 1; }
+/* Soft tinted pill that springs in behind the active tab's icon. */
+.tabbar a::before {
+  content: ''; position: absolute; z-index: 0;
+  top: 8px; left: 50%; width: 52px; height: 30px; border-radius: 15px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  transform: translateX(-50%) scale(.55); opacity: 0;
+  transition: transform .3s var(--spring), opacity .3s var(--spring);
+}
+.tabbar a svg { width: 22px; height: 22px; transition: transform .2s var(--spring); }
+.tabbar a:active svg { transform: scale(.78); }
 .tabbar a[aria-current="page"] { color: var(--accent); }
+.tabbar a[aria-current="page"]::before { transform: translateX(-50%) scale(1); opacity: 1; }
+.tabbar a[aria-current="page"] svg { stroke-width: 2.2; }
 
 /* ---- page headers ---- */
 
@@ -131,6 +188,7 @@ a { color: var(--accent); text-decoration: none; }
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
   padding: var(--pad);
   margin-bottom: 12px;
 }
@@ -148,7 +206,8 @@ a.card { display: block; }
 .stat-row { display: flex; gap: 10px; }
 .stat {
   flex: 1; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px 12px; text-align: center;
+  border-radius: var(--radius); box-shadow: var(--shadow-card);
+  padding: 14px 12px; text-align: center;
 }
 .stat .n { font-size: 1.7rem; font-weight: 680; letter-spacing: -.02em; }
 .stat .l { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
@@ -185,37 +244,71 @@ a.card { display: block; }
 
 /* ---- forms ---- */
 
-label { display: block; font-size: .82rem; color: var(--muted); margin: 12px 0 5px; }
-input[type=text], input[type=date], textarea, select {
-  width: 100%; padding: 11px 12px;
+label { display: block; font-size: .82rem; font-weight: 700; color: var(--muted); margin: 12px 0 5px; }
+input[type=text], input[type=date], input[type=password], textarea, select {
+  width: 100%; padding: 12px;
   background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--line); border-radius: 10px;
+  border: 1px solid var(--line); border-radius: 12px;
   font: inherit; font-size: 1rem;
+  transition: border-color .15s var(--spring), box-shadow .15s var(--spring);
 }
 textarea { resize: vertical; min-height: 84px; }
+/* Focus switches the border to primary + a soft ring, no hard outline. */
 input:focus, textarea:focus, select:focus {
-  outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent;
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
+
+/* ---- buttons: full pills with a chunky pressable edge ---- */
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 12px 18px; border-radius: 10px; border: 1px solid var(--line);
-  background: var(--surface-2); color: var(--text);
-  font: inherit; font-weight: 600; cursor: pointer;
+  padding: 16px 18px; min-height: 52px;
+  border-radius: var(--btn-radius); border: 2px solid var(--line);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-weight: 700; line-height: 1.2; cursor: pointer;
+  box-shadow: 0 4px 0 var(--btn-edge);
+  transition: transform .42s var(--spring), box-shadow .42s var(--spring), filter .15s;
 }
-.btn:hover { border-color: var(--muted); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #0b0d12; }
+/* Press in: drop onto the edge, which collapses to zero. Fast down (this
+ * rule), springy back up (the base transition on release). */
+.btn:active {
+  transform: translateY(4px); box-shadow: 0 0 0 var(--btn-edge);
+  transition: transform .05s, box-shadow .05s;
+}
+.btn.primary {
+  background: var(--accent); border-color: transparent; color: #0b0d12;
+  box-shadow: 0 4px 0 var(--btn-edge-accent);
+}
+.btn.primary:active { box-shadow: 0 0 0 var(--btn-edge-accent); }
 .btn.wide { width: 100%; }
-.btn.small { padding: 7px 12px; font-size: .85rem; font-weight: 500; }
+.btn.small {
+  padding: 10px 14px; min-height: 44px; font-size: .9rem; box-shadow: 0 3px 0 var(--btn-edge);
+}
+.btn.small:active { box-shadow: 0 0 0 var(--btn-edge); }
 .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 
-.seg { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+/* iOS-flat alternate: no plunge, a gentle dim + shrink instead. */
+html[data-btn="ios"] .btn {
+  border-radius: 15px; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .18);
+}
+html[data-btn="ios"] .btn:active {
+  transform: scale(.98); filter: brightness(.94); box-shadow: 0 1px 2px rgba(0, 0, 0, .18);
+}
+
+.seg {
+  display: flex; gap: 0; border: 2px solid var(--line);
+  border-radius: var(--btn-radius); overflow: hidden;
+  box-shadow: 0 3px 0 var(--btn-edge);
+}
 .seg button {
-  flex: 1; padding: 10px; background: var(--surface-2); color: var(--muted);
-  border: 0; border-right: 1px solid var(--line); font: inherit; cursor: pointer;
+  flex: 1; padding: 12px; min-height: 48px; background: var(--surface); color: var(--muted);
+  border: 0; border-right: 2px solid var(--line); font: inherit; font-weight: 700; cursor: pointer;
+  transition: transform .3s var(--spring);
 }
 .seg button:last-child { border-right: 0; }
-.seg button[aria-pressed="true"] { background: var(--accent); color: #0b0d12; font-weight: 600; }
+.seg button:active { transform: scale(.97); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #0b0d12; }
 
 /* ---- lists ---- */
 
@@ -239,8 +332,11 @@ input:focus, textarea:focus, select:focus {
 .cov-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
 .cov-role { font-size: .82rem; color: var(--muted); }
 .cov-bar { display: flex; align-items: center; gap: 8px; }
-.cov-track { width: 96px; height: 7px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
-.cov-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+.cov-track {
+  width: 96px; height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
+}
+.cov-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .8s var(--spring); }
 .cov-fill.zero { background: var(--line); }
 .cov-n { font-size: .78rem; color: var(--muted); min-width: 1.4em; text-align: right; font-variant-numeric: tabular-nums; }
 .cov-row.gap .cov-role { color: var(--warm); }
@@ -330,8 +426,16 @@ a.banner .b-txt.muted { color: var(--muted); }
 
 /* ---- big call-to-action ---- */
 
-.btn.cta { padding: 16px; font-size: 1.05rem; border-radius: 14px; }
+/* Hero CTA — the biggest tap target, with a chunkier 6px edge and a slow
+ * breathe to draw the first log. */
+.btn.cta {
+  padding: 20px; font-size: 1.2rem;
+  box-shadow: 0 6px 0 var(--btn-edge-accent);
+  animation: breathe 2.6s var(--spring) infinite;
+}
+.btn.cta:active { transform: translateY(6px); box-shadow: 0 0 0 var(--btn-edge-accent); animation: none; }
 .btn.cta svg { width: 20px; height: 20px; }
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
 
 /* ---- map: radar + exposure ---- */
 
@@ -355,8 +459,11 @@ a.banner .b-txt.muted { color: var(--muted); }
   padding: 12px 14px;
 }
 .exp-name { font-weight: 600; font-size: .95rem; }
-.exp-track { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
-.exp-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+.exp-track {
+  height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .28);
+}
+.exp-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .8s var(--spring); }
 .exp-pct { font-size: .85rem; color: var(--muted); min-width: 2.8em; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---- your game: liked moves + suggestions ---- */
@@ -500,3 +607,44 @@ a.banner .b-txt.muted { color: var(--muted); }
 .note-title { font-weight: 600; font-size: .95rem; }
 .note-date { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); flex-shrink: 0; }
 .note-body { color: var(--muted); font-size: .9rem; margin-top: 6px; white-space: pre-wrap; }
+.note-card:active, .vidref:active, a.card:active {
+  transform: translateY(2px) scale(.99);
+  transition: transform .1s var(--spring);
+}
+
+/* ========================================================================
+   Motion — one spring, entrances that fill BACKWARDS only (a forwards fill
+   would freeze the buttons' 3D press mid-air), and a full disable list for
+   prefers-reduced-motion at the very bottom.
+   ======================================================================== */
+
+/* Each view's top-level blocks rise in a short staggered cascade. The router
+   rebuilds these nodes on every route, so the animation re-fires on each
+   screen — that's the incoming-screen entrance, no JS needed. */
+@keyframes fx-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.view > * { animation: fx-rise .34s var(--spring) backwards; }
+.view > *:nth-child(1) { animation-delay: .02s; }
+.view > *:nth-child(2) { animation-delay: .07s; }
+.view > *:nth-child(3) { animation-delay: .12s; }
+.view > *:nth-child(4) { animation-delay: .17s; }
+.view > *:nth-child(5) { animation-delay: .22s; }
+.view > *:nth-child(6) { animation-delay: .27s; }
+.view > *:nth-child(n+7) { animation-delay: .3s; }
+
+/* Chips pop when tapped (accept a suggestion / add a tag). */
+@keyframes fx-pop { 0% { transform: scale(.85); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+.tag.suggest:active, .tag.add:active { animation: fx-pop .3s var(--spring); }
+
+@media (prefers-reduced-motion: reduce) {
+  .view > *, .btn.cta,
+  .tag.suggest:active, .tag.add:active { animation: none; }
+  .btn, .btn:active,
+  .btn.cta:active, .seg button, .seg button:active,
+  .tabbar a::before, .tabbar a svg, .tabbar a:active svg,
+  .cov-fill, .exp-fill,
+  input, textarea, select,
+  .note-card:active, .vidref:active, a.card:active {
+    transition: none;
+  }
+  .view > * { opacity: 1; transform: none; }
+}
