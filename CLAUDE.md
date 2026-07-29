@@ -125,10 +125,13 @@ data if forgotten:
   role means nothing — flagging it just makes noise.
 - **Reuse from Distill:** `kezbolino/distill` has a single `LLMProvider`
   interface with a keyless `mock` provider. Use it when tagging goes AI.
-- **Voice capture is parked, not forgotten.** Design already worked out in
-  `docs/OPEN-QUESTIONS.md` §14 — read it before starting rather than
-  re-deriving. Short version: Web Speech API, save the raw transcript and let
-  the existing tagger handle it, no LLM.
+- **Voice capture ships via a share target, not in-app transcription.**
+  `docs/OPEN-QUESTIONS.md` §14 (now RESOLVED). JJ-app registers as an Android
+  Web Share Target; a standalone offline transcriber (the user uses Scrib) does
+  speech→text, shares the plain text in, and it opens a prefilled log entry the
+  tagger tags. No Whisper/WASM/model in the app — that was deliberately rejected
+  to keep the "small files, no deps" shape. Don't add in-browser transcription
+  without re-reading §14.
 
 ## Session log
 
@@ -232,3 +235,21 @@ data if forgotten:
   algorithm chosen with the user (Map section; ontology + own notes). Added
   `tests/moves.test.mjs` (7 tests) and a smoke step (star → Map → adjacent moves).
   sw CACHE → v7, `js/moves.js` added to SHELL.
+- 2026-07-29 — **Voice notes via a share target (§14 resolved).** User wanted
+  local, private, offline transcription and found a standalone on-device
+  transcriber (Scrib) on F-Droid. Chose *not* to run Whisper in the PWA — a
+  model + WASM/WebGPU runtime is tens of MB and breaks the "small files, no
+  deps" identity. Instead JJ-app is now an Android **Web Share Target**: record
+  and transcribe in the dedicated app → Share → JJ-app opens a fresh log entry
+  with the transcript in "Rolling notes", and the existing tagger tags it. No
+  audio/model/key touches this app. `share_target` added to
+  `manifest.webmanifest` (GET → `./?share_text=…`); `consumeShare()` in
+  `js/app.js` stashes the text in sessionStorage, `replaceState`s the query away
+  and routes to `#/log` (single render, reload can't re-import); `js/views/log.js`
+  reads the stash once for new entries only and toasts; `sw.js` gained an
+  `ignoreSearch` fallback so the shared URL serves the shell offline. sw CACHE →
+  v8. All four suites green; drove the real share flow in a browser (share URL →
+  prefilled new entry → tags surfaced → reload doesn't double up), no suite
+  covers it. Note this needs testing in the *installed* PWA on the actual phone
+  (§14: mic/PWA quirks are cheap to check, expensive to find late) — the share
+  target only appears in Android's share sheet once JJ-app is installed.
