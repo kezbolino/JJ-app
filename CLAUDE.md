@@ -125,13 +125,17 @@ data if forgotten:
   role means nothing — flagging it just makes noise.
 - **Reuse from Distill:** `kezbolino/distill` has a single `LLMProvider`
   interface with a keyless `mock` provider. Use it when tagging goes AI.
-- **Voice capture ships via a share target, not in-app transcription.**
-  `docs/OPEN-QUESTIONS.md` §14 (now RESOLVED). JJ-app registers as an Android
-  Web Share Target; a standalone offline transcriber (the user uses Scrib) does
-  speech→text, shares the plain text in, and it opens a prefilled log entry the
-  tagger tags. No Whisper/WASM/model in the app — that was deliberately rejected
-  to keep the "small files, no deps" shape. Don't add in-browser transcription
-  without re-reading §14.
+- **Voice capture is an offline voice keyboard, not in-app transcription.**
+  `docs/OPEN-QUESTIONS.md` §14 (now RESOLVED). The primary path: the user
+  dictates straight into a log field with a FOSS on-device voice keyboard
+  (**Sayboard**, Vosk, from F-Droid — chosen because the phone is **CalyxOS**,
+  which is de-Googled, so Gboard's offline voice needs Google Speech Services
+  that simply aren't present). Zero code: the keyboard types into the textarea
+  and the existing tagger tags it. JJ-app also registers as an Android **Web
+  Share Target** (secondary path, for a standalone transcriber). No
+  Whisper/WASM/model in the app — deliberately rejected to keep the "small
+  files, no deps" shape. Don't add in-browser transcription without re-reading
+  §14.
 
 ## Session log
 
@@ -253,3 +257,19 @@ data if forgotten:
   covers it. Note this needs testing in the *installed* PWA on the actual phone
   (§14: mic/PWA quirks are cheap to check, expensive to find late) — the share
   target only appears in Android's share sheet once JJ-app is installed.
+- 2026-07-29 — **Voice capture landed as a voice keyboard; added an in-app
+  hint.** Followed the share-target work by trialling capture on the real phone.
+  Scrib turned out to transcribe existing audio files only (no recorder), so
+  recorder→Scrib→JJ was three apps — too clunky. Pivoted to dictating straight
+  into a log field with an offline voice keyboard. Gboard's offline voice was a
+  dead end: the phone runs **CalyxOS** (de-Googled), and Gboard's on-device
+  speech depends on Google Speech Services, which isn't installed and can't be
+  added — "On-device speech recognition" is simply empty there. Landed on
+  **Sayboard** (FOSS, Vosk, F-Droid, self-contained model, no Google, fully
+  offline) — works. So the real capture path needs *no app code*: keyboard types
+  into the textarea, tagger tags it; the Web Share Target stays as a secondary
+  path. To make the path discoverable (no visible in-app cue otherwise), added a
+  `mic` icon to `js/ui.js` `SHAPES` and a one-line hint under the log fields
+  ("tap a field and switch to your voice keyboard") — `.mic-hint` in
+  `css/app.css`, accent-coloured 16px icon. sw CACHE → v9. All four suites green;
+  verified the hint renders at the right size in a browser.

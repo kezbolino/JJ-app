@@ -424,6 +424,12 @@ a.banner .b-txt.muted { color: var(--muted); }
 .date-field input:focus { outline: 0; }
 .date-row .seg { flex: 1; }
 
+.mic-hint {
+  display: flex; align-items: center; gap: 8px;
+  margin: -8px 0 4px; font-size: .82rem; color: var(--muted);
+}
+.mic-hint svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--accent); }
+
 .field { margin-bottom: 20px; }
 .field-label {
   display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em;

@@ -265,6 +265,9 @@ export default async function log(root, { id } = {}) {
       h('label.field-label', 'Key thoughts & adjustments'),
       field('thoughts', 'Need to keep my hips lower when passing.')),
 
+    h('p.mic-hint', icon('mic'),
+      'Tip: tap a field and switch to your voice keyboard to talk your notes in.'),
+
     h('hr.hr'),
 
     h('div.tags-head',
