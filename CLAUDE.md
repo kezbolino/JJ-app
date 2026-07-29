@@ -291,3 +291,16 @@ data if forgotten:
   with data) — most likely a stale/partial service-worker cache on the installed
   PWA; the v10 bump forces a fresh consistent shell. Awaiting a phone screenshot
   if v10 doesn't clear it.
+- 2026-07-29 — **Found and fixed the "front page all over the place" bug.** A v10
+  phone screenshot showed it was *not* a stale cache — the footer read v10 and
+  only the Home **"Last session" card** was broken (white background collapsed to
+  corner slivers, content spilling out). Root cause: `.card` sets no `display`,
+  and that card is an anchor (`h('a.card.session', …)`), so it rendered as an
+  **inline** element — the background painted only around the inline line-boxes
+  while the block children overflowed. Latent since the Figma redesign; only
+  visible once a class is logged, which is why the empty-state screenshots looked
+  clean and it never reproduced (the earlier data-seed via dynamic import silently
+  failed, so I never saw a populated card — lesson: seed through the real Log form,
+  as the smoke test does). One-line fix: `a.card { display: block; }`. Verified by
+  logging a class through the form and screenshotting a proper contained card. sw
+  CACHE → v11, VERSION → v11. All five suites green.
