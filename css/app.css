@@ -58,6 +58,11 @@
   --btn-line:    #dde2ee;   /* outline on a neutral button, so it reads as one
                                on a white card as well as on the page */
 
+  /* belt-rank colours for the brand mark — ranks, not UI colours */
+  --belt-white:  #ffffff;
+  --belt-black:  #15171c;
+  --belt-line:   rgba(18, 23, 42, .22);
+
   /* shape */
   --r-card:  22px;
   --r-panel: 20px;
@@ -114,6 +119,10 @@
     --dash:        #394054;
     --btn-line:    #232838;
 
+    --belt-white:  #f2f4f8;
+    --belt-black:  #2a2e37;
+    --belt-line:   rgba(255, 255, 255, .28);
+
     color-scheme: dark;
   }
 }
@@ -148,6 +157,10 @@
   --dash:        #394054;
   --btn-line:    #232838;
 
+  --belt-white:  #f2f4f8;
+  --belt-black:  #2a2e37;
+  --belt-line:   rgba(255, 255, 255, .28);
+
   color-scheme: dark;
 }
 
@@ -169,7 +182,12 @@ body {
   padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
 }
 
-h1, h2, h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 800; }
+/* Nunito ships as a variable face (400–900 from the one file), so any weight
+   here costs nothing extra to load. The scale runs light-to-heavy as type gets
+   SMALLER, which is the way round that actually reads: 600 for headings and the
+   big hero number, 700 for the brand mark and the stat tiles, 800–900 only for
+   small uppercase labels and button text, where the size needs the weight. */
+h1, h2, h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 600; }
 h2 { font-size: 1.3rem; letter-spacing: -.01em; }
 h3 { font-size: 1rem; }
 p { margin: 0 0 .75rem; color: var(--sub); }
@@ -229,7 +247,9 @@ a { color: var(--accent); text-decoration: none; }
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 18px;
 }
-.page-title { font-size: 1.85rem; font-weight: 900; letter-spacing: -.035em; margin: 0; }
+/* Tracking loosens as the weight drops — tight negative tracking is what makes
+   a heavy face read as dense, and 700 does not need as much of it. */
+.page-title { font-size: 1.85rem; font-weight: 600; letter-spacing: -.015em; margin: 0; }
 .page-sub { color: var(--muted); font-size: .92rem; margin: 5px 0 0; font-weight: 600; }
 .page-action { font-size: .92rem; font-weight: 800; white-space: nowrap; padding-top: 8px; }
 
@@ -246,14 +266,27 @@ a { color: var(--accent); text-decoration: none; }
 }
 .brand-mark { display: block; }
 .brand-jj {
-  font-size: 29px; font-weight: 900; letter-spacing: -1.6px;
+  font-size: 29px; font-weight: 700; letter-spacing: -1px;
   color: var(--text); margin: 0; line-height: 1;
 }
-.belt { display: flex; gap: 4px; margin-top: 7px; }
-.belt i { display: block; height: 5px; border-radius: 2.5px; }
-.belt i:nth-child(1) { width: 24px; background: var(--text); }
-.belt i:nth-child(2) { width: 11px; background: var(--accent); }
-.belt i:nth-child(3) { width: 5px;  background: var(--warm); }
+/* The five adult belt ranks, in order. Real rank colours, not app colours —
+   which also takes brand duty off amber, leaving it to mean only "gap" or
+   "waiting on you". White and black are the problem cases: white vanishes on a
+   light background and black on a dark one, so every segment carries a hairline
+   and the two extremes get their own per-theme value. */
+.belt { display: flex; gap: 3px; margin-top: 7px; }
+/* Width is set inline, from the years each rank typically takes — see
+   BELT_RANKS in js/ui.js. The mark is a timeline, so the numbers live with the
+   data rather than being hard-coded here. */
+.belt i {
+  display: block; height: 6px; border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--belt-line);
+}
+.belt .belt-white  { background: var(--belt-white); }
+.belt .belt-blue   { background: #2352a8; }
+.belt .belt-purple { background: #6b3fa0; }
+.belt .belt-brown  { background: #6b4423; }
+.belt .belt-black  { background: var(--belt-black); }
 
 /* The sync button: a squircle with the same pressable edge as everything else.
    Behaviour is unchanged — tap to sync, spin while busy, amber dot when dirty. */
@@ -280,7 +313,7 @@ a { color: var(--accent); text-decoration: none; }
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 12px; margin: 24px 0 10px;
 }
-.section-head h3 { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; }
+.section-head h3 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: -.01em; }
 .section-head a { font-size: .85rem; font-weight: 800; white-space: nowrap; }
 
 /* ---- building blocks ---- */
@@ -318,7 +351,7 @@ div.card-title { margin-bottom: 10px; }
   border-radius: var(--r-card); box-shadow: 0 5px 0 var(--edge);
   padding: 14px 12px; text-align: center;
 }
-.stat .n { font-size: 1.7rem; font-weight: 900; letter-spacing: -.03em; }
+.stat .n { font-size: 1.7rem; font-weight: 700; letter-spacing: -.02em; }
 .stat .l { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 800; }
 
 .muted { color: var(--muted); }
@@ -575,7 +608,7 @@ a.cov-role { color: var(--accent); }
   font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
   color: var(--muted); font-weight: 800;
 }
-.hero-num { font-size: 3.3rem; font-weight: 900; letter-spacing: -.05em; line-height: 1; margin-top: 6px; }
+.hero-num { font-size: 3.3rem; font-weight: 600; letter-spacing: -.025em; line-height: 1; margin-top: 6px; }
 .hero-badge {
   font-size: .68rem; text-transform: uppercase; letter-spacing: .06em;
   color: var(--warm-ink); background: var(--warm-soft);
@@ -588,7 +621,7 @@ a.cov-role { color: var(--accent); }
   flex: 1; background: var(--surface-2); border-radius: var(--r-tile);
   padding: 12px 8px; text-align: center;
 }
-.hero-stat .n { font-size: 1.35rem; font-weight: 900; letter-spacing: -.03em; }
+.hero-stat .n { font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em; }
 .hero-stat.good { background: var(--good-soft); }
 .hero-stat.good .n { color: var(--good); }
 .hero-stat .l { font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 800; }

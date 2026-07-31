@@ -46,6 +46,39 @@ test('class entry survives a round trip', () => {
   }
   assert.deepEqual(back.sections, classEntry.sections);
   assert.deepEqual(back.tags, classEntry.tags);
+  assert.equal(back.title, '', 'a generated heading came back as a real title');
+});
+
+// A class entry written in the app never has a title — the Log form has no such
+// field — so toMarkdown always invents a `# Class — <date>` heading for it. That
+// heading must not survive as content: it used to be folded into `body` before
+// being recognised as noise, so every note picked up a junk first line on every
+// device that pulled it.
+test('the generated heading never leaks into the body', () => {
+  const written = { ...classEntry, body: 'Knee slice pass\nLeg weave pass\nPassed Steve twice. Got guillotined three times.\nKeep the hips lower.' };
+  const back = fromMarkdown(toMarkdown(written));
+  assert.equal(back.body, written.body);
+  assert.ok(!back.body.includes('Class — '), `heading leaked: ${JSON.stringify(back.body)}`);
+
+  // An attendance-style entry — no sections at all — must come back empty,
+  // not carrying the heading as its only content.
+  const bare = {
+    ...classEntry, id: '20260403-a771-4e05-9c3a-20260403a771', date: '2026-04-03',
+    sections: { techniques: '', rolling: '', thoughts: '' }, body: '', tags: [],
+  };
+  assert.equal(fromMarkdown(toMarkdown(bare)).body, '');
+});
+
+// A title the user really did give an entry still has to survive.
+test('a real title is kept', () => {
+  const video = {
+    ...classEntry, id: 'aaaa1111-0000-4000-8000-000000000009', type: 'video',
+    title: 'Lachlan Giles half guard', gi: null,
+    sections: { techniques: '', rolling: '', thoughts: '' },
+    body: 'Deep half entries', tags: [],
+    video: { videoId: 'abc123', url: 'https://youtu.be/abc123', title: 'Lachlan Giles half guard', thumb: null },
+  };
+  assert.equal(fromMarkdown(toMarkdown(video)).title, 'Lachlan Giles half guard');
 });
 
 test('markdown is actually readable', () => {

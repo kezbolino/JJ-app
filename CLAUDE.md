@@ -378,3 +378,77 @@ data if forgotten:
   infinitely breathing CTA is never "stable" for Playwright and the click times
   out — `breathe` now holds at rest for 45% of its cycle, which both fixes the
   click and is what a breath actually does.
+- 2026-07-31 — **Attendance backfill + a sync-format bug it exposed.** User supplied
+  a markdown attendance log for Apr–Jul 2026 (39 classes, 13 gi / 26 no-gi, Dark
+  Star Jiu Jitsu). Delivered as a **JSON backup file for Library → Import**, not
+  as code and not by writing to the notes repo: IndexedDB on their phone is the
+  source of truth and Import is the app's own designed route in. Two deliberate
+  calls: **no tags** on any of the 39 (the log records that a class happened, not
+  what was in it — inventing tags would put fiction in the coverage map), and
+  **no `settings` key** in the file (importing settings would clobber the
+  flashcard deck, starred moves and sync config already on the device). Ids are
+  **deterministic and date-seeded** (`20260403-a771-4e05-9c3a-20260403a771`) so
+  re-importing the same file is a no-op — verified: second import is 0 added /
+  39 skipped. Note this cannot dedupe against a class they logged *by hand* on
+  the same date; those ids differ. The three rows the log flagged (May 20 and
+  Apr 1 unconfirmed, Apr 3 "Jiu Jitsu & Wrestling") carry that text in
+  `sections.thoughts`, so they're findable by searching "unconfirmed".
+  **Bug found while checking the entries would survive sync:** `fromMarkdown`
+  composed `body` from `[title, ...sections]` and only *afterwards* recognised a
+  generated `# Class — <date>` heading as noise and cleared the title — so the
+  heading stayed baked into the body. Class entries written in the app never have
+  a title (the Log form has no such field), so **every class note picked up a junk
+  first line on every device that pulled it**. One-line reorder: strip the
+  generated title before composing the body. It survived this long because
+  `tests/markdown.test.mjs` asserted on sections and tags but never on `body`;
+  that assertion is now there, plus a dedicated regression test and one guarding
+  that a *real* title (e.g. a video's) still survives. Suite is 13 markdown tests.
+  sw CACHE → v14, VERSION → v14.
+- 2026-07-31 — **Headings dropped to weight 600.** User found the page titles too
+  heavy. Nunito is a **variable** face (`font-weight: 400 900` from the one 39 KB
+  file), confirmed by measuring rendered widths per weight in a browser — 400
+  through 900 all interpolate — so a lighter heading costs no extra download.
+  `h1/h2/h3`, `.page-title` and `.section-head h3` went 800/900 → **600** (tried
+  700 first; user asked for one step lighter), and `.page-title`'s tracking
+  loosened -.035em → -.015em (tight negative tracking is what makes a heavy face
+  read as dense; 600 needs much less of it). Note `.page-sub` is also 600 — the
+  title/subtitle hierarchy is carried by size and colour, not weight. A follow-up
+  pass took the **numbers and the brand mark** down too, after the user said they
+  still read fat: `.hero-num` 900 → **600** (large type carries a light weight
+  well), `.hero-stat .n` / `.stat .n` 900 → **700** so the small tiles don't sit
+  heavier than the big number they support, and `.brand-jj` 900 → **700** with
+  tracking -1.6px → -1px. Tracking was loosened at every step — it is half of what
+  made the heavy weights read as dense. The rule the scale now follows: **weight
+  goes UP as type gets smaller** — 600 for headings and the hero number, 700 for
+  the brand mark and stat tiles, 800–900 only for small uppercase labels and
+  button text, where the size needs the weight. Left at 900 on purpose: `.btn`
+  labels, `.card-title` eyebrows, `.now-badge`, `.fc-text`. sw CACHE → v15,
+  VERSION → v15.
+- 2026-07-31 — **Brand mark now uses the real belt ranks.** User asked for jiu
+  jitsu belt colours instead of the app's own. The three-segment mark
+  (ink/blue/amber, decreasing widths) became **five equal segments: white, blue,
+  purple, brown, black** — the adult ranks in order, which also reads as the
+  progression the app is about. Side effect worth keeping: **amber is down to
+  three jobs** (gap panel, zero cells/rails, pending sync) and no longer appears
+  in the brand at all, so it is now purely "gap / waiting on you". `BELT_RANKS`
+  and `brandMark()` live in `js/ui.js`; the mark is one `role="img"` with a label,
+  not five decorative divs. Two traps handled: **white disappears on a light
+  background and black on a dark one**, so every segment carries a
+  `--belt-line` hairline, and `--belt-white` / `--belt-black` are per-theme
+  tokens. On dark, black is **#2a2e37**, not near-black — a true black bar reads
+  as an empty outlined slot, which is the wrong look for the most meaningful
+  rank. Blue is #2352a8, deliberately darker than `--accent` (#3a63f0) so a rank
+  colour is never mistaken for the UI's action colour. sw CACHE / VERSION stay at
+  v15 (not yet deployed).
+- 2026-07-31 — **Belt mark is now a timeline.** User asked to size the segments by
+  how long each belt takes on average, turning the brand device into a small
+  progression chart. Widths come from `BELT_RANKS` in `js/ui.js`, which now
+  carries `{rank, years}` — white 2, blue 2.5, purple 2, brown 1.5, black 3 — at
+  `PX_PER_YEAR = 4.4`, giving 9/11/9/7/13px and a ~61px mark. The numbers live in
+  the JS, not the CSS, precisely because they are **claims about the sport, not
+  styling**; anyone changing them should see the comment saying they are rough
+  community averages that vary hugely by gym and training frequency. Black uses
+  the IBJJF's 3 years to first degree so it stays a real number instead of "the
+  rest of your life", which would either dominate the mark or need special-casing.
+  Each segment carries a `title` and the group an `aria-label` listing the years,
+  so the meaning is not carried by width alone. sw CACHE / VERSION stay at v15.
