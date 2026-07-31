@@ -169,7 +169,10 @@ body {
   padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
 }
 
-h1, h2, h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 800; }
+/* Nunito ships as a variable face (400–900 from the one file), so a lighter
+   heading costs nothing extra to load. Headings sit at 700: the 800/900 end is
+   reserved for the brand mark and for numbers, where the weight is the point. */
+h1, h2, h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 700; }
 h2 { font-size: 1.3rem; letter-spacing: -.01em; }
 h3 { font-size: 1rem; }
 p { margin: 0 0 .75rem; color: var(--sub); }
@@ -229,7 +232,9 @@ a { color: var(--accent); text-decoration: none; }
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 18px;
 }
-.page-title { font-size: 1.85rem; font-weight: 900; letter-spacing: -.035em; margin: 0; }
+/* Tracking loosens as the weight drops — tight negative tracking is what makes
+   a heavy face read as dense, and 700 does not need as much of it. */
+.page-title { font-size: 1.85rem; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 .page-sub { color: var(--muted); font-size: .92rem; margin: 5px 0 0; font-weight: 600; }
 .page-action { font-size: .92rem; font-weight: 800; white-space: nowrap; padding-top: 8px; }
 
@@ -280,7 +285,7 @@ a { color: var(--accent); text-decoration: none; }
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 12px; margin: 24px 0 10px;
 }
-.section-head h3 { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; }
+.section-head h3 { margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; }
 .section-head a { font-size: .85rem; font-weight: 800; white-space: nowrap; }
 
 /* ---- building blocks ---- */
