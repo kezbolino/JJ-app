@@ -452,3 +452,20 @@ data if forgotten:
   rest of your life", which would either dominate the mark or need special-casing.
   Each segment carries a `title` and the group an `aria-label` listing the years,
   so the meaning is not carried by width alone. sw CACHE / VERSION stay at v15.
+- 2026-07-31 — **Settings gear on Home (discoverability fix).** User could not
+  find Settings. Root cause is a trap I built in v10: the Home cloud button links
+  to Settings **only while sync is unconfigured** — once you finish setting sync
+  up it silently becomes a sync-now button, so the entry point you learned stops
+  working exactly when you finish onboarding. That left one reliable route, the
+  "Sync settings" button at the bottom of the Library tab, for a screen holding
+  sync config, the appearance pickers and taught/muted words. Fix: a second 42px
+  squircle in the Home brand row — `gear` added to `SHAPES` in `js/ui.js` (one
+  path, not primitives; eight separate teeth leave stroke gaps at 21px), wrapped
+  with the sync control in a new `.brand-actions` flex row. **Sync stays
+  rightmost** — it is the one you reach for often. Offered a long-press and a
+  fifth tab as alternatives; user picked the gear. Added a smoke step ("the gear
+  on Home opens Settings") because this is a discoverability regression that no
+  other test would catch — every other Settings assertion navigates by URL. Tab
+  highlight for `#/settings` still maps to Library, unchanged: mapping it to Home
+  would just move the oddity to the Library → Settings path. sw CACHE → v16,
+  VERSION → v16.

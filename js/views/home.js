@@ -45,8 +45,16 @@ async function runSync(btn, { quiet = false } = {}) {
   }
 }
 
+// Settings has no tab of its own, and the cloud button stops linking to it the
+// moment sync is configured — so without this gear the only way in is a button
+// at the bottom of the Library tab. The sync control stays rightmost: it is the
+// one you reach for often.
 function brandRow(syncCtl) {
-  return h('div.brand-row', brandMark(), syncCtl);
+  return h('div.brand-row', brandMark(),
+    h('div.brand-actions',
+      h('a.avatar-btn.settings-btn', { href: '#/settings', 'aria-label': 'Settings', title: 'Settings' },
+        icon('gear')),
+      syncCtl));
 }
 
 function heroCard(counts, gi) {
