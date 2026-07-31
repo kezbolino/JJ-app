@@ -378,3 +378,29 @@ data if forgotten:
   infinitely breathing CTA is never "stable" for Playwright and the click times
   out — `breathe` now holds at rest for 45% of its cycle, which both fixes the
   click and is what a breath actually does.
+- 2026-07-31 — **Attendance backfill + a sync-format bug it exposed.** User supplied
+  a markdown attendance log for Apr–Jul 2026 (39 classes, 13 gi / 26 no-gi, Dark
+  Star Jiu Jitsu). Delivered as a **JSON backup file for Library → Import**, not
+  as code and not by writing to the notes repo: IndexedDB on their phone is the
+  source of truth and Import is the app's own designed route in. Two deliberate
+  calls: **no tags** on any of the 39 (the log records that a class happened, not
+  what was in it — inventing tags would put fiction in the coverage map), and
+  **no `settings` key** in the file (importing settings would clobber the
+  flashcard deck, starred moves and sync config already on the device). Ids are
+  **deterministic and date-seeded** (`20260403-a771-4e05-9c3a-20260403a771`) so
+  re-importing the same file is a no-op — verified: second import is 0 added /
+  39 skipped. Note this cannot dedupe against a class they logged *by hand* on
+  the same date; those ids differ. The three rows the log flagged (May 20 and
+  Apr 1 unconfirmed, Apr 3 "Jiu Jitsu & Wrestling") carry that text in
+  `sections.thoughts`, so they're findable by searching "unconfirmed".
+  **Bug found while checking the entries would survive sync:** `fromMarkdown`
+  composed `body` from `[title, ...sections]` and only *afterwards* recognised a
+  generated `# Class — <date>` heading as noise and cleared the title — so the
+  heading stayed baked into the body. Class entries written in the app never have
+  a title (the Log form has no such field), so **every class note picked up a junk
+  first line on every device that pulled it**. One-line reorder: strip the
+  generated title before composing the body. It survived this long because
+  `tests/markdown.test.mjs` asserted on sections and tags but never on `body`;
+  that assertion is now there, plus a dedicated regression test and one guarding
+  that a *real* title (e.g. a video's) still survives. Suite is 13 markdown tests.
+  sw CACHE → v14, VERSION → v14.

@@ -147,6 +147,14 @@ export function fromMarkdown(text) {
     updatedAt: unquote(meta.updated ?? new Date().toISOString()),
   };
 
+  // A title we generated ourselves is noise on the way back in. This has to
+  // happen BEFORE the body is composed below: class entries written in the app
+  // never have a title (the Log form has no such field), so every one of them
+  // gets a generated `# Class — <date>` heading on the way out — and clearing
+  // it afterwards left that heading baked into the body on every device that
+  // pulled the note.
+  if (entry.title === `${TYPE_HEADING[entry.type] ?? entry.type} — ${entry.date}`) entry.title = '';
+
   if (entry.type === 'class') {
     const blocks = splitSections(afterTitle);
     for (const [key, heading] of SECTIONS) {
@@ -157,9 +165,6 @@ export function fromMarkdown(text) {
   } else {
     entry.body = afterTitle.replace(/^<https?:\/\/[^>]+>$/m, '').trim();
   }
-
-  // A title we generated ourselves is noise on the way back in.
-  if (entry.title === `${TYPE_HEADING[entry.type] ?? entry.type} — ${entry.date}`) entry.title = '';
 
   return entry;
 }
