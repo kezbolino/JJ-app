@@ -2,6 +2,8 @@
 
 import { clear, h } from './ui.js';
 import { VERSION } from './version.js';
+import { beginRender } from './render.js';
+import { purgeTrash } from './store.js';
 import * as appearance from './appearance.js';
 import home from './views/home.js';
 import focus from './views/focus.js';
@@ -11,6 +13,7 @@ import position from './views/position.js';
 import library from './views/library.js';
 import search from './views/search.js';
 import settings from './views/settings.js';
+import timer from './views/timer.js';
 
 const view = document.getElementById('view');
 
@@ -30,10 +33,15 @@ function route() {
   const { parts, query } = parseHash();
   const [head, a, b] = parts;
 
+  beginRender();           // anything still in flight for the old screen: stand down
   clear(view);
   window.scrollTo(0, 0);
 
-  const tab = head === 'settings' ? '/library' : head === 'focus' ? '/' : '/' + (head ?? '');
+  // Screens without a tab of their own borrow the one they're reached from:
+  // Settings hangs off Library, the deck and the timer off Home.
+  const tab = head === 'settings' ? '/library'
+    : (head === 'focus' || head === 'timer') ? '/'
+    : '/' + (head ?? '');
   for (const link of document.querySelectorAll('.tabbar a')) {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
     if (link.dataset.tab === tab) link.setAttribute('aria-current', 'page');
@@ -43,10 +51,11 @@ function route() {
     switch (head) {
       case undefined:  return home(view);
       case 'focus':    return focus(view);
-      case 'log':      return log(view, { id: a });
+      case 'log':      return log(view, { id: a, date: query.date });
       case 'map':      return a ? position(view, { positionId: a, role: b ?? null }) : map(view);
       case 'library':  return library(view);
       case 'settings': return settings(view);
+      case 'timer':    return timer(view);
       case 'search':   return search(view, { q: query.q ?? '' });
       default:         view.append(h('p.empty', 'Page not found.'));
     }
@@ -83,6 +92,10 @@ function consumeShare() {
 consumeShare();
 window.addEventListener('hashchange', route);
 route();
+
+// Anything that has sat in the trash past its 30 days goes now. Deliberately
+// after the first render — it touches storage and nothing on screen waits on it.
+purgeTrash().catch(() => { /* the trash can wait for the next launch */ });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {

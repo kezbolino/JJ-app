@@ -55,13 +55,27 @@ export function pathFor(entry) {
 
 export function toMarkdown(entry) {
   const lines = ['---'];
-  const field = (key, value) => { if (value) lines.push(`${key}: ${quote(String(value))}`); };
+  // Absent means absent — but 0 is a value, not an absence. `rounds: 0` is a
+  // real answer ("we drilled, I didn't roll"), and a truthiness check would
+  // quietly turn it back into "no rounds recorded" on the next pull.
+  const field = (key, value) => {
+    if (value === null || value === undefined || value === '' || value === false) return;
+    lines.push(`${key}: ${quote(String(value))}`);
+  };
 
   field('id', entry.id);
   field('type', entry.type);
   field('date', entry.date);
   field('gi', entry.gi);
+  // Scalars, so the grammar stays the boring fixed thing it has to be. `rounds`
+  // and `feel` are numbers but written as plain text like everything else —
+  // fromMarkdown coerces them back.
+  field('session', entry.session);
+  field('rounds', entry.rounds);
+  field('feel', entry.feel);
   if (entry.tags?.length) lines.push(`tags: [${entry.tags.map(tagToString).join(', ')}]`);
+  // The one other inline list, same shape as tags: entry ids this one links to.
+  if (entry.related?.length) lines.push(`related: [${entry.related.join(', ')}]`);
   if (entry.video?.url) {
     field('video_url', entry.video.url);
     field('video_id', entry.video.videoId);
@@ -119,8 +133,19 @@ export function fromMarkdown(text) {
     meta[line.slice(0, at).trim()] = line.slice(at + 1).trim();
   }
 
-  const tags = /^\[(.*)\]$/.exec(meta.tags ?? '')?.[1]
-    ?.split(',').map(s => s.trim()).filter(Boolean).map(tagFromString) ?? [];
+  const inlineList = key => /^\[(.*)\]$/.exec(meta[key] ?? '')?.[1]
+    ?.split(',').map(s => s.trim()).filter(Boolean) ?? [];
+
+  const tags = inlineList('tags').map(tagFromString);
+  const related = inlineList('related');
+
+  // A number that isn't there stays null rather than becoming 0 — "no rounds
+  // recorded" and "rolled zero rounds" are different facts.
+  const number = key => {
+    if (!meta[key]) return null;
+    const n = Number(unquote(meta[key]));
+    return Number.isFinite(n) ? n : null;
+  };
 
   const body = match[2];
   const titleMatch = /^#\s+(.+)$/m.exec(body);
@@ -131,10 +156,14 @@ export function fromMarkdown(text) {
     type: unquote(meta.type ?? 'note'),
     date: unquote(meta.date ?? ''),
     gi: meta.gi ? unquote(meta.gi) : null,
+    session: meta.session ? unquote(meta.session) : null,
+    rounds: number('rounds'),
+    feel: number('feel'),
     title: titleMatch ? titleMatch[1].trim() : '',
     sections: { techniques: '', rolling: '', thoughts: '' },
     body: '',
     tags,
+    related,
     video: meta.video_url
       ? {
           url: unquote(meta.video_url),

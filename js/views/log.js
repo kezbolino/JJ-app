@@ -8,7 +8,7 @@
 // they're wrong. ⊘ on a suggestion stops that word being suggested ever again;
 // "Teach a word" maps your gym's name for something onto the real technique.
 
-import { h, card, toast, tagChip, empty, icon } from '../ui.js';
+import { h, card, toast, tagChip, empty, icon, fmtDate } from '../ui.js';
 import { POSITIONS, POSITION_BY_ID, CONCEPTS, rolesFor } from '../ontology.js';
 import { suggestTags, tagKey } from '../tagger.js';
 import * as overrides from '../overrides.js';
@@ -31,6 +31,78 @@ function giSelector(entry) {
   }
   sync();
   return h('div.seg', ...buttons);
+}
+
+/**
+ * What kind of session this was.
+ *
+ * Gi/no-gi says what you wore; this says what you were doing. Nothing selected
+ * means an ordinary class, which is nearly all of them — so the common case
+ * costs no taps at all, and tapping the active one clears it again.
+ */
+function sessionSelector(entry) {
+  const buttons = store.SESSION_TYPES.map(([value, label]) =>
+    h('button', { type: 'button', value }, label));
+
+  const paint = () => buttons.forEach(b =>
+    b.setAttribute('aria-pressed', String(entry.session === b.value)));
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      entry.session = entry.session === button.value ? null : button.value;
+      paint();
+      button.blur();
+    });
+  }
+  paint();
+  return h('div.seg.seg-session', ...buttons);
+}
+
+/**
+ * Rounds rolled, and how it went.
+ *
+ * Both optional and both skippable — the save never waits on them. Rounds is a
+ * count, the same kind of fact as attendance. "How it went" is a self-report
+ * about a session: it is a fact about what you wrote down, and it is only ever
+ * shown back as an average of what you logged. It is never a rating of you.
+ */
+function sessionMeta(entry) {
+  const rounds = h('input', {
+    type: 'number', min: '0', max: '50', inputMode: 'numeric',
+    placeholder: '—',
+    value: Number.isFinite(entry.rounds) ? String(entry.rounds) : '',
+  });
+  rounds.addEventListener('input', () => {
+    const n = Number(rounds.value);
+    entry.rounds = rounds.value === '' || !Number.isFinite(n) ? null : Math.max(0, Math.min(50, n));
+  });
+
+  const dots = [1, 2, 3, 4, 5].map(n => {
+    const btn = h('button.feel-dot', {
+      type: 'button', value: String(n),
+      'aria-label': `How it went: ${n} out of 5`,
+    }, String(n));
+    return btn;
+  });
+  const paintFeel = () => dots.forEach(d =>
+    d.setAttribute('aria-pressed', String(entry.feel === Number(d.value))));
+  for (const dot of dots) {
+    dot.addEventListener('click', () => {
+      const n = Number(dot.value);
+      entry.feel = entry.feel === n ? null : n;   // tap again to clear
+      paintFeel();
+      dot.blur();
+    });
+  }
+  paintFeel();
+
+  return h('div.meta-row',
+    h('div.meta-field',
+      h('label.field-label', 'Rounds'),
+      rounds),
+    h('div.meta-field',
+      h('label.field-label', 'How it went'),
+      h('div.feel', ...dots)));
 }
 
 /**
@@ -102,10 +174,15 @@ function tagPicker() {
   };
 }
 
-export default async function log(root, { id } = {}) {
-  const entry = id ? await store.getEntry(id) : store.newEntry();
+export default async function log(root, { id, date } = {}) {
+  // `date` comes from the Home nudge ("nothing logged for last Thursday"), so
+  // the entry opens already dated the day you actually missed.
+  const entry = id ? await store.getEntry(id) : store.newEntry(date ? { date } : {});
   if (!entry) { root.append(empty('That entry no longer exists.')); return; }
   entry.sections ??= { techniques: '', rolling: '', thoughts: '' };
+  entry.related ??= [];
+
+  const allForLinks = await store.allEntries();
 
   // A voice note shared in from a transcriber (see app.js consumeShare) lands
   // here as raw text. Drop it into the freeform "Rolling notes" field of a new
@@ -233,6 +310,75 @@ export default async function log(root, { id } = {}) {
     },
   }, 'Show options');
 
+  // --- already logged this day? ---
+  // Making Edit discoverable (v7) fixed half of "editing logged a new entry".
+  // This is the other half: tapping "Log a class" on a day you already wrote up
+  // still silently made a second entry, and two entries for one class
+  // double-count in the class total and in coverage. Non-blocking on purpose —
+  // two sessions in a day is a real thing, so this points rather than stops.
+  const dupeNotice = h('div.banner.warn.dupe', { hidden: true });
+  const checkDuplicate = () => {
+    if (id) { dupeNotice.hidden = true; return; }
+    const clash = allForLinks.find(e => e.type === 'class' && e.date === entry.date);
+    dupeNotice.hidden = !clash;
+    if (!clash) return;
+    dupeNotice.replaceChildren(
+      h('span.b-ico', icon('calendar')),
+      h('span.b-txt', `You already logged a class on ${fmtDate(clash.date)}.`),
+      h('a.b-edit', { href: `#/log/${clash.id}`, style: 'color:var(--warm-ink)' }, 'Open it'));
+  };
+
+  // --- links to other entries ---
+  // Tags connect this entry to a *position*. This connects it to another entry
+  // — "same problem as three weeks ago" — which is the part of the knowledge
+  // graph that tags can't express. Links are made from a picker rather than by
+  // typing syntax into the notes, so capture stays exactly as fast as it was.
+  const linkBox = h('div.links');
+  const linkPicker = h('select');
+  const renderLinks = () => {
+    const byId = new Map(allForLinks.map(e => [e.id, e]));
+    const rows = entry.related
+      .map(rid => byId.get(rid))
+      .filter(Boolean)
+      .map(other => h('div.link-chip',
+        h('a', { href: `#/log/${other.id}` },
+          h('span.lk-date', fmtDate(other.date)),
+          h('span.lk-txt', ((other.title || other.body || '').split('\n')[0] || other.type).slice(0, 44))),
+        h('button', {
+          type: 'button', 'aria-label': 'Remove link',
+          onclick: () => {
+            entry.related = entry.related.filter(x => x !== other.id);
+            renderLinks();
+          },
+        }, '×')));
+    linkBox.replaceChildren(...(rows.length ? rows : [empty('Nothing linked yet.')]));
+
+    // Only offer entries that aren't this one and aren't already linked.
+    linkPicker.replaceChildren(
+      h('option', { value: '' }, 'Link another entry…'),
+      ...allForLinks
+        .filter(e => e.id !== entry.id && !entry.related.includes(e.id))
+        .slice(0, 60)
+        .map(e => h('option', { value: e.id },
+          `${e.date} · ${((e.title || e.body || '').split('\n')[0] || e.type).slice(0, 38)}`)));
+  };
+  linkPicker.addEventListener('change', () => {
+    if (!linkPicker.value) return;
+    entry.related = [...new Set([...entry.related, linkPicker.value])];
+    renderLinks();
+  });
+
+  const backlinkBox = h('div.links');
+  const renderBacklinks = () => {
+    const incoming = store.backlinksFor(allForLinks, entry.id)
+      .filter(e => !entry.related.includes(e.id));
+    backlinkBox.replaceChildren(...(incoming.length
+      ? incoming.map(other => h('a.link-chip.is-in', { href: `#/log/${other.id}` },
+          h('span.lk-date', fmtDate(other.date)),
+          h('span.lk-txt', ((other.title || other.body || '').split('\n')[0] || other.type).slice(0, 44))))
+      : [empty('Nothing links here yet.')]));
+  };
+
   const save = async () => {
     await store.saveEntry(entry);
     toast(id ? 'Updated' : 'Logged');
@@ -240,9 +386,9 @@ export default async function log(root, { id } = {}) {
   };
 
   const remove = async () => {
-    if (!confirm('Delete this entry? This cannot be undone.')) return;
+    if (!confirm('Move this entry to the trash? You can restore it from Library for 30 days.')) return;
     await store.deleteEntry(entry.id);
-    toast('Deleted');
+    toast('Moved to trash');
     location.hash = '#/';
   };
 
@@ -254,8 +400,14 @@ export default async function log(root, { id } = {}) {
     h('div.date-row',
       h('div.date-field',
         icon('calendar'),
-        h('input', { type: 'date', value: entry.date, oninput: e => { entry.date = e.target.value; } })),
+        h('input', {
+          type: 'date', value: entry.date,
+          oninput: e => { entry.date = e.target.value; checkDuplicate(); },
+        })),
       giSelector(entry)),
+
+    dupeNotice,
+    sessionSelector(entry),
 
     h('div.field',
       h('label.field-label', 'What we drilled'),
@@ -270,6 +422,8 @@ export default async function log(root, { id } = {}) {
     h('p.mic-hint', icon('mic'),
       'Tip: tap a field and switch to your voice keyboard to talk your notes in.'),
 
+    sessionMeta(entry),
+
     h('hr.hr'),
 
     h('div.tags-head',
@@ -282,12 +436,24 @@ export default async function log(root, { id } = {}) {
       'Tap to accept. ⊘ means it got the word wrong — it won\'t suggest that one again.'),
     advanced,
 
+    h('hr.hr'),
+    h('div.field-label', 'Connected entries'),
+    h('p.small.muted', { style: 'margin:-4px 0 8px' },
+      'Link this to another session — the same problem, the same drill, the answer to an old question.'),
+    linkBox,
+    linkPicker,
+    id ? h('div.field-label', { style: 'margin-top:16px' }, 'Linked from') : null,
+    id ? backlinkBox : null,
+
     h('div.btn-row', { style: 'margin-top:20px' },
       h('button.btn.primary.wide.cta', { onclick: save }, id ? 'Save changes' : 'Save entry')),
-    id && h('div.btn-row', h('button.btn', { onclick: remove }, 'Delete entry')),
+    id && h('div.btn-row', h('button.btn', { onclick: remove }, icon('trash'), 'Move to trash')),
   ].filter(Boolean));
 
   renderTags();
   renderSuggestions();
+  renderLinks();
+  renderBacklinks();
+  checkDuplicate();
   if (sharedIn) toast('Voice note added — review and save');
 }

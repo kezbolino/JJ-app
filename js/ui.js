@@ -2,6 +2,7 @@
 // host with no build step, on a phone, offline.
 
 import { POSITION_BY_ID, ROLE_LABEL } from './ontology.js';
+import { monthGrid, monthLabel, DAY_NAMES } from './dates.js';
 
 /**
  * h('div.card', {onclick}, 'text', childNode)
@@ -118,6 +119,51 @@ export function tally(pct, label) {
 }
 
 /**
+ * A month of training days.
+ *
+ * One cell per day, filled if a class is logged. This is the honest half of the
+ * app — attendance is a fact, so unlike coverage it needs no hedging and says
+ * something real from week one. Gi and no-gi are drawn differently so the grid
+ * carries two facts without a legend fight; a day with both is marked as both.
+ *
+ * `index` is a Map from `store.trainingIndex()`. `today` is passed in rather
+ * than read here so the grid renders identically in a test.
+ */
+export function monthCalendar(ym, index, { today = '', onPick = null } = {}) {
+  const cells = monthGrid(ym).map(date => {
+    if (!date) return h('span.cal__pad');
+
+    const day = index.get(date);
+    const n = Number(date.slice(8));
+    const classes = ['cal__day'];
+    if (day) {
+      classes.push('is-on');
+      if (day.gi && day.nogi) classes.push('is-both');
+      else if (day.nogi) classes.push('is-nogi');
+      if (day.sessions.includes('comp')) classes.push('is-comp');
+    }
+    if (date === today) classes.push('is-today');
+
+    const label = day
+      ? `${date}: ${day.count} ${day.count === 1 ? 'class' : 'classes'}`
+      : `${date}: nothing logged`;
+
+    // A day with something in it is a link into that entry; an empty day is
+    // inert, not an invitation to backfill a class that never happened.
+    if (day && onPick) {
+      return h('a.' + classes.join('.'), { href: onPick(day), title: label, 'aria-label': label }, String(n));
+    }
+    return h('span.' + classes.join('.'), { title: label, 'aria-label': label }, String(n));
+  });
+
+  return h('div.cal',
+    h('div.cal__month', monthLabel(ym)),
+    h('div.cal__grid',
+      DAY_NAMES.map(d => h('span.cal__dow', d.slice(0, 1))),
+      cells));
+}
+
+/**
  * The adult belt ranks, in order, with the years typically spent at each before
  * the next one — so the mark is a timeline, not just five colours.
  *
@@ -136,18 +182,31 @@ export const BELT_RANKS = [
 
 const PX_PER_YEAR = 4.4;   // keeps the whole mark around 60px wide
 
-/** The brand device: JJ over the belt ranks, each sized by its typical years. */
-export function brandMark() {
+/**
+ * The brand device: JJ over the belt ranks, each sized by its typical years.
+ *
+ * Pass a `standing` from `store.beltStanding()` and the mark stops being
+ * decoration: the ranks up to and including yours are drawn in full, the ones
+ * after are held back. It shows the rank you told the app you were given —
+ * nothing here estimates a rank, and nothing marks progress *through* a belt,
+ * because how far along you are is not something an app can know.
+ */
+export function brandMark(standing = null) {
+  const reached = standing ? BELT_RANKS.findIndex(b => b.rank === standing.rank) : -1;
   const label = BELT_RANKS.map(b => `${b.rank} ${b.years}`).join(', ');
+  const aria = reached >= 0
+    ? `Belt ranks. Yours: ${standing.rank}, awarded ${standing.date}.`
+    : `Belt ranks, each sized by the average years spent at it: ${label}`;
+
   return h('div.brand-mark',
     h('h1.brand-jj', 'JJ'),
-    h('div.belt', {
-      role: 'img',
-      'aria-label': `Belt ranks, each sized by the average years spent at it: ${label}`,
-    }, BELT_RANKS.map(b => h('i.belt-' + b.rank, {
-      style: `width:${Math.round(b.years * PX_PER_YEAR)}px`,
-      title: `${b.rank} — about ${b.years} ${b.years === 1 ? 'year' : 'years'}`,
-    }))));
+    h('div.belt' + (reached >= 0 ? '.is-ranked' : ''), { role: 'img', 'aria-label': aria },
+      BELT_RANKS.map((b, i) => h('i.belt-' + b.rank + (reached >= 0 && i > reached ? '.is-future' : ''), {
+        style: `width:${Math.round(b.years * PX_PER_YEAR)}px`,
+        title: reached >= 0 && i === reached
+          ? `${b.rank} — your rank since ${standing.date}`
+          : `${b.rank} — about ${b.years} ${b.years === 1 ? 'year' : 'years'}`,
+      }))));
 }
 
 // ---- inline SVG icons ------------------------------------------------------
@@ -168,6 +227,15 @@ const SHAPES = {
   edit:     [['path', 'M4 20h4L18.5 9.5a2 2 0 0 0-2.83-2.83L5 17v3Z'], ['line', 14, 6, 18, 10]],
   star:     [['path', 'M12 3.6l2.47 5 5.53.8-4 3.9.94 5.5L12 16.2 7.06 18.8 8 13.3l-4-3.9 5.53-.8z']],
   mic:      [['rect', 9, 3, 6, 11, 3], ['path', 'M5 11a7 7 0 0 0 14 0'], ['line', 12, 18, 12, 21], ['line', 8, 21, 16, 21]],
+  play:     [['path', 'M8 5.5v13l11-6.5-11-6.5Z']],
+  pause:    [['line', 9.5, 5, 9.5, 19], ['line', 14.5, 5, 14.5, 19]],
+  timer:    [['circle', 12, 13, 8], ['line', 12, 13, 12, 9], ['line', 9.5, 2.5, 14.5, 2.5], ['line', 12, 2.5, 12, 5]],
+  trash:    [['path', 'M6 7h12'], ['path', 'M9 7V5h6v2'], ['path', 'M7 7l1 13h8l1-13'], ['line', 10.5, 10.5, 10.5, 16.5], ['line', 13.5, 10.5, 13.5, 16.5]],
+  undo:     [['path', 'M4 9h10a5 5 0 0 1 0 10h-4'], ['path', 'M7.5 5.5 4 9l3.5 3.5']],
+  link:     [['path', 'M10.5 13.5a4 4 0 0 0 5.7 0l2.3-2.3a4 4 0 0 0-5.7-5.7L11.4 6.9']],
+  flame:    [['path', 'M12 3s5 4.2 5 9a5 5 0 0 1-10 0c0-1.7.8-3.2 1.7-4.3.3 1.2 1 2 1.8 2.3C10.2 8.4 12 6.2 12 3Z']],
+  // A stack of cards, for the deck.
+  cards:    [['rect', 4, 7, 12, 13, 2], ['path', 'M8 5h9a2 2 0 0 1 2 2v10']],
   // A cog: eight teeth around a hub. Drawn as one path so the stroke joins
   // cleanly at this size — the primitives would leave gaps between the teeth.
   gear:     [['circle', 12, 12, 3.1],

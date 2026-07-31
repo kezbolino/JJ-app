@@ -191,4 +191,81 @@ test('empty corrections round-trip', () => {
   assert.deepEqual(back.muted, []);
 });
 
+// --- v17 fields: session type, rounds, self-report, links ------------------
+// These are the first additions to the front-matter grammar since the format
+// was written. The grammar stays what it was — scalars plus inline lists — and
+// these tests are what stop the additions from rotting the backup.
+
+test('session type, rounds and self-report survive a round trip', () => {
+  const entry = { ...classEntry, session: 'comp', rounds: 6, feel: 4 };
+  const back = fromMarkdown(toMarkdown(entry));
+  assert.equal(back.session, 'comp');
+  assert.equal(back.rounds, 6);
+  assert.equal(back.feel, 4);
+});
+
+test('links between entries survive a round trip', () => {
+  const entry = {
+    ...classEntry,
+    related: ['3f2a1b9c-0000-4000-8000-000000000002', '3f2a1b9c-0000-4000-8000-000000000003'],
+  };
+  const back = fromMarkdown(toMarkdown(entry));
+  assert.deepEqual(back.related, entry.related);
+});
+
+// "No rounds recorded" and "rolled zero rounds" are different facts, and the
+// front matter has no way to say the first except by leaving the key out.
+test('an unrecorded number comes back as null, not zero', () => {
+  const back = fromMarkdown(toMarkdown(classEntry));
+  assert.equal(back.rounds, null);
+  assert.equal(back.feel, null);
+  assert.equal(back.session, null);
+  assert.deepEqual(back.related, []);
+});
+
+test('the new keys stay out of the file when unset', () => {
+  const text = toMarkdown(classEntry);
+  for (const key of ['session:', 'rounds:', 'feel:', 'related:']) {
+    assert.ok(!text.includes(key), `${key} written for an entry that has none`);
+  }
+});
+
+// A note written before v17 has none of these keys. It must still parse, and it
+// must come back with the empty-but-present shape the rest of the app expects —
+// `related` in particular is spread and filtered all over the views.
+test('a note from before these fields existed still parses', () => {
+  const old = [
+    '---',
+    'id: 3f2a1b9c-0000-4000-8000-000000000009',
+    'type: class',
+    'date: 2026-05-01',
+    'gi: nogi',
+    'created: 2026-05-01T10:00:00.000Z',
+    'updated: 2026-05-01T10:00:00.000Z',
+    '---',
+    '',
+    '# Class — 2026-05-01',
+    '',
+    '## Rolling notes',
+    '',
+    'Six rounds, all uphill.',
+    '',
+  ].join('\n');
+  const back = fromMarkdown(old);
+  assert.equal(back.date, '2026-05-01');
+  assert.equal(back.session, null);
+  assert.equal(back.rounds, null);
+  assert.deepEqual(back.related, []);
+  assert.equal(back.sections.rolling, 'Six rounds, all uphill.');
+});
+
+// "I drilled, I didn't roll" is a real answer and a different fact from "I
+// didn't say". The front matter used to be written with a truthiness check,
+// which silently turned the first into the second on the next pull.
+test('zero rounds is a value, not an absence', () => {
+  const back = fromMarkdown(toMarkdown({ ...classEntry, rounds: 0 }));
+  assert.equal(back.rounds, 0);
+  assert.ok(toMarkdown({ ...classEntry, rounds: 0 }).includes('rounds: 0'));
+});
+
 console.log(`\n${passed} passed`);

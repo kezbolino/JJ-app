@@ -172,6 +172,14 @@ html[data-font="mono"]   { --font-family: ui-monospace, "Courier Prime", "Courie
 
 * { box-sizing: border-box; }
 
+/* The `hidden` attribute has to actually hide. The UA rule is `[hidden] {
+   display: none }` at specificity 0,1,0 — which any later class rule that sets
+   `display` silently beats. Components toggle `hidden` all over this app (the
+   log form's options panel, the duplicate-day cue, the flashcard grade
+   buttons), and every one of them is one `display: flex` away from being
+   permanently visible. This makes the attribute mean what it says. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -855,6 +863,232 @@ a.banner .b-txt.muted { color: var(--muted); }
    prefers-reduced-motion at the very bottom.
    ======================================================================== */
 
+
+/* ==========================================================================
+   v17 — timer, calendar, deck scheduling, session meta, links, trash.
+   All of it speaks the existing language: 22px cards, the chunky pressable
+   edge, ink for data and accent for action. Amber keeps its three jobs and
+   gains no new ones — a missed training day is a nudge, so it is amber; a
+   round timer is an action, so it is blue.
+   ========================================================================== */
+
+/* Icons inside buttons. Only .btn.cta svg was ever sized, which was fine while
+   the CTA was the only button carrying an icon — the moment another one did
+   (Round timer, Move to trash, Restore) the SVG rendered at its natural size
+   and swallowed the button. */
+.btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.btn.small svg { width: 15px; height: 15px; }
+
+/* --- streak badge, beside the hero total ------------------------------- */
+.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.streak {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 11px; border-radius: var(--r-chip);
+  background: var(--warm-soft); color: var(--warm-ink);
+  border: 2px solid var(--warm-line);
+  font-size: .82rem; font-weight: 800; white-space: nowrap;
+}
+.streak svg { width: 15px; height: 15px; }
+
+/* --- training calendar -------------------------------------------------- */
+/* Two months side by side, sized down to fit a phone rather than scrolling
+   sideways — a calendar you have to drag is a calendar you don't read. The day
+   numbers stay (they are how you find the session you want to open), but the
+   cells are contribution-graph small; every cell also carries its full date in
+   its label, so nothing depends on reading a 10px number. */
+.cal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cal { min-width: 0; }
+.cal__month {
+  font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+}
+.cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal__dow {
+  font-size: .5rem; font-weight: 800; color: var(--muted);
+  text-align: center; padding-bottom: 2px;
+}
+.cal__pad { aspect-ratio: 1; }
+.cal__day {
+  aspect-ratio: 1; display: grid; place-items: center;
+  border-radius: 5px; background: var(--track);
+  font-size: .52rem; font-weight: 700; color: var(--muted);
+  text-decoration: none;
+}
+/* A day with a class is ink, not accent: this is data, not an action. */
+.cal__day.is-on { background: var(--text); color: var(--bg); }
+.cal__day.is-nogi { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 2px var(--text); }
+.cal__day.is-both {
+  color: var(--bg);
+  background: linear-gradient(135deg, var(--text) 0 50%, var(--muted) 50% 100%);
+}
+/* Competition is the one session type worth spotting on a calendar. */
+.cal__day.is-comp { box-shadow: 0 0 0 2px var(--warm); }
+.cal__day.is-today { outline: 2px solid var(--accent); outline-offset: 1px; }
+a.cal__day:active { transform: scale(.9); }
+
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px;
+  font-size: .68rem; font-weight: 700; color: var(--muted);
+}
+.cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cal-legend i { width: 11px; height: 11px; border-radius: 3px; display: block; }
+.cal-legend .k-gi { background: var(--text); }
+.cal-legend .k-nogi { background: var(--surface); box-shadow: inset 0 0 0 2px var(--text); }
+.cal-legend .k-both { background: linear-gradient(135deg, var(--text) 0 50%, var(--muted) 50% 100%); }
+.cal-legend .k-off { background: var(--track); }
+
+/* --- the "you usually train that day" nudge ----------------------------- */
+.banner.nudge { position: relative; padding-right: 40px; }
+.banner .b-close {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  border: 0; background: none; color: var(--warm-ink);
+  font-size: 1.1rem; line-height: 1; padding: 6px; cursor: pointer;
+}
+.banner.nudge { background: var(--warm-soft); box-shadow: 0 5px 0 var(--warm-line); }
+.banner.nudge .b-ico, .banner.nudge .b-edit { color: var(--warm-ink); }
+.banner.nudge .b-txt { color: var(--text); }
+
+/* --- belt -------------------------------------------------------------- */
+.belt.is-ranked i.is-future { opacity: .26; }
+.belt-dot {
+  width: 15px; height: 15px; border-radius: 50%; display: block;
+  border: 1.5px solid var(--belt-line);
+}
+.belt-dot.belt-white  { background: var(--belt-white); }
+.belt-dot.belt-blue   { background: #2352a8; }
+.belt-dot.belt-purple { background: #6b3fa0; }
+.belt-dot.belt-brown  { background: #6b4423; }
+.belt-dot.belt-black  { background: var(--belt-black); }
+.banner.belt-banner .b-txt strong { font-weight: 800; }
+
+.belt-list { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.belt-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 2px solid var(--line);
+}
+.belt-row:last-child { border-bottom: 0; }
+.belt-name { font-weight: 700; flex: 1; }
+.belt-date { color: var(--muted); font-size: .8rem; }
+.belt-row button {
+  border: 0; background: none; color: var(--muted);
+  font-size: 1rem; padding: 4px 6px; cursor: pointer;
+}
+
+/* --- round timer -------------------------------------------------------- */
+.t-card { text-align: center; }
+.t-stage { position: relative; padding: 18px 0 6px; }
+/* The track is drawn by .t-ring-fill's own conic gradient (the unfilled part)
+   and both are punched through by the same mask, so this is just the box. Give
+   it a background and you get a filled disc instead of a ring. */
+.t-ring {
+  width: 208px; height: 208px; margin: 0 auto; border-radius: 50%;
+  position: relative; display: grid; place-items: center;
+}
+/* The progress ring is a conic sweep, so there is no SVG and no arc maths.
+   --t-progress is set from JS each frame. */
+.t-ring-fill {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--t-progress, 0) * 360deg), var(--track) 0);
+  -webkit-mask: radial-gradient(circle, transparent 0 62%, #000 63%);
+  mask: radial-gradient(circle, transparent 0 62%, #000 63%);
+}
+.t-stage.is-rest .t-ring-fill { background: conic-gradient(var(--good) calc(var(--t-progress, 0) * 360deg), var(--track) 0); }
+.t-stage.is-done .t-ring-fill { background: var(--track); }
+.t-time {
+  position: absolute; top: 92px; left: 0; right: 0;
+  font-size: 3.1rem; font-weight: 600; letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+.t-phase {
+  margin-top: 14px; font-size: .74rem; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+}
+.t-stage.is-rest .t-phase { color: var(--good); }
+.t-stage.is-done .t-phase { color: var(--muted); }
+.t-round { margin-top: 4px; color: var(--muted); font-size: .84rem; font-weight: 700; }
+.t-presets { margin-bottom: 12px; }
+.t-presets button { font-size: .76rem; }
+.t-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.t-field input { width: 100%; text-align: center; }
+
+/* --- session type + how it went ---------------------------------------- */
+.seg-session { margin: 12px 0 4px; }
+.seg-session button { font-size: .76rem; }
+.seg-filter { margin-bottom: 12px; }
+.seg-filter button { font-size: .74rem; }
+
+.meta-row { display: grid; grid-template-columns: 84px 1fr; gap: 16px; margin-top: 16px; align-items: end; }
+.meta-field input { width: 100%; text-align: center; }
+.feel { display: flex; gap: 6px; }
+.feel-dot {
+  flex: 1; aspect-ratio: 1; max-width: 46px;
+  border: 2px solid var(--btn-line); background: var(--surface);
+  border-radius: var(--r-chip); color: var(--muted);
+  font-weight: 800; font-size: .86rem; cursor: pointer;
+  transition: background .16s var(--spring), color .16s var(--spring);
+}
+.feel-dot[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* --- entry links -------------------------------------------------------- */
+.links { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.link-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: var(--r-chip);
+  background: var(--surface-2); color: inherit; text-decoration: none;
+}
+.link-chip a { display: flex; align-items: center; gap: 8px; flex: 1; color: inherit; text-decoration: none; min-width: 0; }
+.link-chip.is-in { border-left: 3px solid var(--accent); }
+.lk-date { font-size: .7rem; font-weight: 800; color: var(--muted); white-space: nowrap; }
+.lk-txt { font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-chip button {
+  border: 0; background: none; color: var(--muted);
+  font-size: 1rem; padding: 2px 4px; cursor: pointer;
+}
+
+/* --- flashcard scheduling ---------------------------------------------- */
+.fc-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.fc-grade .btn { flex-direction: column; gap: 2px; padding: 10px 4px; }
+.fc-grade .g-label { font-weight: 800; font-size: .82rem; }
+.fc-grade .g-when { font-weight: 700; font-size: .64rem; opacity: .7; }
+.fc-g-again { box-shadow: 0 3px 0 var(--warm-line); border-color: var(--warm-line); }
+.fc-g-again:active { box-shadow: 0 0 0 var(--warm-line); }
+.fc-g-easy { color: var(--good); border-color: var(--good); box-shadow: 0 3px 0 var(--good); }
+.fc-g-easy:active { box-shadow: 0 0 0 var(--good); }
+.fc-due {
+  font-size: .64rem; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+}
+.fc-due.is-due { color: var(--accent); }
+.fc-clear {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-weight: 700; margin: 4px 0 2px;
+}
+.fc-clear svg { width: 20px; height: 20px; color: var(--accent); }
+.banner.is-due .b-ico { color: var(--accent); }
+
+/* --- mat time ----------------------------------------------------------- */
+.slist { display: flex; flex-direction: column; gap: 10px; }
+.slist-row { display: grid; grid-template-columns: minmax(84px, 108px) 1fr auto; gap: 10px; align-items: center; }
+.slist-name { font-size: .82rem; font-weight: 700; }
+.slist-n { font-size: .82rem; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats-row { display: flex; gap: 10px; margin-top: 14px; }
+.stats-row .stat { flex: 1; }
+
+/* --- trash -------------------------------------------------------------- */
+.trash-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0; border-bottom: 2px solid var(--line);
+}
+.trash-row:last-child { border-bottom: 0; }
+.trash-meta { flex: 1; min-width: 0; }
+.trash-title { display: block; font-weight: 700; font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-sub { display: block; font-size: .72rem; color: var(--muted); font-weight: 700; margin-top: 2px; }
+.trash-row .btn { flex-shrink: 0; }
+
+/* Session-type and rounds chips reuse the gi flag's shape but never its
+   colour — gi/no-gi is the one that earns the accent tint. */
+.gi-flag.s-type, .gi-flag.s-rounds { background: var(--surface-2); color: var(--muted); }
+
 /* Each view's top-level blocks rise in a short staggered cascade. The router
    rebuilds these nodes on every route, so the animation re-fires on each
    screen — that's the incoming-screen entrance, no JS needed. */
@@ -879,6 +1113,7 @@ a.banner .b-txt.muted { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   .view > *, .btn.cta, .tally__c,
   .tag.suggest:active, .tag.add:active { animation: none; }
+  .feel-dot, .cal__day, .t-ring-fill,
   .btn, .btn:active, .btn.cta:active,
   .avatar-btn, .avatar-btn:active, .fc-arrow, .fc-arrow:active,
   .seg button, .fc-inner, .deck-rail i,

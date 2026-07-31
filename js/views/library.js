@@ -120,6 +120,8 @@ function backupCard(configured) {
       const result = await backup.importData(await file.text());
       toast(`Imported: ${result.added} new, ${result.updated} updated`);
       location.reload();
+      // Sync config and bookkeeping in the file are ignored on purpose — see
+      // DEVICE_LOCAL_SETTINGS in js/backup.js.
     } catch (err) {
       toast(`Import failed: ${err.message}`);
     }
@@ -138,8 +140,45 @@ function backupCard(configured) {
 
 const TYPE_LABEL = { class: 'Class', note: 'Note', question: 'Question', video: 'Video', principle: 'Principle' };
 
+/**
+ * Recently deleted, with a one-tap restore.
+ *
+ * Deleting used to be genuinely irreversible: the row went, the file left the
+ * repo, and the only copy left was a commit on github.com the user has never
+ * been shown. Now the row stays for 30 days and this is where it waits.
+ *
+ * The trash is device-local by design — the note is already gone from the
+ * backup repo, because a "deleted" note lingering in the mirror is the opposite
+ * of what deleting is for.
+ */
+function trashCard(trashed, reload) {
+  if (!trashed.length) return null;
+
+  const row = entry => {
+    const left = store.trashDaysLeft(entry);
+    const label = (entry.title || entry.body || '').split('\n')[0] || TYPE_LABEL[entry.type] || 'Entry';
+    return h('div.trash-row',
+      h('div.trash-meta',
+        h('span.trash-title', label.slice(0, 60) + (label.length > 60 ? '…' : '')),
+        h('span.trash-sub', `${fmtDate(entry.date)} · ${left} ${left === 1 ? 'day' : 'days'} left`)),
+      h('button.btn.small', {
+        onclick: async () => {
+          await store.restoreEntry(entry.id);
+          toast('Restored');
+          reload();
+        },
+      }, icon('undo'), 'Restore'));
+  };
+
+  return card(`Recently deleted · ${trashed.length}`,
+    h('p.small.muted', { style: 'margin:-2px 0 10px' },
+      'Kept on this device for 30 days, then gone for good. Already removed from your backup repo.'),
+    trashed.map(row));
+}
+
 export default async function library(root) {
   const entries = await store.allEntries();
+  const trashed = await store.trashedEntries();
   const config = await sync.getConfig();
   const configured = sync.isConfigured(config);
   const pending = configured ? store.pendingSync(entries, await sync.getLastSync()) : 0;
@@ -155,17 +194,55 @@ export default async function library(root) {
     href: '#', onclick: e => { e.preventDefault(); addVideo.hidden = !addVideo.hidden; },
   }, 'Add link ›');
 
-  everything.append(card(`Everything · ${entries.length}`,
-    entries.length
-      ? entries.map(e => h('a.entry', { href: `#/log/${e.id}` },
-          h('div.entry-head',
-            h('span.entry-date', e.type === 'class' ? fmtDate(e.date) : (TYPE_LABEL[e.type] ?? e.type)),
-            e.type !== 'class' && h('span.entry-sub', fmtDate(e.date)),
-            giFlag(e.gi)),
-          (e.title || e.body) && h('div.entry-body',
-            (e.title || e.body).slice(0, 140) + ((e.title || e.body).length > 140 ? '…' : '')),
-          (e.tags ?? []).length ? h('div.tags', e.tags.slice(0, 4).map(t => tagChip(t))) : null))
-      : empty('Nothing saved yet.')));
+  // --- "Everything", paged and filterable ---------------------------------
+  // This list used to render every entry that had ever existed, on every visit
+  // to the tab and again on every quick-capture save. At three classes a week
+  // that is ~1,500 rows in ten years, built synchronously on a phone. It is
+  // paged now, and the filters mean you rarely need to page at all.
+  const PAGE = 50;
+  let shown = PAGE;
+  let typeFilter = '';
+
+  const entryRow = e => h('a.entry', { href: `#/log/${e.id}` },
+    h('div.entry-head',
+      h('span.entry-date', e.type === 'class' ? fmtDate(e.date) : (TYPE_LABEL[e.type] ?? e.type)),
+      e.type !== 'class' && h('span.entry-sub', fmtDate(e.date)),
+      giFlag(e.gi),
+      e.session ? h('span.gi-flag.s-type', store.SESSION_LABEL[e.session]) : null),
+    (e.title || e.body) && h('div.entry-body',
+      (e.title || e.body).slice(0, 140) + ((e.title || e.body).length > 140 ? '…' : '')),
+    (e.tags ?? []).length ? h('div.tags', e.tags.slice(0, 4).map(t => tagChip(t))) : null);
+
+  const filterRow = h('div.seg.seg-filter',
+    [['', 'All'], ...store.ENTRY_TYPES.map(t => [t, TYPE_LABEL[t] ?? t])].map(([value, label]) => {
+      const btn = h('button', { type: 'button' }, label);
+      btn.setAttribute('aria-pressed', String(typeFilter === value));
+      btn.addEventListener('click', () => {
+        typeFilter = value;
+        shown = PAGE;
+        for (const other of filterRow.children) {
+          other.setAttribute('aria-pressed', String(other === btn));
+        }
+        paintList();
+      });
+      return btn;
+    }));
+
+  const listBox = h('div');
+  const paintList = () => {
+    const matching = typeFilter ? entries.filter(e => e.type === typeFilter) : entries;
+    const page = matching.slice(0, shown);
+    listBox.replaceChildren(
+      ...(page.length ? page.map(entryRow) : [empty('Nothing here.')]),
+      ...(matching.length > shown
+        ? [h('div.btn-row', h('button.btn.wide', {
+            onclick: () => { shown += PAGE; paintList(); },
+          }, `Show more · ${matching.length - shown} left`))]
+        : []));
+  };
+
+  everything.append(card(`Everything · ${entries.length}`, filterRow, listBox));
+  paintList();
 
   root.append(...[
     h('div.page-head', h('h1.page-title', 'Library')),
@@ -184,6 +261,7 @@ export default async function library(root) {
     h('div', { style: 'height:8px' }),
     everything,
 
+    trashCard(trashed, reload),
     backupCard(configured),
   ].filter(Boolean));
 }

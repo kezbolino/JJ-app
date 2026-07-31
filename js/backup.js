@@ -31,8 +31,26 @@ export async function downloadBackup() {
 }
 
 /**
+ * Settings that describe *this device*, not the user's data.
+ *
+ * These must never be written by an import. `sync` holds the repo and the
+ * access token; overwriting it points this phone at whatever repo the exporting
+ * device used. `syncState` is worse and quieter: push trusts it to know what
+ * the repo already contains, so importing another device's copy makes this one
+ * believe notes are backed up that were never sent — and nothing reports it.
+ * `tombstones` are that device's pending deletions, and `lastSyncAt` is its
+ * clock.
+ *
+ * The July 2026 attendance backfill was hand-built with no `settings` key at
+ * all to dodge exactly this. That guard belongs here, not in each file.
+ */
+const DEVICE_LOCAL_SETTINGS = new Set(['sync', 'syncState', 'tombstones', 'lastSyncAt']);
+
+/**
  * Merge a backup in. Never destructive: an incoming entry only overwrites an
- * existing one when it is genuinely newer.
+ * existing one when it is genuinely newer, and device-local settings are left
+ * alone. Your deck, your starred moves and your taught words do come across —
+ * that is what you want back after losing a phone.
  */
 export async function importData(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
@@ -45,7 +63,12 @@ export async function importData(json) {
     else if ((entry.updatedAt ?? '') > (existing.updatedAt ?? '')) { await db.put('entries', entry); updated++; }
     else skipped++;
   }
-  for (const setting of data.settings ?? []) await db.put('settings', setting);
 
-  return { added, updated, skipped };
+  let settingsSkipped = 0;
+  for (const setting of data.settings ?? []) {
+    if (DEVICE_LOCAL_SETTINGS.has(setting.key)) { settingsSkipped++; continue; }
+    await db.put('settings', setting);
+  }
+
+  return { added, updated, skipped, settingsSkipped };
 }

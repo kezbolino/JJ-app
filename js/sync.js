@@ -7,7 +7,7 @@
 // Uses the Git Data API rather than the Contents API so an entire sync lands
 // as ONE commit, instead of one commit per note.
 
-import { getSetting, setSetting, allEntries, putEntryRaw, removeEntryRaw } from './store.js';
+import { getSetting, setSetting, allEntries, allEntriesRaw, putEntryRaw, removeEntryRaw } from './store.js';
 import {
   toMarkdown, fromMarkdown, pathFor, buildIndex,
   overridesToMarkdown, overridesFromMarkdown,
@@ -143,9 +143,13 @@ export async function pull(config) {
     } catch { /* malformed or hand-edited; local wins */ }
   }
 
-  const local = await allEntries();
+  // Trashed entries are still rows here, so pull has to see them: an entry in
+  // the trash whose file is still in the repo would otherwise look like a note
+  // this device has never met, and get restored behind the user's back.
+  const local = await allEntriesRaw();
   const byId = new Map(local.map(e => [e.id, e]));
   const knownBlobs = new Set(local.map(e => e.syncBlob).filter(Boolean));
+  const trashed = new Set(local.filter(e => e.deletedAt).map(e => e.id));
   const tombstones = await getSetting('tombstones', {});
 
   let added = 0, updated = 0;
@@ -163,6 +167,7 @@ export async function pull(config) {
 
     if (blobKnown) { touched.add(local.find(e => e.syncBlob === blobSha)?.id); continue; }
     if (tombstones[entry.id]) continue; // we deleted it; the push will remove the file
+    if (trashed.has(entry.id)) continue; // in our trash — don't undo that here
 
     touched.add(entry.id);
     const bookkeeping = { syncPath: path, syncBlob: blobSha, syncHash: hash(text) };
@@ -181,6 +186,10 @@ export async function pull(config) {
   let removed = 0;
   for (const entry of local) {
     if (!entry.syncPath || touched.has(entry.id)) continue;
+    // Something already in our trash has no file by design — that is this
+    // device's own deletion, not another device's, and the 30-day undo window
+    // belongs to the user, not to the sync.
+    if (entry.deletedAt) continue;
     if (!remote[entry.syncPath]) { await removeEntryRaw(entry.id); removed++; }
   }
 

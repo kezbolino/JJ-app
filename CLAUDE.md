@@ -52,15 +52,22 @@ tests/                markdown round-trip, app smoke test, sync test
 ```sh
 node tests/markdown.test.mjs    # pure node, fast
 node tests/tagger.test.mjs      # pure node, fast
-python3 -m http.server 8099 &   # the two browser tests need this
+node tests/moves.test.mjs       # pure node, fast
+node tests/schedule.test.mjs    # pure node, fast — dates, SRS, attendance
+python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
+node tests/features.test.mjs    # Playwright; timer, calendar, deck, trash, links
 ```
 
-**Run all four after touching anything in `js/`.** Between them they cover the
+**Run all seven after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
-including user corrections, backup format fidelity, and multi-device sync
-including deletions.
+including user corrections, backup format fidelity, multi-device sync including
+deletions, the move-suggestion engine, and everything added in v17.
+
+`tests/schedule.test.mjs` is worth running under a couple of timezones —
+`TZ=America/Los_Angeles` and `TZ=Australia/Sydney` — because the date bugs it
+guards against are invisible on a UTC box.
 
 ## Rules
 
@@ -518,3 +525,63 @@ data if forgotten:
   doc says where its line is. Runner-ups and an "if only three get built" pick
   (shortcuts, calendar, spaced repetition) are at the end. **Docs only — no code
   changed**, `CACHE`/`VERSION` stay at v16.
+- 2026-07-31 — **v17: the ten enhancements, built.** Implemented all of
+  `docs/ENHANCEMENTS.md`, plus the four "ship first" fixes from `docs/AUDIT.md`
+  that they sit on top of (§4–§9 of the audit are still open). New modules:
+  `js/dates.js` (local-timezone date maths), `js/srs.js` (SM-2), `js/render.js`
+  (the render token), `js/views/timer.js`.
+
+  **The audit fixes.** `todayISO()` is now local, not UTC — it lives in
+  `js/dates.js` with every other date helper, and *nothing in this app may use
+  `toISOString()` for a date again*: 7:30pm in Los Angeles filed classes on
+  tomorrow. The **render token** (`renderToken()` / `isCurrent()`) is the fix
+  for the stale-re-render bug; any async continuation that touches the DOM must
+  take a token before it awaits and check it after — `js/render.js` is its own
+  module precisely so views can import it without a cycle back through the
+  router. `backup.importData` now skips `DEVICE_LOCAL_SETTINGS` (`sync`,
+  `syncState`, `tombstones`, `lastSyncAt`); the manifest is light-default.
+
+  **What the ten added.** Round timer at `#/timer` (deadline-based, never tick
+  accumulation, `AudioContext` beep so there is no asset, wake lock, and a
+  MutationObserver teardown because the router just clears `#view` under it);
+  training calendar + **week** streak (weeks trained, not consecutive days — a
+  day streak breaks every week in this sport and punishes rest); spaced
+  repetition on the existing deck; `session` / `rounds` / `feel` on class
+  entries; belt promotions in Settings feeding the brand mark; three launcher
+  shortcuts; the log nudge; entry↔entry `related` links with backlinks; a
+  30-day trash; Library paging + type filter.
+
+  **Model + format.** Entries gained `session`, `rounds`, `feel`, `related`,
+  `deletedAt`. The front-matter grammar took its first additions since it was
+  written — four scalars and one more inline list, no YAML. `toMarkdown`'s
+  `field()` no longer uses a truthiness test: `rounds: 0` ("we drilled, I didn't
+  roll") is a value, not an absence, and was being silently dropped.
+
+  **Soft delete and sync.** `deleteEntry` sets `deletedAt` instead of removing
+  the row; `allEntries()` filters it, so push still deletes the file from the
+  repo exactly as before — the trash is a **local** undo buffer and does not
+  sync, because a deleted note lingering in the mirror is the opposite of what
+  deleting is for. `pull()` therefore reads `allEntriesRaw()` and skips trashed
+  ids, or the next sync would resurrect them. `restoreEntry` **clears
+  `syncPath`/`syncHash`** — keep them and push sees an unchanged hash and never
+  re-uploads the restored note.
+
+  **Two traps found by looking, not by testing.** (1) Only `.btn.cta svg` was
+  ever sized, so the moment a non-CTA button carried an icon the SVG rendered at
+  its natural size and swallowed the button — `.btn svg` is now sized globally.
+  (2) **`[hidden]` did not hide.** The UA rule is specificity 0,1,0 and any
+  later class rule setting `display` beats it, so `.fc-grade { display: grid }`
+  left the flashcard grade buttons on screen before the card was flipped — and
+  the test passed, because it asserted the `hidden` *attribute* rather than
+  visibility. There is now a global `[hidden] { display: none !important }` and
+  the tests use `isVisible()`. Assert what the user sees, not what the DOM says.
+
+  **Tests: seven suites, 111 assertions, all green.** Added
+  `tests/schedule.test.mjs` (30, pure node — run it under a non-UTC `TZ`) and
+  `tests/features.test.mjs` (22, Playwright), the latter opening with a
+  regression test for the render-clobber bug driven through a deliberately slow
+  fake GitHub. Screenshot-checked every screen in light and dark, and confirmed
+  0 running animations under `prefers-reduced-motion`. sw `CACHE` → v17,
+  `VERSION` → v17; `js/dates.js`, `js/srs.js`, `js/render.js`,
+  `js/views/timer.js` and the three icons added to `SHELL`. index.html gained a
+  favicon link (the browser was 404ing on `/favicon.ico` every load).

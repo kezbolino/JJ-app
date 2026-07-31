@@ -14,6 +14,11 @@ never skill**, and **capture friction is the whole product**.
 Ordered by value to this app, not by effort. Nothing here is a bug; nothing here
 should be built before `docs/AUDIT.md` §1–3.
 
+> **Status: all ten shipped in v17**, along with audit §1, §2, §3 and §10 which
+> they depend on. This document is kept as the reasoning behind each one — the
+> constraints, the framing, and the line each feature must not cross. Audit
+> §4–§9 remain open.
+
 ---
 
 ## 1. A round timer

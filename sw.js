@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v16';
+const CACHE = 'jj-app-v17';
 
 const SHELL = [
   './',
@@ -13,6 +13,9 @@ const SHELL = [
   'js/app.js',
   'js/version.js',
   'js/appearance.js',
+  'js/render.js',
+  'js/dates.js',
+  'js/srs.js',
   'js/ui.js',
   'js/db.js',
   'js/store.js',
@@ -32,7 +35,13 @@ const SHELL = [
   'js/views/library.js',
   'js/views/search.js',
   'js/views/settings.js',
+  'js/views/timer.js',
   'manifest.webmanifest',
+  // The icons are part of the shell too: the launcher shortcuts and the
+  // install prompt both reach for them, and offline is the normal case here.
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable.png',
 ];
 
 self.addEventListener('install', event => {

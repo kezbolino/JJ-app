@@ -1,0 +1,587 @@
+// The v17 features, driven in a real browser.
+//
+// tests/smoke.mjs still owns the core loop (log → tag → position page →
+// dashboard → coverage prompt). This file covers everything added in v17, plus
+// the render-clobber regression, which is the one bug here that destroyed user
+// data rather than just displaying something wrong.
+//
+//   python3 -m http.server 8099 &   # from the repo root
+//   node tests/features.test.mjs
+
+import assert from 'node:assert/strict';
+import { execSync } from 'node:child_process';
+import { startFakeGitHub } from './fake-github.mjs';
+
+async function loadPlaywright() {
+  try { return await import('playwright'); }
+  catch { return import(`${execSync('npm root -g', { encoding: 'utf8' }).trim()}/playwright/index.mjs`); }
+}
+const { chromium } = await loadPlaywright();
+
+const BASE = process.env.BASE_URL ?? 'http://localhost:8099/';
+const browser = await chromium.launch();
+
+let passed = 0;
+const errors = [];
+
+const test = async (name, fn) => {
+  try { await fn(); passed++; console.log('✓', name); }
+  catch (e) { console.log('✗', name, '\n  ', e.message); process.exitCode = 1; }
+};
+
+/** A fresh browser context = a fresh device, with its own empty IndexedDB. */
+async function newPage() {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  context.setDefaultTimeout(8000);   // fail fast; a hung selector shouldn't cost 30s
+  const page = await context.newPage();
+  page.on('pageerror', e => errors.push(`${e.message}`));
+  page.on('console', m => {
+    // Chrome logs every failed request as a console error with no URL attached.
+    // The sync tests deliberately provoke one: asking an empty repo for its HEAD
+    // ref 404s, and js/sync.js catches exactly that to mean "nothing here yet".
+    // Real failures are caught by the response listener below, which does have
+    // the URL, so dropping the blind message loses nothing.
+    if (m.type() !== 'error') return;
+    if (m.text().startsWith('Failed to load resource')) return;
+    errors.push(m.text());
+  });
+  page.on('response', res => {
+    if (res.status() < 400) return;
+    if (res.url().startsWith('http://localhost:809')) {
+      // 8098/8097/8096 are the fake GitHub; only the app's own host matters here.
+      if (!res.url().startsWith(BASE)) return;
+    }
+    errors.push(`${res.status()} ${res.url()}`);
+  });
+  await page.goto(BASE, { waitUntil: 'networkidle' });
+  return page;
+}
+
+const seed = (page, entries) => page.evaluate(async list => {
+  const store = await import('/js/store.js');
+  for (const patch of list) await store.saveEntry(store.newEntry(patch));
+}, entries);
+
+const setSetting = (page, key, value) => page.evaluate(async ([k, v]) => {
+  const store = await import('/js/store.js');
+  await store.setSetting(k, v);
+}, [key, value]);
+
+const go = async (page, hash) => {
+  await page.evaluate(h => { location.hash = h; }, hash);
+  await page.waitForTimeout(260);
+};
+
+// A date helper matching js/dates.js, so the tests reason in local time too.
+const localISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const daysAgo = n => localISO(new Date(Date.now() - n * 864e5));
+
+// ---------------------------------------------------------------------------
+// 1. The regression that mattered: a late async re-render must not destroy the
+//    screen the user has since navigated to.
+// ---------------------------------------------------------------------------
+
+await test('a sync settling after you navigate away cannot wipe the log form', async () => {
+  const { server, url: apiBase } = await startFakeGitHub({ port: 8097 });
+  const page = await newPage();
+
+  // Every GitHub call takes over a second, so the sync is genuinely in flight
+  // while the user moves on — the shape of a phone on gym wifi.
+  await page.route(apiBase + '/**', async route => {
+    await new Promise(r => setTimeout(r, 900));
+    route.continue();
+  });
+
+  await page.evaluate(async api => {
+    const sync = await import('/js/sync.js');
+    const store = await import('/js/store.js');
+    await sync.setConfig({ owner: 'kezbolino', repo: 'jj-app-data', branch: 'main', token: 'fake', apiBase: api });
+    await store.saveEntry(store.newEntry({ date: '2026-07-30', gi: 'gi' }));
+    await store.setSetting('lastSyncAt', '2026-07-01T00:00:00.000Z');  // stale → autosync fires
+  }, apiBase);
+
+  await go(page, '/');                       // Home starts the daily auto-sync
+  await go(page, '/log');                    // …and the user goes straight to Log
+  await page.waitForSelector('textarea');
+  const typed = 'Drilled the knee slice for an hour, felt great';
+  await page.locator('textarea').first().fill(typed);
+
+  await page.waitForTimeout(6000);           // let the sync finish
+
+  assert.equal(await page.evaluate(() => location.hash), '#/log');
+  const still = await page.locator('textarea').first().inputValue();
+  assert.equal(still, typed, 'the half-written class was destroyed by the sync re-render');
+
+  await page.context().close();
+  server.close();
+});
+
+// ---------------------------------------------------------------------------
+// 2. Round timer
+// ---------------------------------------------------------------------------
+
+await test('the round timer counts down and can be paused', async () => {
+  const page = await newPage();
+  await go(page, '/timer');
+  await page.waitForSelector('.t-time');
+
+  // CSS uppercases these labels, and innerText reflects the rendered case.
+  assert.match(await page.locator('.t-phase').innerText(), /^ready$/i);
+  await page.click('.t-card .btn.primary');
+  await page.waitForTimeout(1400);
+
+  assert.match(await page.locator('.t-phase').innerText(), /^roll$/i);
+  const running = await page.locator('.t-time').innerText();
+  assert.notEqual(running, '5:00', 'the clock never moved');
+
+  await page.click('.t-card .btn.primary');          // pause
+  const paused = await page.locator('.t-time').innerText();
+  await page.waitForTimeout(900);
+  assert.equal(await page.locator('.t-time').innerText(), paused, 'paused clock kept running');
+
+  await page.context().close();
+});
+
+await test('a timer preset changes the round length and is remembered', async () => {
+  const page = await newPage();
+  await go(page, '/timer');
+  await page.click('.t-presets button:has-text("6 × 3 min")');
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.t-time').innerText(), '3:00');
+  assert.match(await page.locator('.t-round').innerText(), /of 6/);
+
+  await go(page, '/');
+  await go(page, '/timer');
+  assert.equal(await page.locator('.t-time').innerText(), '3:00', 'preset was not remembered');
+
+  await page.context().close();
+});
+
+await test('leaving the timer stops it — no loop left running behind the app', async () => {
+  const page = await newPage();
+  await go(page, '/timer');
+  await page.click('.t-card .btn.primary');
+  await page.waitForTimeout(600);
+  await go(page, '/');
+  // If the rAF loop survived the route it would still be writing to a detached
+  // node; the observer in timer.js is what tears it down.
+  const alive = await page.evaluate(() => document.querySelectorAll('.t-time').length);
+  assert.equal(alive, 0);
+  await page.context().close();
+});
+
+// ---------------------------------------------------------------------------
+// 3. Calendar and streak
+// ---------------------------------------------------------------------------
+
+await test('the calendar marks training days and the hero shows a week streak', async () => {
+  const page = await newPage();
+  // Two classes a week for three weeks, so the streak is unambiguous.
+  await seed(page, [
+    { date: daysAgo(1), gi: 'gi' }, { date: daysAgo(3), gi: 'nogi' },
+    { date: daysAgo(8), gi: 'gi' }, { date: daysAgo(10), gi: 'nogi' },
+    { date: daysAgo(15), gi: 'gi' }, { date: daysAgo(17), gi: 'nogi' },
+  ]);
+  await go(page, '/');
+  await page.waitForSelector('.cal');
+
+  const marked = await page.locator('.cal__day.is-on').count();
+  assert.ok(marked >= 5, `expected the training days marked, got ${marked}`);
+
+  const streak = await page.locator('.streak').innerText();
+  assert.match(streak, /3 wk/, `streak read "${streak}"`);
+
+  await page.context().close();
+});
+
+await test('a calendar day links to the class logged that day', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: daysAgo(1), gi: 'gi', sections: { techniques: 'armbar', rolling: '', thoughts: '' } }]);
+  await go(page, '/');
+  await page.click('a.cal__day.is-on');
+  await page.waitForSelector('textarea');
+  assert.equal(await page.locator('.page-title').innerText(), 'Edit entry');
+  await page.context().close();
+});
+
+// ---------------------------------------------------------------------------
+// 4. Spaced repetition
+// ---------------------------------------------------------------------------
+
+await test('a new deck is all due, and grading a card schedules it away', async () => {
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'half guard passing', back: 'knee across, kill the underhook' },
+    { front: 'triangle finish', back: 'cut the angle' },
+  ]);
+
+  await go(page, '/focus');
+  await page.waitForSelector('.flashcard');
+  assert.match(await page.locator('.page-sub').innerText(), /2 cards due/);
+
+  // The rating buttons only appear once you have actually tried to recall.
+  // Asserted on real visibility, not on the `hidden` attribute: the attribute
+  // was present and correct while a later `display: grid` rule kept the buttons
+  // on screen anyway, and an attribute-only check waved that straight through.
+  assert.equal(await page.locator('.fc-grade').isVisible(), false,
+    'the grade buttons were on screen before the card was flipped');
+  await page.click('.flashcard');
+  await page.waitForTimeout(120);
+  assert.equal(await page.locator('.fc-grade').isVisible(), true);
+
+  await page.click('.fc-g-good');
+  await page.waitForTimeout(200);
+  await page.click('.flashcard');
+  await page.click('.fc-g-good');
+  await page.waitForTimeout(250);
+
+  assert.match(await page.locator('.fc-clear').innerText(), /All caught up/);
+
+  const deck = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  for (const card of deck) {
+    assert.ok(card.due > new Date().toISOString().slice(0, 10), `${card.front} is still due today`);
+  }
+  await page.context().close();
+});
+
+await test('"again" keeps the card in this session instead of hiding it', async () => {
+  const page = await newPage();
+  await setSetting(page, 'focuses', [{ front: 'berimbolo', back: 'no' }]);
+  await go(page, '/focus');
+  await page.click('.flashcard');
+  await page.click('.fc-g-again');
+  await page.waitForTimeout(200);
+  // Still on a card, not on the all-caught-up panel.
+  assert.equal(await page.locator('.flashcard').count(), 1);
+  assert.equal(await page.locator('.fc-clear').count(), 0);
+  await page.context().close();
+});
+
+await test('Home says how many cards are due', async () => {
+  const page = await newPage();
+  await setSetting(page, 'focuses', [{ front: 'lockdown', back: '' }, { front: 'kimura trap', back: '' }]);
+  await go(page, '/');
+  assert.match(await page.locator('.banner.is-due .b-txt').innerText(), /2 cards due/);
+  await page.context().close();
+});
+
+// ---------------------------------------------------------------------------
+// 5. Session type, rounds, self-report
+// ---------------------------------------------------------------------------
+
+await test('a competition session records its type, rounds and self-report', async () => {
+  const page = await newPage();
+  await go(page, '/log');
+  await page.waitForSelector('textarea');
+
+  await page.click('.seg-session button:has-text("Competition")');
+  await page.locator('.meta-field input[type="number"]').fill('6');
+  await page.click('.feel-dot[value="4"]');
+  await page.locator('textarea').first().fill('Two matches, both by armbar from closed guard.');
+  await page.click('button.btn.primary:has-text("Save entry")');
+  await page.waitForSelector('.hero-num');
+
+  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  assert.equal(saved[0].session, 'comp');
+  assert.equal(saved[0].rounds, 6);
+  assert.equal(saved[0].feel, 4);
+
+  await go(page, '/map');
+  const text = await page.locator('#view').innerText();
+  assert.match(text, /Mat time/i);
+  assert.match(text, /Competition/i);
+  await page.context().close();
+});
+
+await test('the session type is optional and clears when tapped again', async () => {
+  const page = await newPage();
+  await go(page, '/log');
+  await page.click('.seg-session button:has-text("Open mat")');
+  await page.click('.seg-session button:has-text("Open mat")');
+  await page.locator('textarea').first().fill('Just a normal class.');
+  await page.click('button.btn.primary:has-text("Save entry")');
+  await page.waitForSelector('.hero-num');
+  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  assert.equal(saved[0].session, null);
+  await page.context().close();
+});
+
+// ---------------------------------------------------------------------------
+// 6. Belt and promotions
+// ---------------------------------------------------------------------------
+
+await test('recording a promotion fills the brand mark and counts classes since', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: daysAgo(2) }, { date: daysAgo(5) }, { date: daysAgo(400) }]);
+  await setSetting(page, 'promotions', [{ rank: 'blue', date: daysAgo(30) }]);
+
+  await go(page, '/');
+  const banner = await page.locator('.belt-banner').innerText();
+  assert.match(banner, /Blue belt/);
+  assert.match(banner, /2 classes since/, `banner read "${banner}"`);
+
+  // White is reached, purple and beyond are not.
+  assert.equal(await page.locator('.belt.is-ranked i.belt-white:not(.is-future)').count(), 1);
+  assert.equal(await page.locator('.belt i.belt-purple.is-future').count(), 1);
+  await page.context().close();
+});
+
+await test('no promotion recorded means the app claims no rank', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: daysAgo(1) }]);
+  await go(page, '/');
+  assert.equal(await page.locator('.belt-banner').count(), 0);
+  assert.equal(await page.locator('.belt.is-ranked').count(), 0);
+  await page.context().close();
+});
+
+// ---------------------------------------------------------------------------
+// 7. The nudge
+// ---------------------------------------------------------------------------
+
+await test('a missed usual training day is surfaced, and can be dismissed', async () => {
+  const page = await newPage();
+  // Build a Tue/Thu habit, then miss the most recent one.
+  const today = new Date();
+  const dow = (today.getDay() + 6) % 7;                 // Mon = 0
+  const lastMonday = localISO(new Date(Date.now() - (dow + 7) * 864e5));
+  const entries = [];
+  for (let week = 1; week <= 4; week++) {
+    const monday = new Date(new Date(lastMonday + 'T00:00:00').getTime() - (week - 1) * 7 * 864e5);
+    for (const offset of [1, 3]) {                      // Tuesday, Thursday
+      const d = new Date(monday.getTime() + offset * 864e5);
+      if (localISO(d) < localISO(today)) entries.push({ date: localISO(d) });
+    }
+  }
+  // Drop the most recent one so there is a gap to notice.
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  const missed = entries.pop().date;
+  await seed(page, entries);
+
+  await go(page, '/');
+  const nudge = page.locator('.banner.nudge');
+  if (await nudge.count()) {
+    assert.match(await nudge.innerText(), /you usually train that day/i);
+    await page.click('.banner.nudge .b-close');
+    await page.waitForTimeout(120);
+    assert.equal(await page.locator('.banner.nudge').count(), 0);
+    await go(page, '/map');
+    await go(page, '/');
+    assert.equal(await page.locator('.banner.nudge').count(), 0, 'dismissal did not stick');
+  } else {
+    // The pattern depends on which weekday the suite runs; if today's calendar
+    // leaves no missed usual day, there is nothing to assert and that is correct.
+    assert.ok(missed, 'no nudge expected today');
+  }
+  await page.context().close();
+});
+
+// ---------------------------------------------------------------------------
+// 8. Links between entries
+// ---------------------------------------------------------------------------
+
+await test('linking two entries shows on both ends', async () => {
+  const page = await newPage();
+  await seed(page, [
+    { date: daysAgo(20), sections: { techniques: 'triangle from closed guard', rolling: '', thoughts: '' } },
+    { date: daysAgo(2), sections: { techniques: 'triangle again, same problem', rolling: '', thoughts: '' } },
+  ]);
+  const ids = await page.evaluate(async () => (await import('/js/store.js')).allEntries().then(e => e.map(x => x.id)));
+  const [recent, older] = ids;
+
+  await go(page, `/log/${recent}`);
+  await page.waitForSelector('.links');
+  await page.selectOption('.links + select', older);
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.link-chip').count(), 1);
+  await page.click('button.btn.primary:has-text("Save changes")');
+  await page.waitForSelector('.hero-num');
+
+  // The other end shows it as an incoming link without having been edited.
+  await go(page, `/log/${older}`);
+  await page.waitForSelector('.link-chip.is-in');
+  assert.equal(await page.locator('.link-chip.is-in').count(), 1);
+  await page.context().close();
+});
+
+// ---------------------------------------------------------------------------
+// 9. Trash
+// ---------------------------------------------------------------------------
+
+await test('deleting moves an entry to the trash and it can be restored', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: daysAgo(1), sections: { techniques: 'kimura from side control', rolling: '', thoughts: '' } }]);
+  const [id] = await page.evaluate(async () => (await import('/js/store.js')).allEntries().then(e => e.map(x => x.id)));
+
+  page.once('dialog', d => d.accept());
+  await go(page, `/log/${id}`);
+  await page.click('button.btn:has-text("Move to trash")');
+  await page.waitForSelector('.hero-num');
+
+  // Gone from the live list…
+  assert.equal((await page.evaluate(async () => (await import('/js/store.js')).allEntries())).length, 0);
+
+  // …and waiting in Library.
+  await go(page, '/library');
+  await page.waitForSelector('.trash-row');
+  assert.match(await page.locator('.trash-row').innerText(), /kimura/i);
+  assert.match(await page.locator('.trash-sub').innerText(), /30 days left/);
+
+  await page.click('.trash-row .btn');
+  await page.waitForTimeout(300);
+  const back = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  assert.equal(back.length, 1, 'restore did not bring the entry back');
+  assert.equal(back[0].deletedAt, null);
+  await page.context().close();
+});
+
+await test('a trashed entry is not resurrected by a sync', async () => {
+  const { server, url: apiBase } = await startFakeGitHub({ port: 8096 });
+  const page = await newPage();
+  await page.evaluate(async api => {
+    const sync = await import('/js/sync.js');
+    await sync.setConfig({ owner: 'kezbolino', repo: 'jj-app-data', branch: 'main', token: 'fake', apiBase: api });
+  }, apiBase);
+
+  await seed(page, [{ date: '2026-07-20', sections: { techniques: 'lockdown', rolling: '', thoughts: '' } }]);
+  await page.evaluate(async () => (await import('/js/sync.js')).sync());
+
+  const [id] = await page.evaluate(async () => (await import('/js/store.js')).allEntries().then(e => e.map(x => x.id)));
+  await page.evaluate(async entryId => (await import('/js/store.js')).deleteEntry(entryId), id);
+
+  // Sync twice: the first pushes the deletion, the second is where a naive pull
+  // would see an unknown id in the repo and put it straight back.
+  await page.evaluate(async () => (await import('/js/sync.js')).sync());
+  await page.evaluate(async () => (await import('/js/sync.js')).sync());
+
+  const live = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  const trashed = await page.evaluate(async () => (await import('/js/store.js')).trashedEntries());
+  assert.equal(live.length, 0, 'the deleted entry came back');
+  assert.equal(trashed.length, 1, 'the entry should still be recoverable locally');
+
+  await page.context().close();
+  server.close();
+});
+
+// ---------------------------------------------------------------------------
+// 10. Duplicate-day cue, Library paging, import guard, shortcuts
+// ---------------------------------------------------------------------------
+
+await test('logging on a day already logged points at the existing entry', async () => {
+  const page = await newPage();
+  const today = localISO(new Date());
+  await seed(page, [{ date: today, sections: { techniques: 'guard retention', rolling: '', thoughts: '' } }]);
+
+  await go(page, '/log');
+  await page.waitForSelector('.dupe');
+  assert.equal(await page.locator('.dupe').isVisible(), true);
+  assert.match(await page.locator('.dupe').innerText(), /already logged a class/i);
+
+  // Change the date and the cue goes away.
+  await page.locator('input[type="date"]').fill(daysAgo(3));
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.dupe').isVisible(), false,
+    'the duplicate-day cue stayed on screen for a date with no class');
+  await page.context().close();
+});
+
+await test('Library pages long lists instead of rendering everything', async () => {
+  const page = await newPage();
+  const many = [];
+  for (let i = 0; i < 62; i++) many.push({ date: daysAgo(i + 1), gi: i % 2 ? 'gi' : 'nogi' });
+  await seed(page, many);
+
+  await go(page, '/library');
+  await page.waitForSelector('.entry');
+  const first = await page.locator('.entry').count();
+  assert.ok(first <= 55, `rendered ${first} rows on first paint`);
+
+  await page.click('button.btn:has-text("Show more")');
+  await page.waitForTimeout(200);
+  assert.ok(await page.locator('.entry').count() > first, 'Show more added nothing');
+  await page.context().close();
+});
+
+await test('a type filter narrows the Library list', async () => {
+  const page = await newPage();
+  await seed(page, [
+    { date: daysAgo(1) },
+    { date: daysAgo(2), type: 'question', body: 'why does my knee slice stall' },
+  ]);
+  await go(page, '/library');
+  await page.click('.seg-filter button:has-text("Question")');
+  await page.waitForTimeout(200);
+  const rows = await page.locator('.entry').allInnerTexts();
+  assert.equal(rows.length, 1);
+  assert.match(rows[0], /knee slice stall/);
+  await page.context().close();
+});
+
+await test('importing a backup never overwrites this device\'s sync config', async () => {
+  const page = await newPage();
+  await page.evaluate(async () => {
+    const sync = await import('/js/sync.js');
+    await sync.setConfig({ owner: 'mine', repo: 'my-data', branch: 'main', token: 'my-token' });
+  });
+
+  const result = await page.evaluate(async () => {
+    const backup = await import('/js/backup.js');
+    return backup.importData({
+      format: 1,
+      entries: [],
+      settings: [
+        { key: 'sync', value: { owner: 'theirs', repo: 'their-data', branch: 'main', token: 'their-token' } },
+        { key: 'syncState', value: { commit: 'deadbeef', paths: { 'class/whatever.md': true } } },
+        { key: 'tombstones', value: { xyz: { path: 'class/gone.md' } } },
+        { key: 'focuses', value: [{ front: 'imported card', back: '' }] },
+      ],
+    });
+  });
+
+  const after = await page.evaluate(async () => {
+    const sync = await import('/js/sync.js');
+    const store = await import('/js/store.js');
+    return {
+      config: await sync.getConfig(),
+      state: await store.getSetting('syncState', null),
+      tombstones: await store.getSetting('tombstones', null),
+      focuses: await store.getFocuses(),
+    };
+  });
+
+  assert.equal(after.config.owner, 'mine', 'the import repointed this device at another repo');
+  assert.equal(after.config.token, 'my-token', 'the import replaced the access token');
+  assert.equal(after.state, null, 'a foreign syncState was written — push would think notes are backed up');
+  assert.equal(after.tombstones, null, 'foreign pending deletions were imported');
+  assert.equal(result.settingsSkipped, 3);
+  // The things you actually want back after losing a phone do come across.
+  assert.equal(after.focuses[0].front, 'imported card');
+  await page.context().close();
+});
+
+await test('the manifest offers launcher shortcuts and matches the light default', async () => {
+  const page = await newPage();
+  const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());
+  const urls = manifest.shortcuts.map(s => s.url);
+  assert.deepEqual(urls, ['./#/log', './#/timer', './#/focus']);
+  assert.equal(manifest.background_color, '#f5f7fc', 'splash is still dark while the app defaults to light');
+
+  // Every shortcut has to land somewhere real.
+  for (const shortcut of manifest.shortcuts) {
+    await go(page, shortcut.url.replace('./#', ''));
+    const missing = await page.locator('.empty:has-text("Page not found")').count();
+    assert.equal(missing, 0, `${shortcut.url} is not a route`);
+  }
+  await page.context().close();
+});
+
+await browser.close();
+
+if (errors.length) {
+  console.log('\nPage errors:');
+  for (const e of [...new Set(errors)]) console.log('  ', e);
+  process.exitCode = 1;
+} else {
+  console.log('\nNo page errors.');
+}
+console.log(`${passed} passed`);

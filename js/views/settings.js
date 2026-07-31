@@ -1,7 +1,8 @@
 // Sync settings — point the app at your private backup repo.
 
-import { h, card, toast, empty, tagChip } from '../ui.js';
+import { h, card, toast, empty, tagChip, fmtDate, BELT_RANKS } from '../ui.js';
 import * as sync from '../sync.js';
+import * as store from '../store.js';
 import * as backup from '../backup.js';
 import * as overrides from '../overrides.js';
 import * as appearance from '../appearance.js';
@@ -31,6 +32,60 @@ function appearanceCard() {
       appearance.BUTTON_STYLES, appearance.getButtonStyle, appearance.setButtonStyle),
     pickerCard('Theme', 'Auto follows your phone. Light and dark pin it either way.',
       appearance.THEMES, appearance.getTheme, appearance.setTheme));
+}
+
+/**
+ * Belt history — the promotions you have actually been given.
+ *
+ * The app repeats what you tell it and counts the classes you have logged
+ * since. It does not estimate a rank, and there is deliberately no
+ * "time to next belt": that is a decision someone else makes about you, not a
+ * number an app gets to predict. Same reason the fabricated "mat hours" badge
+ * was refused in v5.
+ */
+function beltCard(promotions, standing, reload) {
+  const rankSelect = h('select',
+    h('option', { value: '' }, 'Rank…'),
+    BELT_RANKS.map(b => h('option', { value: b.rank }, b.rank[0].toUpperCase() + b.rank.slice(1))));
+  const dateInput = h('input', { type: 'date', value: store.todayISO() });
+
+  const add = async () => {
+    if (!rankSelect.value) { toast('Pick a rank'); return; }
+    if (!dateInput.value) { toast('Pick the date you were promoted'); return; }
+    await store.setPromotions([
+      ...promotions.filter(p => p.rank !== rankSelect.value),
+      { rank: rankSelect.value, date: dateInput.value },
+    ]);
+    toast('Saved');
+    reload();
+  };
+
+  const rows = promotions.length
+    ? h('div.belt-list', [...promotions].reverse().map(p =>
+        h('div.belt-row',
+          h('i.belt-dot.belt-' + p.rank),
+          h('span.belt-name', p.rank[0].toUpperCase() + p.rank.slice(1)),
+          h('span.belt-date', fmtDate(p.date)),
+          h('button', {
+            'aria-label': `Remove ${p.rank}`,
+            onclick: async () => {
+              await store.setPromotions(promotions.filter(x => x.rank !== p.rank));
+              toast('Removed');
+              reload();
+            },
+          }, '×'))))
+    : empty('No promotions recorded. Add one and the mark on Home fills to your rank.');
+
+  return card('Your belt',
+    h('p.small.muted',
+      standing
+        ? `${standing.rank[0].toUpperCase() + standing.rank.slice(1)} belt since ${fmtDate(standing.date)} — ` +
+          `${standing.classesSince} ${standing.classesSince === 1 ? 'class' : 'classes'} logged since then.`
+        : 'Record the promotions you have been given. The app counts classes since — it never guesses a rank or predicts the next one.'),
+    rows,
+    h('label', { style: 'margin-top:12px' }, 'Add a promotion'),
+    h('div.btn-row', rankSelect, dateInput,
+      h('button.btn.small', { onclick: add }, 'Add')));
 }
 
 function fmtWhen(iso) {
@@ -79,6 +134,8 @@ export default async function settings(root) {
   const config = await sync.getConfig();
   const lastSync = await sync.getLastSync();
   const corrections = await overrides.getOverrides();
+  const promotions = await store.getPromotions();
+  const standing = store.beltStanding(await store.allEntries(), promotions);
   const reload = () => { root.replaceChildren(); settings(root); };
 
   const owner = h('input', { type: 'text', value: config.owner, placeholder: 'kezbolino' });
@@ -158,6 +215,8 @@ export default async function settings(root) {
         ? h('p.small.muted', 'Pulls first, then pushes. Newer always wins.')
         : empty('Fill in the repo details above first.'),
       h('div.btn-row', h('button.btn.primary.wide', { onclick: runSync }, 'Sync now'))),
+
+    beltCard(promotions, standing, reload),
 
     correctionsCard(corrections, reload),
 

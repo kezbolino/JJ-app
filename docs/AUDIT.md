@@ -17,6 +17,10 @@ touches `innerHTML`. No secrets in the repo.
 
 Ten solutions follow, ordered by what they cost the user, not by effort.
 
+> **Status:** §1 (render token), §2 (local dates), §3 (import guard) and §10
+> (manifest) were **fixed in v17**. §4–§9 are still open, and the "suggested
+> order" at the foot of this document still applies to them.
+
 ---
 
 ## 1. A stale re-render destroys whatever screen you're on — including a
