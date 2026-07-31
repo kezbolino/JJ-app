@@ -88,6 +88,17 @@ await step('saves and returns home with the class counted', async () => {
 
 await page.screenshot({ path: `${SHOT}/03-home.png`, fullPage: true });
 
+// Settings has no tab of its own, and the cloud button stops linking to it once
+// sync is configured — so the gear on Home is the one route that always works.
+await step('the gear on Home opens Settings', async () => {
+  await page.click('.settings-btn');
+  await page.waitForSelector('.page-title');
+  const title = await page.locator('.page-title').innerText();
+  if (title !== 'Settings') throw new Error(`gear landed on "${title}", not Settings`);
+  await page.click('a[data-tab="/"]');
+  await page.waitForSelector('.hero-num');
+});
+
 await step('coverage map shows the heatmap and the tally rows', async () => {
   await page.click('a[data-tab="/map"]');
   await page.waitForSelector('.heat__cell');

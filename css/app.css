@@ -264,6 +264,7 @@ a { color: var(--accent); text-decoration: none; }
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 20px;
 }
+.brand-actions { display: flex; align-items: center; gap: 8px; }
 .brand-mark { display: block; }
 .brand-jj {
   font-size: 29px; font-weight: 700; letter-spacing: -1px;

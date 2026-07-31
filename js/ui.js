@@ -168,6 +168,10 @@ const SHAPES = {
   edit:     [['path', 'M4 20h4L18.5 9.5a2 2 0 0 0-2.83-2.83L5 17v3Z'], ['line', 14, 6, 18, 10]],
   star:     [['path', 'M12 3.6l2.47 5 5.53.8-4 3.9.94 5.5L12 16.2 7.06 18.8 8 13.3l-4-3.9 5.53-.8z']],
   mic:      [['rect', 9, 3, 6, 11, 3], ['path', 'M5 11a7 7 0 0 0 14 0'], ['line', 12, 18, 12, 21], ['line', 8, 21, 16, 21]],
+  // A cog: eight teeth around a hub. Drawn as one path so the stroke joins
+  // cleanly at this size — the primitives would leave gaps between the teeth.
+  gear:     [['circle', 12, 12, 3.1],
+             ['path', 'M12 2.4l1.5 2.2a7.6 7.6 0 0 1 2 .83l2.5-.7 1.06 1.84-1.8 1.9c.2.66.32 1.35.34 2.05l2.4 1.08v2.12l-2.4 1.08a7.6 7.6 0 0 1-.34 2.05l1.8 1.9-1.06 1.84-2.5-.7c-.62.36-1.3.64-2 .83L12 21.6l-1.5-2.2a7.6 7.6 0 0 1-2-.83l-2.5.7-1.06-1.84 1.8-1.9a7.6 7.6 0 0 1-.34-2.05L4 12.4v-2.12l2.4-1.08c.02-.7.14-1.39.34-2.05l-1.8-1.9L6 3.41l2.5.7c.62-.36 1.3-.64 2-.83L12 2.4Z']],
 };
 
 /** icon('search') → an <svg> node, sized by CSS (font/width). */
