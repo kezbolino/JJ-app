@@ -98,6 +98,32 @@ export function giFlag(gi) {
 
 export function empty(message) { return h('p.empty', message); }
 
+/**
+ * Twenty discrete cells, filled from a real percentage — the honest replacement
+ * for a bar whose length you have to eyeball. The label carries the number, so
+ * colour and length are never the only carrier.
+ *
+ * Cells reveal in a short stagger rather than animating a width, because a
+ * growing bar reads as a value changing when nothing has changed.
+ */
+export function tally(pct, label) {
+  const CELLS = 20;
+  const on = Math.round((Math.max(0, Math.min(100, pct)) / 100) * CELLS);
+  const cells = [];
+  for (let i = 0; i < CELLS; i++) {
+    cells.push(h('span.tally__c' + (i < on ? '.is-on' : ''),
+      { style: `animation-delay:${(i * 18) / 1000}s` }));
+  }
+  return h('div.tally', { role: 'img', 'aria-label': label }, cells);
+}
+
+/** The brand device: JJ over a three-segment belt. */
+export function brandMark() {
+  return h('div.brand-mark',
+    h('h1.brand-jj', 'JJ'),
+    h('div.belt', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
+}
+
 // ---- inline SVG icons ------------------------------------------------------
 // App-authored, static markup — never built from user content. Drawn with the
 // SVG namespace because document.createElement (what h() uses) can't make SVG.

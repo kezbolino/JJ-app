@@ -25,10 +25,12 @@ function pickerCard(title, hint, options, current, onPick) {
 
 function appearanceCard() {
   return h('div',
-    pickerCard('App font', '🔤 The face the whole app is set in.',
+    pickerCard('App font', 'The face the whole app is set in.',
       appearance.FONTS, appearance.getFont, appearance.setFont),
-    pickerCard('Button style', '🎨 Chunky pressable pills, or an iOS-flat feel.',
-      appearance.BUTTON_STYLES, appearance.getButtonStyle, appearance.setButtonStyle));
+    pickerCard('Button style', 'Chunky pressable buttons, or an iOS-flat feel.',
+      appearance.BUTTON_STYLES, appearance.getButtonStyle, appearance.setButtonStyle),
+    pickerCard('Theme', 'Auto follows your phone. Light and dark pin it either way.',
+      appearance.THEMES, appearance.getTheme, appearance.setTheme));
 }
 
 function fmtWhen(iso) {
@@ -127,7 +129,10 @@ export default async function settings(root) {
   };
 
   root.append(
-    h('h2', 'Sync & backup'),
+    h('div.page-head',
+      h('div',
+        h('h1.page-title', 'Settings'),
+        h('p.page-sub', 'Sync, appearance and the words you have taught it'))),
 
     card('How this works',
       h('p.small.muted',

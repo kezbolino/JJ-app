@@ -38,13 +38,28 @@ export default async function position(root, { positionId, role }) {
   const videos = tagged.filter(e => e.type === 'video' && e.video);
   const written = tagged.filter(e => e.type !== 'video');
 
+  const total = cov[positionId].total;
+  const share = all.length ? Math.round((total / all.length) * 100) : 0;
+  const roleCounts = cov[positionId].roles;
+  const busiest = Math.max(0, ...Object.values(roleCounts));
+  const hasGap = busiest >= 3 && Object.values(roleCounts).some(n => n === 0);
+
   root.append(
     h('a.small.muted', { href: '#/map' }, '‹ Coverage map'),
-    h('h2', pos.label + (role ? ` · ${ROLE_LABEL[role] ?? role}` : '')),
+    h('div.page-head',
+      h('div',
+        h('h1.page-title', pos.label + (role ? ` · ${ROLE_LABEL[role] ?? role}` : '')),
+        h('p.page-sub',
+          `${total} ${total === 1 ? 'entry' : 'entries'} · ${share}% of everything you have written`))),
   );
 
   if (!role) {
-    root.append(card('Coverage', coverageBars(positionId, cov[positionId].roles, { linkRole: true })));
+    root.append(card('Coverage',
+      coverageBars(positionId, roleCounts, { linkRole: true }),
+      hasGap
+        ? h('p.small.muted', { style: 'margin:14px 0 0' },
+            'A dashed amber rail means nothing written for that role yet — not that you are bad at it.')
+        : null));
   } else {
     root.append(h('p.small', h('a', { href: `#/map/${positionId}` }, 'Show all roles')));
   }

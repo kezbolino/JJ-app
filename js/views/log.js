@@ -125,7 +125,9 @@ export default async function log(root, { id } = {}) {
 
   let corrections = await overrides.getOverrides();
 
-  const tagsBox = h('div.tags');
+  // Two chip states, kept visually apart: accepted tags sit in the accent tint,
+  // suggestions are dashed outlines you have not committed to yet.
+  const tagsBox = h('div.tags.accepted');
   const suggestBox = h('div.tags');
   const advanced = h('div', { hidden: true });
 
