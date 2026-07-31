@@ -412,7 +412,15 @@ data if forgotten:
   700 first; user asked for one step lighter), and `.page-title`'s tracking
   loosened -.035em → -.015em (tight negative tracking is what makes a heavy face
   read as dense; 600 needs much less of it). Note `.page-sub` is also 600 — the
-  title/subtitle hierarchy is carried by size and colour, not weight. Deliberately left
-  heavy: `.brand-jj` (a logo) and `.hero-num` / stat numbers, where the weight is
-  the point — so the hierarchy is now "brand and data are bold, prose headings
-  are not". sw CACHE → v15, VERSION → v15.
+  title/subtitle hierarchy is carried by size and colour, not weight. A follow-up
+  pass took the **numbers and the brand mark** down too, after the user said they
+  still read fat: `.hero-num` 900 → **600** (large type carries a light weight
+  well), `.hero-stat .n` / `.stat .n` 900 → **700** so the small tiles don't sit
+  heavier than the big number they support, and `.brand-jj` 900 → **700** with
+  tracking -1.6px → -1px. Tracking was loosened at every step — it is half of what
+  made the heavy weights read as dense. The rule the scale now follows: **weight
+  goes UP as type gets smaller** — 600 for headings and the hero number, 700 for
+  the brand mark and stat tiles, 800–900 only for small uppercase labels and
+  button text, where the size needs the weight. Left at 900 on purpose: `.btn`
+  labels, `.card-title` eyebrows, `.now-badge`, `.fc-text`. sw CACHE → v15,
+  VERSION → v15.
