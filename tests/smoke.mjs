@@ -88,11 +88,14 @@ await step('saves and returns home with the class counted', async () => {
 
 await page.screenshot({ path: `${SHOT}/03-home.png`, fullPage: true });
 
-await step('coverage map shows the position and its roles', async () => {
+await step('coverage map shows the heatmap and the tally rows', async () => {
   await page.click('a[data-tab="/map"]');
-  await page.waitForSelector('.cov-row');
+  await page.waitForSelector('.heat__cell');
   const text = await page.locator('#view').innerText();
   if (!text.includes('Half Guard')) throw new Error('Half Guard missing from map');
+  if (!(await page.locator('.exp-row .tally__c.is-on').count())) {
+    throw new Error('exposure tally rendered no filled cells');
+  }
 });
 
 await page.screenshot({ path: `${SHOT}/04-map.png`, fullPage: true });
@@ -100,6 +103,7 @@ await page.screenshot({ path: `${SHOT}/04-map.png`, fullPage: true });
 await step('position page assembles entries from tags', async () => {
   await page.click('a.link-row:has-text("Half Guard")');
   await page.waitForSelector('a:has-text("‹ Coverage map")');
+  await page.waitForSelector('.cov-row');    // the sacred position × role rails
   const text = await page.locator('#view').innerText();
   if (!/entries · 1/i.test(text)) throw new Error('entry not linked to position');
 });

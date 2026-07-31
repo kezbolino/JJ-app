@@ -28,7 +28,9 @@ export default async function search(root, { q = '' } = {}) {
   };
 
   input.addEventListener('input', run);
-  root.append(h('h2', 'Search'), card(null, input), results);
+  root.append(
+    h('div.page-head', h('div', h('h1.page-title', 'Search'))),
+    card(null, input), results);
   run();
   input.focus();
 }

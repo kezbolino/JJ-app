@@ -12,7 +12,7 @@ import * as store from '../store.js';
 // One flippable card. `card` is { front, back }; flipping is local view state.
 function flashcard(card) {
   const inner = h('div.fc-inner',
-    h('div.fc-face.fc-front', h('div.fc-text', card.front)),
+    h('div.fc-face', h('div.fc-text', card.front)),
     h('div.fc-face.fc-back',
       card.back ? h('div.fc-text', card.back) : empty('No cues yet — tap Edit to add some.')));
 
@@ -24,25 +24,31 @@ function flashcard(card) {
   return el;
 }
 
-// The deck: one card at a time, with prev/next and a position counter. Kept as
-// its own function so the render can be swapped in place without a full reload.
-function deck(cards, mount) {
+// The deck: one card at a time, with a progress rail, a counter and a prev/next
+// pair. Kept as its own function so the render can be swapped in place without a
+// full reload. `onIndex` lets the list below mark which card you are on.
+function deck(cards, mount, onIndex) {
   let i = 0;
   const render = () => {
     i = Math.max(0, Math.min(i, cards.length - 1));
     const card = cards[i];
+    const top = h('div.deck-top',
+      h('div.deck-rail', {
+        role: 'img', 'aria-label': `Card ${i + 1} of ${cards.length}`,
+      }, h('i', { style: `width:${((i + 1) / cards.length) * 100}%` })),
+      h('span.fc-count', `${i + 1} / ${cards.length}`));
     const stage = h('div.fc-stage', flashcard(card));
     const nav = h('div.fc-nav',
       h('button.fc-arrow', {
         type: 'button', 'aria-label': 'Previous',
         disabled: i === 0, onclick: () => { i--; render(); },
       }, '‹'),
-      h('span.fc-count', `${i + 1} / ${cards.length}`),
       h('button.fc-arrow', {
         type: 'button', 'aria-label': 'Next',
         disabled: i === cards.length - 1, onclick: () => { i++; render(); },
       }, '›'));
-    mount.replaceChildren(stage, h('p.fc-hint', 'Tap the card to flip'), nav);
+    mount.replaceChildren(top, stage, h('p.fc-hint', 'Tap the card to flip'), nav);
+    onIndex?.(i);
   };
   render();
 }
@@ -70,22 +76,29 @@ function editor(cards, rerender) {
     rerender();
   };
 
-  const list = cards.length
-    ? h('ul.fc-list', cards.map(c =>
-        h('li',
-          h('span.fc-list-front', c.front),
-          h('button', {
-            type: 'button', 'aria-label': `Remove ${c.front}`, onclick: () => remove(c),
-          }, '×'))))
-    : null;
+  // Each row can carry a NOW badge marking the card the deck is showing, so the
+  // list and the deck never disagree about where you are.
+  const rows = cards.map(c =>
+    h('li',
+      h('span.fc-list-front', c.front),
+      h('span.now-badge', { hidden: true }, 'Now'),
+      h('button', {
+        type: 'button', 'aria-label': `Remove ${c.front}`, onclick: () => remove(c),
+      }, '×')));
 
-  return h('section.card',
+  const el = h('section.card',
     h('div.card-title', 'Edit deck'),
-    list,
+    rows.length ? h('ul.fc-list', rows) : null,
     h('label', 'New card'),
     front,
     back,
     h('div.btn-row', h('button.btn.primary', { type: 'button', onclick: add }, icon('plus'), 'Add card')));
+
+  const mark = i => rows.forEach((row, n) => {
+    row.querySelector('.now-badge').hidden = n !== i;
+  });
+
+  return { el, mark };
 }
 
 export default async function focus(root) {
@@ -98,15 +111,17 @@ export default async function focus(root) {
         h('h1.page-title', 'Working on'),
         h('p.page-sub', 'Your flashcards — tap to flip, swipe through to drill'))));
 
+  const panel = editor(cards, rerender);
+
   if (cards.length) {
     const mount = h('div.deck');
     root.append(mount);
-    deck(cards, mount);
+    deck(cards, mount, i => panel.mark(i));
   } else {
     root.append(empty('No flashcards yet. Add the first thing you want to drill below.'));
   }
 
-  root.append(editor(cards, rerender));
+  root.append(panel.el);
 }
 
 // Small helper: clear the view before a re-render, returning it so focus() can

@@ -4,7 +4,7 @@
 // curriculum, so there is no external source to read). Plus one coverage
 // prompt once there is enough written down to make it honest.
 
-import { h, card, empty, fmtDate, giFlag, tagChip, icon, sectionHead, toast, clear } from '../ui.js';
+import { h, card, empty, fmtDate, giFlag, tagChip, icon, sectionHead, toast, clear, brandMark } from '../ui.js';
 import { positionLabel, ROLE_LABEL } from '../ontology.js';
 import * as store from '../store.js';
 import * as sync from '../sync.js';
@@ -46,13 +46,21 @@ async function runSync(btn, { quiet = false } = {}) {
 }
 
 function brandRow(syncCtl) {
-  return h('div.brand-row', h('h1.brand-jj', 'JJ'), syncCtl);
+  return h('div.brand-row', brandMark(), syncCtl);
 }
 
 function heroCard(counts, gi) {
   const stat = (n, l, good) => h('div.hero-stat' + (good ? '.good' : ''),
     h('div.n', n), h('div.l', l));
+  // A rail across the card's top edge, filled to the gi share — the same number
+  // as the third tile, read at a glance.
+  const rail = h('div.hero-rail', {
+    role: 'img',
+    'aria-label': gi ? `${gi.pct}% of recorded classes were gi` : 'No gi / no-gi recorded yet',
+  }, h('i', { style: `width:${gi ? gi.pct : 0}%` }));
+
   return h('section.card.hero',
+    rail,
     h('div.hero-top',
       h('div',
         h('div.hero-label', 'Total classes logged'),
@@ -83,10 +91,12 @@ function gapPanel(gaps) {
   const emptyRole = (ROLE_LABEL[g.emptyRole] ?? g.emptyRole).toLowerCase();
   const position = positionLabel(g.position);
 
-  return card('Worth a look', h('div.prompt',
-    h('p', `You've written about ${position} ${filled} ${g.filledCount} times — and nothing on ${emptyRole}.`),
-    h('a.small', { href: `#/map/${g.position}` }, `Open ${position} →`),
-  ));
+  // Amber, because this is a gap. Amber is only ever allowed to mean that.
+  return h('section.card.warncard',
+    h('div.card-title', 'Worth a look'),
+    h('div.prompt',
+      h('p', `You've written about ${position} ${filled} ${g.filledCount} times — and nothing on ${emptyRole}.`),
+      h('a.small', { href: `#/map/${g.position}` }, `Open ${position} →`)));
 }
 
 // The most recent class, as the "last session" card.

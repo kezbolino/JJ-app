@@ -338,3 +338,43 @@ data if forgotten:
   `fonts/nunito.woff2` and `js/appearance.js` added to SHELL. All five suites
   green; screenshot-verified home/map/log/settings + the iOS-flat/serif variant
   (seeded through the real Log form). No suite covers the CSS/appearance toggles.
+- 2026-07-31 — **v13 redesign: the "Stripe × Tatami" language** (from a Claude
+  design handoff). Shape language went **999px pills → 22px rounded rectangles**;
+  the chunky pressable edge stayed and got deeper (7px CTA · 5px card/primary ·
+  4px paired · 3px inline/segmented). **Light is now the default**, dark follows
+  the OS, and Settings → Appearance gained a **Theme** picker (Auto/Light/Dark)
+  that pins either — `js/appearance.js` now writes `data-theme` alongside
+  `data-font`/`data-btn`. The dark palette is deliberately **written out twice**
+  in `css/app.css` (`@media prefers-color-scheme: dark` +
+  `:root[data-theme="dark"]`): there is no build step to factor it out, and doing
+  it in JS would flash the wrong theme on boot. New rule the tokens enforce:
+  **blue = UI/action, ink = data, amber = gap/attention only** (amber's four
+  jobs: gap panel, zero cells/rails, pending sync, the belt mark's third
+  segment). Landed: brand mark (JJ + three-segment belt) replacing the blue
+  wordmark; sync button now a 42px squircle (behaviour untouched); hero gained a
+  gi-share rail and `--surface-2` stat tiles; **tally squares** (20 discrete
+  cells, `tally()` in `ui.js`) replaced the exposure bar; a **position × role
+  heatmap** replaced the decorative radar; the position page's coverage bars
+  became **rails**, where a zero role is a full-width dashed amber rail (length
+  must never imply a small amount where there is none); Working-on got a deck
+  progress rail and a NOW badge in the list. **Class names were not renamed**
+  (`.cov-*`, `.exp-*`, `.btn.primary/.cta/.small` carry the handoff's
+  `.rrow`/`.btn--accent` visuals) — same call as the v12 style-guide pass, and it
+  is what keeps the sacred position×role chart and the smoke selectors intact.
+  Two judgement calls worth knowing: (1) the handoff's fixed 4-column heatmap
+  axis was **tried and dropped** — roles vary by position, so one shared axis
+  left Side Control and Mount as rows of "not applicable" dots; the axis is now
+  every role the shown positions actually use, scrolling sideways inside its own
+  box with the row labels pinned. (2) The tab bar stayed `position: fixed` with
+  matching body padding rather than becoming a flex sibling — the handoff's "it
+  scrolls away on tall screens" bug does not exist here, and a fixed bar cannot
+  have it. Map order is now heatmap → tally → your game → gaps → positions →
+  untouched; the per-position rails moved off Map (the heatmap *is* that data)
+  and live on the position page. Neutral `.btn` gained a `--btn-line` outline —
+  without it a white button on a white card was invisible. sw CACHE → v13,
+  VERSION → v13, no new files. All five suites green; screenshot-verified every
+  screen in light and dark, plus pinned-light-on-dark-OS, pinned-dark-on-light-OS,
+  iOS-flat and reduced motion (0 running animations). **Trap found:** an
+  infinitely breathing CTA is never "stable" for Playwright and the click times
+  out — `breathe` now holds at rest for 45% of its cycle, which both fixes the
+  click and is what a breath actually does.

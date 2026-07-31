@@ -1,13 +1,23 @@
 // Coverage map — every position, and how your attention is split inside it.
 //
-// This is the honest version of the radar chart. It shows what you have
-// written about, not what you are good at. An empty bar next to a full one is
-// a gap in your notes, and that is all it ever claims to be.
+// It shows what you have written about, not what you are good at. An empty
+// cell next to a full one is a gap in your notes, and that is all it ever
+// claims to be. Nothing here draws a shape that could be mistaken for a
+// measurement of you — that is why the decorative radar was deleted in v13.
 
-import { h, card, empty, toast, tagChip, icon } from '../ui.js';
-import { POSITIONS, POSITION_BY_ID, TECHNIQUE_BY_ID, ROLE_LABEL, rolesFor, positionLabel, techniqueLabel } from '../ontology.js';
+import { h, card, empty, toast, tagChip, icon, tally } from '../ui.js';
+import { POSITIONS, POSITION_BY_ID, TECHNIQUE_BY_ID, ROLES, ROLE_LABEL, rolesFor, techniqueLabel } from '../ontology.js';
 import * as store from '../store.js';
 
+/**
+ * The position × role rails — the sacred chart. One row per role: label, rail,
+ * count.
+ *
+ * Width is the role's share of the busiest role *within this position*, so the
+ * rows are comparable to each other and not to another position's. A role with
+ * nothing in it is a dashed amber rail at full width, never a short blue one:
+ * length must never imply a small amount where there is none.
+ */
 export function coverageBars(positionId, roleCounts, { linkRole = null } = {}) {
   const roles = rolesFor(positionId);
   const max = Math.max(1, ...Object.values(roleCounts));
@@ -19,11 +29,11 @@ export function coverageBars(positionId, roleCounts, { linkRole = null } = {}) {
   return h('div.cov', roles.map(role => {
     const n = roleCounts[role.id] ?? 0;
     const isGap = n === 0 && meaningful;
+
     const bar = h('div.cov-bar',
-      h('div.cov-track', h('div.cov-fill' + (n ? '' : '.zero'), {
-        style: `width:${n ? Math.max(8, (n / max) * 100) : 100}%`,
-      })),
-      h('span.cov-n', String(n)));
+      h('div.cov-track' + (isGap ? '.gap' : ''),
+        n ? h('div.cov-fill', { style: `width:${Math.max(8, (n / max) * 100)}%` }) : null),
+      h('span.cov-n', { 'aria-label': `${n} ${n === 1 ? 'entry' : 'entries'}` }, String(n)));
 
     const label = linkRole
       ? h('a.cov-role', { href: `#/map/${positionId}/${role.id}` }, role.label)
@@ -33,47 +43,82 @@ export function coverageBars(positionId, roleCounts, { linkRole = null } = {}) {
   }));
 }
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const svgEl = (name, attrs) => {
-  const el = document.createElementNS(SVG_NS, name);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-  return el;
-};
+/**
+ * The whole matrix at a glance: positions down the side, roles across the top,
+ * opacity for volume. This replaced the decorative radar, which drew a shape
+ * that looked like a measurement of you and wasn't one.
+ *
+ * A zero cell is never a faint blue cell — it is dashed amber, because a role
+ * with nothing in it next to one with plenty is the product's whole thesis.
+ * Below the gap threshold there is no amber at all, so day one reads as
+ * "empty", not "failing".
+ */
+function heatmap(entries) {
+  const cov = store.coverage(entries);
+  const active = store.activePositions(entries);
 
-// A decorative radar backdrop with a dot per busy position, placed further out
-// the more of your attention it holds. The honest numbers are in the bars below.
-function radar(active) {
-  const svg = svgEl('svg', { viewBox: '0 0 100 100' });
-  for (const r of [14, 27, 40]) svg.append(svgEl('circle', { class: 'ring', cx: 50, cy: 50, r }));
-  svg.append(svgEl('line', { class: 'axis', x1: 50, y1: 8, x2: 50, y2: 92 }));
-  svg.append(svgEl('line', { class: 'axis', x1: 8, y1: 50, x2: 92, y2: 50 }));
+  // Cold start: show the structure with nothing in it rather than nothing.
+  const rows = active.length
+    ? active.slice(0, 8)
+    : POSITIONS.slice(0, 6).map(p => ({ id: p.id, label: p.label, roles: cov[p.id].roles }));
 
-  const top = active.slice(0, 6);
-  const max = Math.max(1, ...top.map(p => p.count));
-  top.forEach((p, i) => {
-    const angle = (i / top.length) * Math.PI * 2 - Math.PI / 2;
-    const radius = 8 + (p.count / max) * 32;
-    const dot = svgEl('circle', {
-      class: 'dot' + (i < 2 ? '' : ' dim'),
-      cx: (50 + Math.cos(angle) * radius).toFixed(1),
-      cy: (50 + Math.sin(angle) * radius).toFixed(1),
-      r: 3.5,
-    });
-    const title = svgEl('title', {});
-    title.textContent = p.label;
-    dot.append(title);
-    svg.append(dot);
-  });
-  return h('div.radar', svg);
+  // Roles vary by position — a guard has sweeps, a pin has escapes — so the
+  // columns are every role these rows actually use, in the ontology's own
+  // order. Capping the axis to the few most-shared roles was tried and dropped:
+  // it left whole positions as a row of "not applicable" dots, which reads as
+  // "nothing here" when the truth is "you're looking at the wrong axis". The
+  // grid scrolls sideways instead, with the position labels pinned.
+  const columns = ROLES.filter(r => rows.some(row => row.roles[r.id] !== undefined));
+
+  const max = Math.max(1, ...rows.flatMap(r =>
+    columns.map(c => r.roles[c.id] ?? 0)));
+
+  const cell = row => role => {
+    const n = row.roles[role.id];
+    if (n === undefined) {
+      // This position has no such role. Inert — not a gap, nothing missing.
+      return h('div.heat__cell.heat__cell--na',
+        { title: `${row.label} has no ${role.label.toLowerCase()} role` }, '·');
+    }
+    const label = `${row.label}, ${role.label}: ${n} ${n === 1 ? 'entry' : 'entries'}`;
+    const rowMax = Math.max(0, ...Object.values(row.roles));
+    if (n === 0 && rowMax >= 3) {
+      return h('div.heat__cell.heat__cell--gap',
+        { role: 'img', 'aria-label': `${label} — nothing written yet`, title: label }, '0');
+    }
+    const alpha = 0.06 + 0.79 * (n / max);
+    // The number is only legible once the fill is solid enough to carry it;
+    // below that it lives in the label, which is what screen readers use anyway.
+    return h('div.heat__cell' + (alpha >= 0.62 ? '.heat__cell--solid' : ''), {
+      style: `background:rgba(var(--accent-rgb),${alpha.toFixed(3)})`,
+      role: 'img', 'aria-label': label, title: label,
+    }, alpha >= 0.45 ? String(n) : '');
+  };
+
+  const grid = h('div.heat',
+    { style: `grid-template-columns: 62px repeat(${columns.length}, minmax(44px, 1fr))` },
+    h('div.heat__corner'),
+    columns.map(c => h('div.heat__head', c.label)),
+    rows.map(row => [
+      h('a.heat__label', { href: `#/map/${row.id}` }, row.label),
+      columns.map(cell(row)),
+    ]));
+
+  return card('Attention by position × role', h('div.heat-scroll', grid),
+    h('div.heat-legend',
+      h('span', h('i.on'), 'More written'),
+      h('span', h('i.off'), 'Nothing yet')));
 }
 
+// All-time share of attention, as discrete tally squares rather than a bar —
+// twenty cells you can count, instead of a length you have to eyeball.
 function exposure(active) {
   const max = Math.max(1, ...active.map(p => p.count));
   return h('div.exposure', active.map(p => {
     const pct = Math.round((p.count / max) * 100);
     return h('a.exp-row', { href: `#/map/${p.id}` },
       h('span.exp-name', p.label),
-      h('span.exp-track', h('span.exp-fill', { style: `width:${pct}%` })),
+      tally(pct, `${p.label}: ${p.count} ${p.count === 1 ? 'entry' : 'entries'}, ${pct}% of your busiest position`),
       h('span.exp-pct', `${pct}%`));
   }));
 }
@@ -160,46 +205,49 @@ export default async function map(root) {
   root.append(h('div.page-head',
     h('div',
       h('h1.page-title', 'Your map'),
-      h('p.page-sub', 'See where you are spending your mat time'))));
+      h('p.page-sub', 'Where your attention has gone — attention, not skill'))));
 
-  root.append(...yourGame(entries, liked, reload));
+  // The matrix first: it is the one picture that shows a gap as an absence
+  // sitting next to a presence, which is the thing this app exists to notice.
+  root.append(heatmap(entries));
 
   if (!active.length) {
     root.append(card(null, empty('Nothing logged yet. The map fills in as you write.')));
+    root.append(...yourGame(entries, liked, reload));
     return;
   }
 
   root.append(
-    radar(active),
     h('div.card-title', 'Exposure breakdown'),
     exposure(active),
-    h('p.small.muted', { style: 'margin-top:10px' },
+    h('p.small.muted', { style: 'margin-top:12px' },
       'Share of what you have written about, relative to your busiest position — attention, not skill.'),
   );
 
+  root.append(...yourGame(entries, liked, reload));
+
   const gaps = store.findGaps(entries);
   if (gaps.length) {
-    root.append(h('div', { style: 'height:8px' }), card('Gaps', h('div.prompt',
+    root.append(card('Gaps', h('div.prompt',
       h('p.small', 'Roles with nothing written, next to roles with plenty:'),
       h('div.tags', gaps.slice(0, 5).map(g =>
-        h('a.tag', { href: `#/map/${g.position}` },
+        h('a.tag.concept', { href: `#/map/${g.position}` },
           POSITIONS.find(p => p.id === g.position)?.label,
           h('span.role', `no ${(ROLE_LABEL[g.emptyRole] ?? g.emptyRole).toLowerCase()}`)))))));
   }
 
   const cov = store.coverage(entries);
-  root.append(h('div.card-title', { style: 'margin-top:22px' }, 'Roles within each position'));
-  for (const position of active) {
-    root.append(card(null,
+  root.append(card('Positions you have written about',
+    active.map(position =>
       h('a.link-row', { href: `#/map/${position.id}` },
         h('strong', position.label),
-        h('span.count', `${position.count} ${position.count === 1 ? 'entry' : 'entries'} ›`)),
-      coverageBars(position.id, cov[position.id].roles)));
-  }
+        h('span.count', `${position.count} ${position.count === 1 ? 'entry' : 'entries'} ›`)))));
 
+  // Nothing here can repeat the lists above — these are the positions with a
+  // coverage total of zero, and everything above is drawn from the non-zero ones.
   const untouched = POSITIONS.filter(p => cov[p.id].total === 0);
   if (untouched.length) {
     root.append(card('Nothing written yet',
-      h('div.tags', untouched.map(p => h('a.tag', { href: `#/map/${p.id}` }, p.label)))));
+      h('div.tags', untouched.map(p => h('a.tag.concept', { href: `#/map/${p.id}` }, p.label)))));
   }
 }
