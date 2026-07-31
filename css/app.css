@@ -275,8 +275,11 @@ a { color: var(--accent); text-decoration: none; }
    light background and black on a dark one, so every segment carries a hairline
    and the two extremes get their own per-theme value. */
 .belt { display: flex; gap: 3px; margin-top: 7px; }
+/* Width is set inline, from the years each rank typically takes — see
+   BELT_RANKS in js/ui.js. The mark is a timeline, so the numbers live with the
+   data rather than being hard-coded here. */
 .belt i {
-  display: block; width: 9px; height: 6px; border-radius: 3px;
+  display: block; height: 6px; border-radius: 3px;
   box-shadow: inset 0 0 0 1px var(--belt-line);
 }
 .belt .belt-white  { background: var(--belt-white); }

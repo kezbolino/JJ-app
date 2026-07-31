@@ -440,3 +440,15 @@ data if forgotten:
   rank. Blue is #2352a8, deliberately darker than `--accent` (#3a63f0) so a rank
   colour is never mistaken for the UI's action colour. sw CACHE / VERSION stay at
   v15 (not yet deployed).
+- 2026-07-31 — **Belt mark is now a timeline.** User asked to size the segments by
+  how long each belt takes on average, turning the brand device into a small
+  progression chart. Widths come from `BELT_RANKS` in `js/ui.js`, which now
+  carries `{rank, years}` — white 2, blue 2.5, purple 2, brown 1.5, black 3 — at
+  `PX_PER_YEAR = 4.4`, giving 9/11/9/7/13px and a ~61px mark. The numbers live in
+  the JS, not the CSS, precisely because they are **claims about the sport, not
+  styling**; anyone changing them should see the comment saying they are rough
+  community averages that vary hugely by gym and training frequency. Black uses
+  the IBJJF's 3 years to first degree so it stays a real number instead of "the
+  rest of your life", which would either dominate the mark or need special-casing.
+  Each segment carries a `title` and the group an `aria-label` listing the years,
+  so the meaning is not carried by width alone. sw CACHE / VERSION stay at v15.

@@ -117,16 +117,37 @@ export function tally(pct, label) {
   return h('div.tally', { role: 'img', 'aria-label': label }, cells);
 }
 
-// The adult belt ranks, in order. The brand mark is this progression, which is
-// also what the app is about — years, not sessions.
-export const BELT_RANKS = ['white', 'blue', 'purple', 'brown', 'black'];
+/**
+ * The adult belt ranks, in order, with the years typically spent at each before
+ * the next one — so the mark is a timeline, not just five colours.
+ *
+ * These are rough community averages, not rules: how long a belt takes varies
+ * enormously by gym, by how often you train and by who is promoting you. Black
+ * is the IBJJF's 3 years to first degree, which keeps it a real number rather
+ * than "the rest of your life".
+ */
+export const BELT_RANKS = [
+  { rank: 'white',  years: 2 },
+  { rank: 'blue',   years: 2.5 },
+  { rank: 'purple', years: 2 },
+  { rank: 'brown',  years: 1.5 },
+  { rank: 'black',  years: 3 },
+];
 
-/** The brand device: JJ over the five belt ranks. */
+const PX_PER_YEAR = 4.4;   // keeps the whole mark around 60px wide
+
+/** The brand device: JJ over the belt ranks, each sized by its typical years. */
 export function brandMark() {
+  const label = BELT_RANKS.map(b => `${b.rank} ${b.years}`).join(', ');
   return h('div.brand-mark',
     h('h1.brand-jj', 'JJ'),
-    h('div.belt', { role: 'img', 'aria-label': 'Jiu jitsu belt ranks' },
-      BELT_RANKS.map(rank => h('i.belt-' + rank))));
+    h('div.belt', {
+      role: 'img',
+      'aria-label': `Belt ranks, each sized by the average years spent at it: ${label}`,
+    }, BELT_RANKS.map(b => h('i.belt-' + b.rank, {
+      style: `width:${Math.round(b.years * PX_PER_YEAR)}px`,
+      title: `${b.rank} — about ${b.years} ${b.years === 1 ? 'year' : 'years'}`,
+    }))));
 }
 
 // ---- inline SVG icons ------------------------------------------------------
