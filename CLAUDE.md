@@ -469,3 +469,24 @@ data if forgotten:
   highlight for `#/settings` still maps to Library, unchanged: mapping it to Home
   would just move the oddity to the Library → Settings path. sw CACHE → v16,
   VERSION → v16.
+- 2026-07-31 — **Audit of v16** → `docs/AUDIT.md`. Read the whole codebase, ran
+  all five suites (53 tests, green), and reproduced three defects in a browser.
+  The headline: **a stale re-render destroys the screen you're on**. Home's daily
+  auto-sync (and the sync button) do `clear(root); home(root)` from a promise,
+  and `root` is the one `#view` node the router reuses — so a sync that settles
+  after you've tapped Log wipes the half-typed class, URL still reading `#/log`.
+  Repro'd with a 1.2s-per-call fake GitHub. Fix proposed is a render generation
+  token in `app.js` that every async continuation checks. Also confirmed:
+  **`todayISO()` is UTC**, so 7:30pm in Los Angeles files a class on *tomorrow*
+  and 8am in Sydney on *yesterday* — it flows into the markdown filename and every
+  date query; and **`backup.importData` writes `settings` unconditionally**, so
+  importing your own export from another device replaces `sync` (token), and
+  worse `syncState`, which makes push believe notes are already backed up when
+  they aren't. (That last one is why the July backfill file was hand-built with
+  no `settings` key — the guard belongs in the code.) Seven more solutions cover
+  tombstones that delete already-absent paths, silent sync failure, the absence
+  of any time dimension (the largest gap against the vision), duplicate-day
+  logging, Library's unbounded render, search not knowing technique labels, and
+  a manifest still dark-only three versions after light became the default.
+  **Nothing was changed in `js/` — this commit is the audit document only**, so
+  `CACHE`/`VERSION` stay at v16.
