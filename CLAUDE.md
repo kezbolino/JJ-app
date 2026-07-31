@@ -404,13 +404,15 @@ data if forgotten:
   that assertion is now there, plus a dedicated regression test and one guarding
   that a *real* title (e.g. a video's) still survives. Suite is 13 markdown tests.
   sw CACHE → v14, VERSION → v14.
-- 2026-07-31 — **Headings dropped to weight 700.** User found the page titles too
+- 2026-07-31 — **Headings dropped to weight 600.** User found the page titles too
   heavy. Nunito is a **variable** face (`font-weight: 400 900` from the one 39 KB
   file), confirmed by measuring rendered widths per weight in a browser — 400
   through 900 all interpolate — so a lighter heading costs no extra download.
-  `h1/h2/h3`, `.page-title` and `.section-head h3` went 800/900 → **700**, and
-  `.page-title`'s tracking loosened -.035em → -.02em (tight negative tracking is
-  what makes a heavy face read as dense; 700 needs less of it). Deliberately left
+  `h1/h2/h3`, `.page-title` and `.section-head h3` went 800/900 → **600** (tried
+  700 first; user asked for one step lighter), and `.page-title`'s tracking
+  loosened -.035em → -.015em (tight negative tracking is what makes a heavy face
+  read as dense; 600 needs much less of it). Note `.page-sub` is also 600 — the
+  title/subtitle hierarchy is carried by size and colour, not weight. Deliberately left
   heavy: `.brand-jj` (a logo) and `.hero-num` / stat numbers, where the weight is
   the point — so the hierarchy is now "brand and data are bold, prose headings
   are not". sw CACHE → v15, VERSION → v15.
