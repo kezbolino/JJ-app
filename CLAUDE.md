@@ -490,3 +490,31 @@ data if forgotten:
   a manifest still dark-only three versions after light became the default.
   **Nothing was changed in `js/` — this commit is the audit document only**, so
   `CACHE`/`VERSION` stay at v16.
+- 2026-07-31 — **Enhancement survey** → `docs/ENHANCEMENTS.md`. Companion to the
+  audit: not what's broken, what's absent, drawn from BJJ training logs, habit/
+  fitness trackers and PKM tools, filtered against this repo's constraints. Ten,
+  in value order: round timer (the one feature people open a second app for);
+  training calendar + streak (the cheapest answer to the §2 cold-start problem —
+  all derivable from `entry.date`); **spaced repetition on the existing flashcard
+  deck** (the deck is built, there is simply no scheduler, so a nailed card
+  recurs as often as a forgotten one); session types beyond gi/no-gi
+  (`comp`/`open-mat`/`private`/`seminar` as one front-matter scalar); belt and
+  promotion history (`BELT_RANKS` is currently decoration — the app doesn't know
+  *your* belt); **launcher shortcuts** in the manifest (best value-per-line here:
+  pure JSON, no JS, removes a tap from the one path CLAUDE.md says to guard);
+  a nudge to log; entry↔entry links and backlinks (tags connect entries to
+  positions, never to each other — this is what the vision's "knowledge graph"
+  actually needs); a trash with undo (delete is currently irreversible outside
+  the data repo's git history); and optional rounds-rolled + how-it-went on a
+  session. Three constraints did real work in the filtering: **push
+  notifications may not work on CalyxOS** (Chrome web push goes via FCM; Calyx
+  ships microG so it *might* — needs ten minutes on the actual phone before any
+  code, same as §14), so the reliable version is an in-app nudge or a `.ics` the
+  user imports; **photos were costed and rejected** (binaries break the markdown-
+  in-git backup); and **partner tracking was held back** as the user's call, not
+  a default — it is the same shape of data as the `coach` field they had removed.
+  Recurring tension to watch: belt progress, comp results and any self-report can
+  each slide from "what you wrote" into "how good you are" — each entry in the
+  doc says where its line is. Runner-ups and an "if only three get built" pick
+  (shortcuts, calendar, spaced repetition) are at the end. **Docs only — no code
+  changed**, `CACHE`/`VERSION` stay at v16.
