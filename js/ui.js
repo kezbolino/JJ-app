@@ -117,11 +117,16 @@ export function tally(pct, label) {
   return h('div.tally', { role: 'img', 'aria-label': label }, cells);
 }
 
-/** The brand device: JJ over a three-segment belt. */
+// The adult belt ranks, in order. The brand mark is this progression, which is
+// also what the app is about — years, not sessions.
+export const BELT_RANKS = ['white', 'blue', 'purple', 'brown', 'black'];
+
+/** The brand device: JJ over the five belt ranks. */
 export function brandMark() {
   return h('div.brand-mark',
     h('h1.brand-jj', 'JJ'),
-    h('div.belt', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
+    h('div.belt', { role: 'img', 'aria-label': 'Jiu jitsu belt ranks' },
+      BELT_RANKS.map(rank => h('i.belt-' + rank))));
 }
 
 // ---- inline SVG icons ------------------------------------------------------

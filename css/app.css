@@ -58,6 +58,11 @@
   --btn-line:    #dde2ee;   /* outline on a neutral button, so it reads as one
                                on a white card as well as on the page */
 
+  /* belt-rank colours for the brand mark — ranks, not UI colours */
+  --belt-white:  #ffffff;
+  --belt-black:  #15171c;
+  --belt-line:   rgba(18, 23, 42, .22);
+
   /* shape */
   --r-card:  22px;
   --r-panel: 20px;
@@ -114,6 +119,10 @@
     --dash:        #394054;
     --btn-line:    #232838;
 
+    --belt-white:  #f2f4f8;
+    --belt-black:  #2a2e37;
+    --belt-line:   rgba(255, 255, 255, .28);
+
     color-scheme: dark;
   }
 }
@@ -147,6 +156,10 @@
   --good-soft:   rgba(87, 202, 160, .12);
   --dash:        #394054;
   --btn-line:    #232838;
+
+  --belt-white:  #f2f4f8;
+  --belt-black:  #2a2e37;
+  --belt-line:   rgba(255, 255, 255, .28);
 
   color-scheme: dark;
 }
@@ -256,11 +269,21 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 29px; font-weight: 700; letter-spacing: -1px;
   color: var(--text); margin: 0; line-height: 1;
 }
-.belt { display: flex; gap: 4px; margin-top: 7px; }
-.belt i { display: block; height: 5px; border-radius: 2.5px; }
-.belt i:nth-child(1) { width: 24px; background: var(--text); }
-.belt i:nth-child(2) { width: 11px; background: var(--accent); }
-.belt i:nth-child(3) { width: 5px;  background: var(--warm); }
+/* The five adult belt ranks, in order. Real rank colours, not app colours —
+   which also takes brand duty off amber, leaving it to mean only "gap" or
+   "waiting on you". White and black are the problem cases: white vanishes on a
+   light background and black on a dark one, so every segment carries a hairline
+   and the two extremes get their own per-theme value. */
+.belt { display: flex; gap: 3px; margin-top: 7px; }
+.belt i {
+  display: block; width: 9px; height: 6px; border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--belt-line);
+}
+.belt .belt-white  { background: var(--belt-white); }
+.belt .belt-blue   { background: #2352a8; }
+.belt .belt-purple { background: #6b3fa0; }
+.belt .belt-brown  { background: #6b4423; }
+.belt .belt-black  { background: var(--belt-black); }
 
 /* The sync button: a squircle with the same pressable edge as everything else.
    Behaviour is unchanged — tap to sync, spin while busy, amber dot when dirty. */

@@ -424,3 +424,19 @@ data if forgotten:
   button text, where the size needs the weight. Left at 900 on purpose: `.btn`
   labels, `.card-title` eyebrows, `.now-badge`, `.fc-text`. sw CACHE → v15,
   VERSION → v15.
+- 2026-07-31 — **Brand mark now uses the real belt ranks.** User asked for jiu
+  jitsu belt colours instead of the app's own. The three-segment mark
+  (ink/blue/amber, decreasing widths) became **five equal segments: white, blue,
+  purple, brown, black** — the adult ranks in order, which also reads as the
+  progression the app is about. Side effect worth keeping: **amber is down to
+  three jobs** (gap panel, zero cells/rails, pending sync) and no longer appears
+  in the brand at all, so it is now purely "gap / waiting on you". `BELT_RANKS`
+  and `brandMark()` live in `js/ui.js`; the mark is one `role="img"` with a label,
+  not five decorative divs. Two traps handled: **white disappears on a light
+  background and black on a dark one**, so every segment carries a
+  `--belt-line` hairline, and `--belt-white` / `--belt-black` are per-theme
+  tokens. On dark, black is **#2a2e37**, not near-black — a true black bar reads
+  as an empty outlined slot, which is the wrong look for the most meaningful
+  rank. Blue is #2352a8, deliberately darker than `--accent` (#3a63f0) so a rank
+  colour is never mistaken for the UI's action colour. sw CACHE / VERSION stay at
+  v15 (not yet deployed).
