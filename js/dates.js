@@ -60,6 +60,16 @@ export function recentMonths(n, today = todayISO()) {
   return out;
 }
 
+/** 'YYYY-MM' ± n months. Rolls the year over, so December + 1 is January. */
+export function shiftMonth(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** The month a date falls in. */
+export const monthOf = iso => iso.slice(0, 7);
+
 /**
  * The day cells of a month, padded so the first row starts on a Monday.
  * Leading blanks are null, which is what the grid renders as an empty cell.

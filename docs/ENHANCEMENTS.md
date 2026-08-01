@@ -51,7 +51,14 @@ suspended. Compute elapsed time from a start timestamp rather than counting
 
 ---
 
-## 2. A training calendar and a streak
+## 2. A training calendar and a streak — shipped v17, **moved v19**
+
+> **The streak stayed on the dashboard; the calendar moved onto the back of the
+> hero card in v19** — tap the total to flip it, swipe for previous months. The
+> reasoning below still holds for *having* a calendar; what it got wrong was
+> the placement. A calendar is something you consult occasionally, and a
+> permanent panel on the front door is the wrong price for that. The streak,
+> which is one line and glanced at every visit, earns its place.
 
 **What they do.** Strong, Hevy and every habit tracker lead with a calendar grid
 and a current streak. GitHub's contribution graph is the visual everyone already

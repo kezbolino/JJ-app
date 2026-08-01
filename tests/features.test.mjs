@@ -120,10 +120,10 @@ await test('a sync settling after you navigate away cannot wipe the log form', a
 });
 
 // ---------------------------------------------------------------------------
-// 2. Calendar and streak
+// 2. Streak, and the calendar on the back of the hero
 // ---------------------------------------------------------------------------
 
-await test('the calendar marks training days and the hero shows a week streak', async () => {
+await test('the hero shows a week streak, and the calendar is not on screen until asked', async () => {
   const page = await newPage();
   // Two classes a week for three weeks, so the streak is unambiguous.
   await seed(page, [
@@ -132,14 +132,116 @@ await test('the calendar marks training days and the hero shows a week streak', 
     { date: daysAgo(15), gi: 'gi' }, { date: daysAgo(17), gi: 'nogi' },
   ]);
   await go(page, '/');
-  await page.waitForSelector('.cal');
-
-  const marked = await page.locator('.cal__day.is-on').count();
-  assert.ok(marked >= 5, `expected the training days marked, got ${marked}`);
+  await page.waitForSelector('.hero-flip');
 
   const streak = await page.locator('.streak').innerText();
   assert.match(streak, /3 wk/, `streak read "${streak}"`);
 
+  // v19: the calendar came off the dashboard and onto the back of the hero.
+  // It is still in the DOM (it is the other face of the card) — what matters
+  // is that the front is what you see, so assert on the flip state.
+  assert.equal(await page.locator('.flipcard.is-flipped').count(), 0);
+  assert.equal(await page.locator('.hero-flip').getAttribute('aria-expanded'), 'false');
+  await page.context().close();
+});
+
+await test('tapping the total flips the card to the calendar, and Done flips it back', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: daysAgo(1), gi: 'gi' }, { date: daysAgo(3), gi: 'nogi' }]);
+  await go(page, '/');
+
+  await page.click('.hero-flip');
+  await page.waitForTimeout(700);
+  assert.equal(await page.locator('.flipcard.is-flipped').count(), 1);
+  assert.equal(await page.locator('.hero-flip').getAttribute('aria-expanded'), 'true');
+  assert.ok(await page.locator('.hcal-month').isVisible(), 'no month showing after the flip');
+  const marked = await page.locator('.cal__day.is-on').count();
+  assert.ok(marked >= 1, `expected this month's training days marked, got ${marked}`);
+
+  // Done is the only way back — the flip button is on the face that is now
+  // turned away, and inert. If this ever stops working the card is a trap.
+  await page.click('.hcal-close');
+  await page.waitForTimeout(700);
+  assert.equal(await page.locator('.flipcard.is-flipped').count(), 0);
+  await page.context().close();
+});
+
+await test('the hidden face is inert, so neither side can be tabbed to while turned away', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: daysAgo(1), gi: 'gi' }]);
+  await go(page, '/');
+
+  assert.equal(await page.locator('.hero-cal').evaluate(el => el.inert), true,
+    'the calendar face is reachable by keyboard while face-down');
+  await page.click('.hero-flip');
+  await page.waitForTimeout(700);
+  assert.equal(await page.locator('.hero.flip-face').evaluate(el => el.inert), true,
+    'the stats face is reachable by keyboard while face-down');
+  await page.context().close();
+});
+
+await test('the arrows page through months and stop at the ends', async () => {
+  const page = await newPage();
+  // One class this month, one two months back, so there is a range to walk.
+  await seed(page, [{ date: daysAgo(1) }, { date: daysAgo(70) }]);
+  await go(page, '/');
+  await page.click('.hero-flip');
+  await page.waitForTimeout(700);
+
+  // The card opens on the month of the latest class. Page forward to this
+  // month first, so the assertion holds whatever day of the month it is.
+  const nextArrow = page.locator('.hcal-arrow[aria-label="Next month"]');
+  while (!(await nextArrow.isDisabled())) {
+    await nextArrow.click();
+    await page.waitForTimeout(150);
+  }
+  assert.equal(await nextArrow.isDisabled(), true, 'able to page past this month');
+
+  const month = () => page.locator('.hcal-month').innerText();
+  const start = await month();
+
+  await page.click('.hcal-arrow[aria-label="Previous month"]');
+  await page.waitForTimeout(250);
+  assert.notEqual(await month(), start, 'the previous arrow did not change the month');
+
+  await page.click('.hcal-arrow[aria-label="Next month"]');
+  await page.waitForTimeout(250);
+  assert.equal(await month(), start, 'paging back and forward did not return to this month');
+  await page.context().close();
+});
+
+await test('swiping the calendar changes the month; a vertical drag does not', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: daysAgo(1) }, { date: daysAgo(70) }]);
+  await go(page, '/');
+  await page.click('.hero-flip');
+  await page.waitForTimeout(700);
+
+  // The handler reads touchstart/touchend only, so two synthetic events are a
+  // faithful stand-in for a real drag.
+  const swipe = (dx, dy) => page.evaluate(([x, y]) => {
+    const el = document.querySelector('.hero-cal');
+    const touch = (cx, cy) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: cy });
+    el.dispatchEvent(new TouchEvent('touchstart', { changedTouches: [touch(200, 200)], bubbles: true }));
+    el.dispatchEvent(new TouchEvent('touchend', { changedTouches: [touch(200 + x, 200 + y)], bubbles: true }));
+  }, [dx, dy]);
+
+  const month = () => page.locator('.hcal-month').innerText();
+  const start = await month();
+
+  await swipe(120, 0);                     // right → back a month
+  await page.waitForTimeout(250);
+  const back = await month();
+  assert.notEqual(back, start, 'swiping right did not go back a month');
+
+  await swipe(-120, 0);                    // left → forward again
+  await page.waitForTimeout(250);
+  assert.equal(await month(), start, 'swiping left did not come forward again');
+
+  // A mostly-vertical drag is the page scrolling, not a swipe.
+  await swipe(30, 140);
+  await page.waitForTimeout(250);
+  assert.equal(await month(), start, 'a vertical drag changed the month');
   await page.context().close();
 });
 
@@ -147,6 +249,8 @@ await test('a calendar day links to the class logged that day', async () => {
   const page = await newPage();
   await seed(page, [{ date: daysAgo(1), gi: 'gi', sections: { techniques: 'armbar', rolling: '', thoughts: '' } }]);
   await go(page, '/');
+  await page.click('.hero-flip');
+  await page.waitForTimeout(700);
   await page.click('a.cal__day.is-on');
   await page.waitForSelector('textarea');
   assert.equal(await page.locator('.page-title').innerText(), 'Edit entry');

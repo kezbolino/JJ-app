@@ -606,3 +606,37 @@ data if forgotten:
   improves the app **between** sessions, which is where this app lives — the
   timer was the only one that assumed a phone in hand during training, and that
   assumption was never checked. Don't rebuild it without asking.
+- 2026-08-01 — **v19: the calendar moved onto the back of the hero.** User:
+  *"remove the calendar view too, it doesn't add too much, maybe add it as a
+  card that opens if I click on the total classes log. It flips like the flash
+  cards and I can swipe to see previous months."* Built exactly that. The
+  always-open "Training calendar" card is gone from Home; the hero is now a
+  `.flipcard` using the **same 3D `rotateY` language as the flashcard deck** —
+  fixed height, both faces `position: absolute` with `backface-visibility:
+  hidden`, because a flip whose two sides are different heights jumps as it
+  turns. Front is the unchanged stats hero; back is one month, with ‹ › arrows
+  **and** swipe (touchstart/touchend, ignored unless the drag is mostly
+  horizontal, or every attempt to scroll the page would change the month).
+  Home is ~200px shorter than it was.
+
+  **Three things worth knowing.** (1) The flip trigger is the *total*, not the
+  whole card — the card also carries the streak badge, and one big tap target
+  would swallow it. A small `calendar` glyph sits beside the label as the
+  affordance; without a visible cue nobody discovers a flip, which is the same
+  trap the Edit pencil fixed in v7. (2) **`Done` on the back is the only way
+  back**, because the front face is `inert` while turned away — there is a test
+  asserting it, since losing it would make the card a trap. `inert` is set on
+  whichever face is face-down: `backface-visibility` hides a face from the eye
+  but not from the keyboard or a screen reader. (3) The calendar opens on the
+  month of your **most recent class**, not the current month. Caught by a test
+  failing on the 1st of August: `daysAgo(1)` is July, so "this month" was a
+  blank grid while everything recently trained sat in the month before.
+
+  Month range is clamped from your first logged class to this month, so paging
+  can't wander into empty years. `monthCalendar` gained `showMonth: false` (the
+  month name lives in the header between the arrows now), and `dates.js` gained
+  `shiftMonth` and `monthOf`. `.cal-row` / `.cal-legend` deleted with the card
+  that used them. sw `CACHE` → v19, `VERSION` → v19, no new files. Seven
+  suites, 113 assertions, green; screenshot-checked the flip in light and dark
+  and confirmed 0 running animations under `prefers-reduced-motion` (the flip
+  snaps instead of turning).

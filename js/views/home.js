@@ -2,18 +2,22 @@
 //
 // Everything here is derived from the user's own entries (the gym publishes no
 // curriculum, so there is no external source to read). The panels split into
-// two kinds, and the difference matters: **attendance** — the calendar, the
-// streak, the counts — is a plain fact and reads honestly from week one, while
-// **coverage** — the gap prompt — is a claim about what has been written and
-// needs months before it says anything. Leading with the first kind is the
+// two kinds, and the difference matters: **attendance** — the counts, the
+// streak, the calendar — is a plain fact and reads honestly from week one,
+// while **coverage** — the gap prompt — is a claim about what has been written
+// and needs months before it says anything. Leading with the first kind is the
 // answer to the cold-start problem in OPEN-QUESTIONS.md §2.
+//
+// The dashboard stays calm by keeping only what you look at *every* time on
+// screen. The calendar is worth having and is not worth a permanent panel, so
+// it lives on the back of the hero — tap the total to turn the card over.
 
 import {
   h, card, empty, fmtDate, giFlag, tagChip, icon, sectionHead, toast, clear,
   brandMark, monthCalendar,
 } from '../ui.js';
 import { positionLabel, ROLE_LABEL } from '../ontology.js';
-import { recentMonths } from '../dates.js';
+import { monthOf, monthLabel, shiftMonth } from '../dates.js';
 import * as store from '../store.js';
 import * as sync from '../sync.js';
 import { renderToken, isCurrent } from '../render.js';
@@ -69,7 +73,19 @@ function brandRow(syncCtl, standing) {
       syncCtl));
 }
 
-function heroCard(counts, gi, streak) {
+/**
+ * The hero, which flips over to reveal the training calendar.
+ *
+ * The calendar used to sit open on the dashboard permanently, and it did not
+ * earn that space — it is something you look at occasionally, not every time
+ * you open the app. Now the total is the door: tap it and the card turns over,
+ * same 3D flip as the flashcard deck, with one month on the back and swipe (or
+ * the arrows) to walk back through previous ones.
+ *
+ * Both faces are absolutely positioned inside a fixed-height container, exactly
+ * like `.flashcard` — a flip whose two sides are different heights jumps.
+ */
+function heroCard(counts, gi, streak, entries, today) {
   const stat = (n, l, good) => h('div.hero-stat' + (good ? '.good' : ''),
     h('div.n', n), h('div.l', l));
   // A rail across the card's top edge, filled to the gi share — the same number
@@ -86,37 +102,121 @@ function heroCard(counts, gi, streak) {
         icon('flame'), `${streak.current} wk`)
     : null;
 
-  return h('section.card.hero',
+  // The total is a button, not the whole card: the card also holds a streak
+  // badge with its own tooltip, and swallowing all of it into one tap target
+  // makes the streak unreachable. The little calendar glyph is the affordance —
+  // without a visible cue nobody discovers a flip, which is the same
+  // discoverability trap the Edit pencil fixed on the last-session card.
+  const flipBtn = h('button.hero-flip', {
+    type: 'button',
+    'aria-expanded': 'false',
+    'aria-label': `${counts.total} classes logged. Show the training calendar.`,
+  },
+    h('div.hero-label', 'Total classes logged'),
+    h('div.hero-num', String(counts.total)),
+    h('span.hero-cue', icon('calendar')));
+
+  const front = h('section.card.hero.flip-face',
     rail,
-    h('div.hero-top',
-      h('div',
-        h('div.hero-label', 'Total classes logged'),
-        h('div.hero-num', String(counts.total))),
-      streakBadge),
+    h('div.hero-top', flipBtn, streakBadge),
     h('hr.hero-divide'),
     h('div.hero-stats',
       stat(String(counts.week), 'This week'),
       stat(String(counts.month), 'Last 30 days'),
       stat(gi ? `${gi.pct}%` : '—', 'Gi / No-gi', true)));
+
+  const inner = h('div.flip-inner');
+  const wrap = h('div.flipcard', inner);
+
+  const back = calendarFace(entries, today, () => setFlipped(false));
+
+  const setFlipped = on => {
+    wrap.classList.toggle('is-flipped', on);
+    flipBtn.setAttribute('aria-expanded', String(on));
+    // Keep the hidden side out of the tab order. backface-visibility hides it
+    // from the eye but not from the keyboard or a screen reader.
+    front.inert = on;
+    back.inert = !on;
+  };
+
+  flipBtn.addEventListener('click', () => setFlipped(!wrap.classList.contains('is-flipped')));
+
+  inner.append(front, back);
+  setFlipped(false);
+  return wrap;
 }
 
 /**
- * The training calendar — two months of days, filled where a class is logged.
+ * The back of the hero: one month of training days, with swipe and arrows.
  *
- * This is the panel that works on day one. Coverage needs months of writing
- * before an empty cell means anything; a calendar means something the moment
- * there are two marks on it.
+ * Range is clamped to the months you actually have — from your first logged
+ * class to this month — so you can't page endlessly into empty years.
+ *
+ * It opens on the month of your **most recent class**, not necessarily this
+ * one. Flip the card on the 1st of the month and "this month" is a blank grid
+ * while everything you just trained sits in the month before; opening on your
+ * last session shows training whenever you look, and is the same thing as this
+ * month whenever you have trained in it.
  */
-function calendarCard(entries, today) {
+function calendarFace(entries, today, onClose) {
   const index = store.trainingIndex(entries);
-  return card('Training calendar',
-    h('div.cal-row', recentMonths(2, today).map(ym =>
-      monthCalendar(ym, index, { today, onPick: day => `#/log/${day.ids[0]}` }))),
-    h('div.cal-legend',
-      h('span', h('i.k-gi'), 'Gi'),
-      h('span', h('i.k-nogi'), 'No-gi'),
-      h('span', h('i.k-both'), 'Both'),
-      h('span', h('i.k-off'), 'Nothing logged')));
+  const thisMonth = monthOf(today);
+  const dates = entries.filter(e => e.type === 'class').map(e => e.date).sort();
+  const firstMonth = dates.length ? monthOf(dates[0]) : thisMonth;
+
+  let ym = dates.length ? monthOf(dates[dates.length - 1]) : thisMonth;
+  const grid = h('div.cal-slot');
+  const title = h('span.hcal-month');
+  const prev = h('button.hcal-arrow', { type: 'button', 'aria-label': 'Previous month' }, '‹');
+  const next = h('button.hcal-arrow', { type: 'button', 'aria-label': 'Next month' }, '›');
+
+  const paint = () => {
+    title.textContent = monthLabel(ym);
+    prev.disabled = ym <= firstMonth;
+    next.disabled = ym >= thisMonth;
+    grid.replaceChildren(
+      monthCalendar(ym, index, { today, onPick: day => `#/log/${day.ids[0]}`, showMonth: false }));
+  };
+
+  const step = n => {
+    const target = shiftMonth(ym, n);
+    if (target < firstMonth || target > thisMonth) return;
+    ym = target;
+    paint();
+  };
+
+  prev.addEventListener('click', () => step(-1));
+  next.addEventListener('click', () => step(1));
+
+  const face = h('section.card.hero-cal.flip-face.flip-back',
+    h('div.hcal-head', prev, title, next),
+    grid,
+    h('div.hcal-foot',
+      h('span.hcal-key', h('i.k-gi'), 'Gi'),
+      h('span.hcal-key', h('i.k-nogi'), 'No-gi'),
+      h('button.hcal-close', { type: 'button', 'aria-label': 'Back to your totals' }, 'Done')));
+
+  face.querySelector('.hcal-close').addEventListener('click', onClose);
+
+  // Swipe. Left pages forward, right pages back — the card behaves like a stack
+  // of months. A gesture is only a swipe if it is mostly horizontal, or every
+  // attempt to scroll the page past the card would change the month.
+  let x0 = null, y0 = null;
+  face.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0];
+    x0 = t.clientX; y0 = t.clientY;
+  }, { passive: true });
+  face.addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0, dy = t.clientY - y0;
+    x0 = y0 = null;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    step(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  paint();
+  return face;
 }
 
 /**
@@ -244,11 +344,11 @@ export default async function home(root) {
 
   root.append(...[
     brandRow(syncButton({ configured, pending, root }), standing),
-    heroCard(store.countClasses(entries), store.giRatio(entries), store.weekStreak(entries, today)),
+    heroCard(store.countClasses(entries), store.giRatio(entries),
+      store.weekStreak(entries, today), entries, today),
     nudgePanel(store.logNudge(entries, today), dismissedOn, today),
     beltPanel(standing),
     focusPanel(focuses, due),
-    calendarCard(entries, today),
     gapPanel(store.findGaps(entries)),
     sectionHead('Last session', h('a', { href: '#/library' }, 'History ›')),
     lastSession(entries),

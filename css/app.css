@@ -609,6 +609,7 @@ a.cov-role { color: var(--accent); }
 /* ---- home hero ---- */
 
 .hero { position: relative; overflow: hidden; padding: 20px 18px 18px; }
+.hero.flip-face { display: flex; flex-direction: column; justify-content: center; }
 /* A 5px rail across the top edge, filled to the gi share. */
 .hero-rail { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--track); }
 .hero-rail i { display: block; height: 100%; background: var(--good); }
@@ -891,27 +892,26 @@ a.banner .b-txt.muted { color: var(--muted); }
 .streak svg { width: 15px; height: 15px; }
 
 /* --- training calendar -------------------------------------------------- */
-/* Two months side by side, sized down to fit a phone rather than scrolling
-   sideways — a calendar you have to drag is a calendar you don't read. The day
-   numbers stay (they are how you find the session you want to open), but the
-   cells are contribution-graph small; every cell also carries its full date in
-   its label, so nothing depends on reading a 10px number. */
-.cal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* One month, on the back of the hero. The day numbers stay — they are how you
+   find the session you want to open — and every cell also carries its full date
+   in its label, so nothing depends on reading a small number. */
 .cal { min-width: 0; }
+.cal-slot { display: grid; place-items: center; }
+.cal-slot .cal { width: 100%; max-width: 214px; }
 .cal__month {
   font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 8px;
 }
-.cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .cal__dow {
-  font-size: .5rem; font-weight: 800; color: var(--muted);
+  font-size: .54rem; font-weight: 800; color: var(--muted);
   text-align: center; padding-bottom: 2px;
 }
 .cal__pad { aspect-ratio: 1; }
 .cal__day {
   aspect-ratio: 1; display: grid; place-items: center;
-  border-radius: 5px; background: var(--track);
-  font-size: .52rem; font-weight: 700; color: var(--muted);
+  border-radius: 6px; background: var(--track);
+  font-size: .6rem; font-weight: 700; color: var(--muted);
   text-decoration: none;
 }
 /* A day with a class is ink, not accent: this is data, not an action. */
@@ -926,16 +926,72 @@ a.banner .b-txt.muted { color: var(--muted); }
 .cal__day.is-today { outline: 2px solid var(--accent); outline-offset: 1px; }
 a.cal__day:active { transform: scale(.9); }
 
-.cal-legend {
-  display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px;
-  font-size: .68rem; font-weight: 700; color: var(--muted);
+/* --- the hero, and the calendar on its back ---------------------------- */
+
+/* Same 3D flip as the flashcard deck. Fixed height with both faces absolutely
+   positioned: a flip whose sides are different heights jumps as it turns. */
+/* Tall enough for a full six-row month plus its header and key. The front is
+   the shorter face, so it centres its content in the extra room rather than
+   leaving a gap under the stat tiles. Even at this height the dashboard is far
+   shorter than it was with the calendar open as a permanent second card. */
+.flipcard {
+  position: relative; width: 100%; height: 284px;
+  margin-bottom: var(--gap); perspective: 1400px;
 }
-.cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.cal-legend i { width: 11px; height: 11px; border-radius: 3px; display: block; }
-.cal-legend .k-gi { background: var(--text); }
-.cal-legend .k-nogi { background: var(--surface); box-shadow: inset 0 0 0 2px var(--text); }
-.cal-legend .k-both { background: linear-gradient(135deg, var(--text) 0 50%, var(--muted) 50% 100%); }
-.cal-legend .k-off { background: var(--track); }
+.flip-inner {
+  position: relative; width: 100%; height: 100%;
+  transition: transform .55s var(--spring); transform-style: preserve-3d;
+}
+.flipcard.is-flipped .flip-inner { transform: rotateY(180deg); }
+.flip-face {
+  position: absolute; inset: 0; margin: 0;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  overflow: hidden;
+}
+.flip-back { transform: rotateY(180deg); }
+
+/* The total is the door to the calendar, so it needs to look like one. */
+.hero-flip {
+  border: 0; background: none; padding: 0; margin: 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: left; position: relative;
+}
+.hero-cue {
+  position: absolute; top: 2px; left: 100%; margin-left: 8px;
+  color: var(--muted); display: grid; place-items: center;
+  transition: color .16s var(--spring);
+}
+.hero-cue svg { width: 15px; height: 15px; }
+.hero-flip:active .hero-cue, .hero-flip:hover .hero-cue { color: var(--accent); }
+.hero-flip:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+
+.hero-cal { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 14px; }
+.hcal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hcal-month {
+  font-size: .72rem; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.hcal-arrow {
+  width: 30px; height: 30px; flex-shrink: 0;
+  border: 2px solid var(--btn-line); border-radius: 9px;
+  background: var(--surface); color: var(--text);
+  font-size: 1rem; line-height: 1; cursor: pointer;
+}
+.hcal-arrow:disabled { opacity: .32; cursor: default; }
+.hcal-arrow:active:not(:disabled) { transform: translateY(2px); }
+
+.hcal-foot {
+  display: flex; align-items: center; gap: 12px; margin-top: auto;
+  font-size: .66rem; font-weight: 700; color: var(--muted);
+}
+.hcal-key { display: inline-flex; align-items: center; gap: 5px; }
+.hcal-key i { width: 10px; height: 10px; border-radius: 3px; display: block; }
+.hcal-key .k-gi { background: var(--text); }
+.hcal-key .k-nogi { background: var(--surface); box-shadow: inset 0 0 0 2px var(--text); }
+.hcal-close {
+  margin-left: auto; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: .72rem; font-weight: 800; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .05em; padding: 4px;
+}
 
 /* --- the "you usually train that day" nudge ----------------------------- */
 .banner.nudge { position: relative; padding-right: 40px; }
@@ -1076,10 +1132,10 @@ a.cal__day:active { transform: scale(.9); }
 @media (prefers-reduced-motion: reduce) {
   .view > *, .btn.cta, .tally__c,
   .tag.suggest:active, .tag.add:active { animation: none; }
-  .feel-dot, .cal__day,
+  .feel-dot, .cal__day, .hero-cue, .hcal-arrow,
   .btn, .btn:active, .btn.cta:active,
   .avatar-btn, .avatar-btn:active, .fc-arrow, .fc-arrow:active,
-  .seg button, .fc-inner, .deck-rail i,
+  .seg button, .fc-inner, .flip-inner, .deck-rail i,
   .tabbar a::before, .tabbar a svg, .tabbar a:active svg,
   .cov-fill,
   input, textarea, select,

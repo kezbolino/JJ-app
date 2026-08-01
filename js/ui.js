@@ -129,7 +129,7 @@ export function tally(pct, label) {
  * `index` is a Map from `store.trainingIndex()`. `today` is passed in rather
  * than read here so the grid renders identically in a test.
  */
-export function monthCalendar(ym, index, { today = '', onPick = null } = {}) {
+export function monthCalendar(ym, index, { today = '', onPick = null, showMonth = true } = {}) {
   const cells = monthGrid(ym).map(date => {
     if (!date) return h('span.cal__pad');
 
@@ -156,8 +156,11 @@ export function monthCalendar(ym, index, { today = '', onPick = null } = {}) {
     return h('span.' + classes.join('.'), { title: label, 'aria-label': label }, String(n));
   });
 
+  // The month name is optional: on the flipped hero it already sits in the
+  // header between the two arrows, and repeating it inside the grid just
+  // crowds a card that has a fixed height to live within.
   return h('div.cal',
-    h('div.cal__month', monthLabel(ym)),
+    showMonth ? h('div.cal__month', monthLabel(ym)) : null,
     h('div.cal__grid',
       DAY_NAMES.map(d => h('span.cal__dow', d.slice(0, 1))),
       cells));
