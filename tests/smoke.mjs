@@ -42,8 +42,8 @@ const step = async (name, fn) => {
 
 await step('loads dashboard', async () => {
   await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.hero-num');
-  const zero = await page.locator('.hero-num').first().innerText();
+  await page.waitForSelector('.sbit-total');
+  const zero = await page.locator('.sbit-total .sbit-n').first().innerText();
   if (zero !== '0') throw new Error(`expected 0 classes, got ${zero}`);
 });
 
@@ -78,9 +78,9 @@ await step('accepts every suggestion', async () => {
 
 await step('saves and returns home with the class counted', async () => {
   await page.click('button.btn.primary:has-text("Save entry")');
-  await page.waitForSelector('.hero-stat');
+  await page.waitForSelector('.sbit-week');
   await page.waitForTimeout(200);
-  const week = await page.locator('.hero-stat .n').first().innerText();
+  const week = await page.locator('.sbit-week .sbit-n').innerText();
   if (week !== '1') throw new Error(`expected 1 class this week, got ${week}`);
   const sessionTags = await page.locator('.card.session .tag').count();
   if (!sessionTags) throw new Error('no last-session tags rendered');
@@ -96,7 +96,7 @@ await step('the gear on Home opens Settings', async () => {
   const title = await page.locator('.page-title').innerText();
   if (title !== 'Settings') throw new Error(`gear landed on "${title}", not Settings`);
   await page.click('a[data-tab="/"]');
-  await page.waitForSelector('.hero-num');
+  await page.waitForSelector('.sbit-total');
 });
 
 await step('coverage map shows the heatmap and the tally rows', async () => {
@@ -241,7 +241,7 @@ await step('gap prompt appears once a role is well covered', async () => {
     }
   });
   await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.hero-stat');
+  await page.waitForSelector('.sbit-week');
   const text = await page.locator('#view').innerText();
   if (!/worth a look/i.test(text)) throw new Error('no gap prompt rendered');
   console.log('   prompt:', text.split(/worth a look/i)[1].split('\n').filter(Boolean)[0]);

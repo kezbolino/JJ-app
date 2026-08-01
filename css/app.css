@@ -193,7 +193,7 @@ body {
 /* Nunito ships as a variable face (400–900 from the one file), so any weight
    here costs nothing extra to load. The scale runs light-to-heavy as type gets
    SMALLER, which is the way round that actually reads: 600 for headings and the
-   big hero number, 700 for the brand mark and the stat tiles, 800–900 only for
+   big number, 700 for the brand mark and the stat tiles, 800–900 only for
    small uppercase labels and button text, where the size needs the weight. */
 h1, h2, h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 600; }
 h2 { font-size: 1.3rem; letter-spacing: -.01em; }
@@ -606,36 +606,6 @@ a.cov-role { color: var(--accent); }
   z-index: 50; box-shadow: 0 6px 24px rgba(10, 15, 35, .3);
 }
 
-/* ---- home hero ---- */
-
-.hero { position: relative; overflow: hidden; padding: 20px 18px 18px; }
-.hero.flip-face { display: flex; flex-direction: column; justify-content: center; }
-/* A 5px rail across the top edge, filled to the gi share. */
-.hero-rail { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--track); }
-.hero-rail i { display: block; height: 100%; background: var(--good); }
-.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.hero-label {
-  font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
-  color: var(--muted); font-weight: 800;
-}
-.hero-num { font-size: 3.3rem; font-weight: 600; letter-spacing: -.025em; line-height: 1; margin-top: 6px; }
-.hero-badge {
-  font-size: .68rem; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--warm-ink); background: var(--warm-soft);
-  border: 2px solid var(--warm-line);
-  border-radius: 8px; padding: 4px 8px; white-space: nowrap; font-weight: 800;
-}
-.hero-divide { border: 0; border-top: 2px solid var(--line); margin: 16px 0; }
-.hero-stats { display: flex; gap: 8px; }
-.hero-stat {
-  flex: 1; background: var(--surface-2); border-radius: var(--r-tile);
-  padding: 12px 8px; text-align: center;
-}
-.hero-stat .n { font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em; }
-.hero-stat.good { background: var(--good-soft); }
-.hero-stat.good .n { color: var(--good); }
-.hero-stat .l { font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 800; }
-
 /* ---- banner (focus / sync queue) ---- */
 
 .banner {
@@ -880,8 +850,7 @@ a.banner .b-txt.muted { color: var(--muted); }
 .btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 .btn.small svg { width: 15px; height: 15px; }
 
-/* --- streak badge, beside the hero total ------------------------------- */
-.hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+/* --- streak badge, on the stats strip ---------------------------------- */
 .streak {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 11px; border-radius: var(--r-chip);
@@ -892,7 +861,7 @@ a.banner .b-txt.muted { color: var(--muted); }
 .streak svg { width: 15px; height: 15px; }
 
 /* --- training calendar -------------------------------------------------- */
-/* One month, on the back of the hero. The day numbers stay — they are how you
+/* One month, on the back of the stats strip. The day numbers stay — they are how you
    find the session you want to open — and every cell also carries its full date
    in its label, so nothing depends on reading a small number. */
 .cal { min-width: 0; }
@@ -926,18 +895,20 @@ a.banner .b-txt.muted { color: var(--muted); }
 .cal__day.is-today { outline: 2px solid var(--accent); outline-offset: 1px; }
 a.cal__day:active { transform: scale(.9); }
 
-/* --- the hero, and the calendar on its back ---------------------------- */
+/* --- the stats strip, and the calendar on its back --------------------- */
 
 /* Same 3D flip as the flashcard deck. Fixed height with both faces absolutely
    positioned: a flip whose sides are different heights jumps as it turns. */
-/* Tall enough for a full six-row month plus its header and key. The front is
-   the shorter face, so it centres its content in the extra room rather than
-   leaving a gap under the stat tiles. Even at this height the dashboard is far
-   shorter than it was with the calendar open as a permanent second card. */
+/* The strip is short and the calendar is not, so the container grows as it
+   turns rather than reserving the calendar's height all the time. Both faces
+   are absolutely positioned, so animating the height alongside the rotation
+   costs nothing and avoids the jump you get from swapping heights at the end. */
 .flipcard {
-  position: relative; width: 100%; height: 284px;
+  position: relative; width: 100%; height: 92px;
   margin-bottom: var(--gap); perspective: 1400px;
+  transition: height .55s var(--spring);
 }
+.flipcard.is-flipped { height: 284px; }
 .flip-inner {
   position: relative; width: 100%; height: 100%;
   transition: transform .55s var(--spring); transform-style: preserve-3d;
@@ -950,19 +921,75 @@ a.cal__day:active { transform: scale(.9); }
 }
 .flip-back { transform: rotateY(180deg); }
 
-/* The total is the door to the calendar, so it needs to look like one. */
-.hero-flip {
-  border: 0; background: none; padding: 0; margin: 0; cursor: pointer;
-  font: inherit; color: inherit; text-align: left; position: relative;
+/* One line of numbers instead of a hero. Small on purpose: these are things
+   you glance at, not things you act on. */
+.stats { padding: 14px 16px; }
+.stats-row { display: flex; align-items: center; gap: 6px; }
+.sbit { flex: 1; min-width: 0; text-align: center; }
+.sbit-n {
+  font-size: 1.2rem; font-weight: 700; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums; position: relative; display: inline-block;
 }
-.hero-cue {
-  position: absolute; top: 2px; left: 100%; margin-left: 8px;
+.sbit-l {
+  font-size: .58rem; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em; margin-top: 1px;
+  white-space: nowrap;   /* a wrapped label makes one cell taller and skews the row */
+}
+.sbit.good .sbit-n { color: var(--good); }
+
+/* The total is the door to the calendar, so it needs to look like one. */
+.sbit-total {
+  border: 0; background: none; padding: 4px 2px; margin: 0; cursor: pointer;
+  font: inherit; color: inherit;
+}
+.sbit-cue {
+  position: absolute; left: 100%; top: 1px; margin-left: 4px;
   color: var(--muted); display: grid; place-items: center;
   transition: color .16s var(--spring);
 }
-.hero-cue svg { width: 15px; height: 15px; }
-.hero-flip:active .hero-cue, .hero-flip:hover .hero-cue { color: var(--accent); }
-.hero-flip:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+.sbit-cue svg { width: 13px; height: 13px; }
+.sbit-total:hover .sbit-cue, .sbit-total:active .sbit-cue { color: var(--accent); }
+.sbit-total:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+.stats-row .streak { flex-shrink: 0; }
+
+/* --- "Working on", the big tiled deck ----------------------------------- */
+.wo-rail {
+  display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.wo-rail::-webkit-scrollbar { display: none; }
+.wo-tile {
+  flex: 0 0 84%; scroll-snap-align: center;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 148px; padding: 18px;
+  border-radius: var(--r-card); background: var(--surface);
+  box-shadow: 0 5px 0 var(--edge); color: inherit; text-decoration: none;
+}
+.wo-tile:active { transform: translateY(5px); box-shadow: 0 0 0 var(--edge); }
+.wo-num {
+  font-size: .6rem; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .07em;
+}
+.wo-front {
+  font-size: 1.32rem; font-weight: 600; line-height: 1.22; letter-spacing: -.01em;
+  margin-top: auto;
+}
+.wo-more { font-size: .72rem; font-weight: 700; color: var(--accent); }
+.wo-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+.wo-dots i {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--track);
+  transition: background .2s var(--spring), width .2s var(--spring);
+}
+.wo-dots i.is-on { background: var(--accent); width: 16px; border-radius: 3px; }
+.wo-empty {
+  display: flex; align-items: center; gap: 12px;
+  padding: 22px 18px; border-radius: var(--r-card);
+  background: var(--surface); box-shadow: 0 5px 0 var(--edge);
+  color: var(--muted); font-weight: 700; text-decoration: none;
+}
+.wo-empty .b-ico { color: var(--accent); display: grid; place-items: center; }
+.wo-empty svg { width: 20px; height: 20px; }
 
 .hero-cal { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 14px; }
 .hcal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1065,25 +1092,6 @@ a.cal__day:active { transform: scale(.9); }
 }
 
 /* --- flashcard scheduling ---------------------------------------------- */
-.fc-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
-.fc-grade .btn { flex-direction: column; gap: 2px; padding: 10px 4px; }
-.fc-grade .g-label { font-weight: 800; font-size: .82rem; }
-.fc-grade .g-when { font-weight: 700; font-size: .64rem; opacity: .7; }
-.fc-g-again { box-shadow: 0 3px 0 var(--warm-line); border-color: var(--warm-line); }
-.fc-g-again:active { box-shadow: 0 0 0 var(--warm-line); }
-.fc-g-easy { color: var(--good); border-color: var(--good); box-shadow: 0 3px 0 var(--good); }
-.fc-g-easy:active { box-shadow: 0 0 0 var(--good); }
-.fc-due {
-  font-size: .64rem; font-weight: 800; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
-}
-.fc-due.is-due { color: var(--accent); }
-.fc-clear {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  font-weight: 700; margin: 4px 0 2px;
-}
-.fc-clear svg { width: 20px; height: 20px; color: var(--accent); }
-.banner.is-due .b-ico { color: var(--accent); }
 
 /* --- mat time ----------------------------------------------------------- */
 .slist { display: flex; flex-direction: column; gap: 10px; }
@@ -1132,10 +1140,10 @@ a.cal__day:active { transform: scale(.9); }
 @media (prefers-reduced-motion: reduce) {
   .view > *, .btn.cta, .tally__c,
   .tag.suggest:active, .tag.add:active { animation: none; }
-  .feel-dot, .cal__day, .hero-cue, .hcal-arrow,
+  .feel-dot, .cal__day, .sbit-cue, .hcal-arrow, .wo-dots i,
   .btn, .btn:active, .btn.cta:active,
   .avatar-btn, .avatar-btn:active, .fc-arrow, .fc-arrow:active,
-  .seg button, .fc-inner, .flip-inner, .deck-rail i,
+  .seg button, .fc-inner, .flip-inner, .flipcard, .deck-rail i,
   .tabbar a::before, .tabbar a svg, .tabbar a:active svg,
   .cov-fill,
   input, textarea, select,

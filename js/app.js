@@ -49,7 +49,7 @@ function route() {
   const render = () => {
     switch (head) {
       case undefined:  return home(view);
-      case 'focus':    return focus(view);
+      case 'focus':    return focus(view, { card: query.card });
       case 'log':      return log(view, { id: a, date: query.date });
       case 'map':      return a ? position(view, { positionId: a, role: b ?? null }) : map(view);
       case 'library':  return library(view);

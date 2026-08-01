@@ -74,60 +74,46 @@ function brandRow(syncCtl, standing) {
 }
 
 /**
- * The hero, which flips over to reveal the training calendar.
+ * The stats strip, which flips over to reveal the training calendar.
  *
- * The calendar used to sit open on the dashboard permanently, and it did not
- * earn that space — it is something you look at occasionally, not every time
- * you open the app. Now the total is the door: tap it and the card turns over,
- * same 3D flip as the flashcard deck, with one month on the back and swipe (or
- * the arrows) to walk back through previous ones.
+ * This used to be a tall hero with the total set in 3rem type. It was the
+ * biggest thing on the front door and it is not the most important thing —
+ * a running total is a number you glance at, not one you act on. It is a strip
+ * now: total, this week, 30 days and gi share on one line, with the streak.
  *
- * Both faces are absolutely positioned inside a fixed-height container, exactly
- * like `.flashcard` — a flip whose two sides are different heights jumps.
+ * Tap the total and the strip turns over into a month calendar, same 3D flip
+ * as the deck. The container grows as it turns, because the calendar needs the
+ * height and the strip does not — both faces are absolutely positioned, so the
+ * height animates alongside the rotation rather than jumping at the end.
  */
-function heroCard(counts, gi, streak, entries, today) {
-  const stat = (n, l, good) => h('div.hero-stat' + (good ? '.good' : ''),
-    h('div.n', n), h('div.l', l));
-  // A rail across the card's top edge, filled to the gi share — the same number
-  // as the third tile, read at a glance.
-  const rail = h('div.hero-rail', {
-    role: 'img',
-    'aria-label': gi ? `${gi.pct}% of recorded classes were gi` : 'No gi / no-gi recorded yet',
-  }, h('i', { style: `width:${gi ? gi.pct : 0}%` }));
+function statsCard(counts, gi, streak, entries, today) {
+  const cell = (cls, n, l) => h('div.sbit.' + cls,
+    h('div.sbit-n', n), h('div.sbit-l', l));
 
-  // Weeks trained, not consecutive days — see store.weekStreak for why. It sits
-  // beside the total because both are attendance, and attendance is a fact.
+  // The total is the door to the calendar, so it gets the affordance.
+  const flipBtn = h('button.sbit.sbit-total', {
+    type: 'button',
+    'aria-expanded': 'false',
+    'aria-label': `${counts.total} classes logged. Show the training calendar.`,
+  },
+    h('div.sbit-n', String(counts.total), h('span.sbit-cue', icon('calendar'))),
+    h('div.sbit-l', 'Total'));
+
   const streakBadge = streak.current > 0
     ? h('span.streak', { title: `Longest run: ${streak.longest} weeks` },
         icon('flame'), `${streak.current} wk`)
     : null;
 
-  // The total is a button, not the whole card: the card also holds a streak
-  // badge with its own tooltip, and swallowing all of it into one tap target
-  // makes the streak unreachable. The little calendar glyph is the affordance —
-  // without a visible cue nobody discovers a flip, which is the same
-  // discoverability trap the Edit pencil fixed on the last-session card.
-  const flipBtn = h('button.hero-flip', {
-    type: 'button',
-    'aria-expanded': 'false',
-    'aria-label': `${counts.total} classes logged. Show the training calendar.`,
-  },
-    h('div.hero-label', 'Total classes logged'),
-    h('div.hero-num', String(counts.total)),
-    h('span.hero-cue', icon('calendar')));
-
-  const front = h('section.card.hero.flip-face',
-    rail,
-    h('div.hero-top', flipBtn, streakBadge),
-    h('hr.hero-divide'),
-    h('div.hero-stats',
-      stat(String(counts.week), 'This week'),
-      stat(String(counts.month), 'Last 30 days'),
-      stat(gi ? `${gi.pct}%` : '—', 'Gi / No-gi', true)));
+  const front = h('section.card.stats.flip-face',
+    h('div.stats-row',
+      flipBtn,
+      cell('sbit-week', String(counts.week), 'Week'),
+      cell('sbit-month', String(counts.month), '30 days'),
+      cell('sbit-gi good', gi ? `${gi.pct}%` : '—', 'Gi'),
+      streakBadge));
 
   const inner = h('div.flip-inner');
   const wrap = h('div.flipcard', inner);
-
   const back = calendarFace(entries, today, () => setFlipped(false));
 
   const setFlipped = on => {
@@ -245,19 +231,53 @@ function nudgePanel(nudge, dismissedOn, today) {
   return banner;
 }
 
-// The focus list is a flashcard deck of its own — the front door shows what is
-// due and links across. Editing and flipping live on the Working-on page,
-// keeping the dashboard calm.
-function focusPanel(focuses, due) {
-  const fronts = focuses.map(f => f.front);
-  const text = !fronts.length ? 'Nothing yet — add flashcards'
-    : due.length ? `${due.length} ${due.length === 1 ? 'card' : 'cards'} due: ${due[0].front}`
-    : `Working on: ${fronts.join(' · ')}`;
+/**
+ * "Working on", as big swipeable tiles — the main event on the front door.
+ *
+ * This was a one-line banner, which is the wrong size for the thing you are
+ * actually trying to change about your game. It is now a row of cards you flick
+ * through sideways; tap one to open the deck at that card and read your cues.
+ *
+ * The swipe is native: a scroll-snapping overflow row. No touch handlers, no
+ * momentum maths, and it works with a trackpad, a scrollbar and a keyboard for
+ * free — all of which hand-rolled gesture code gets wrong.
+ */
+function workingOn(focuses) {
+  const head = h('div.section-head',
+    h('h3', 'Working on'),
+    h('a', { href: '#/focus' }, focuses.length ? 'Edit deck ›' : 'Add ›'));
 
-  return h('a.banner' + (due.length ? '.is-due' : ''), { href: '#/focus' },
-    h('span.b-ico', icon(due.length ? 'cards' : 'pin')),
-    h('span.b-txt' + (fronts.length ? '' : '.muted'), text),
-    h('span.b-edit', !fronts.length ? 'Add' : due.length ? 'Review' : 'Drill'));
+  if (!focuses.length) {
+    return h('div', head,
+      h('a.wo-empty', { href: '#/focus' },
+        h('span.b-ico', icon('cards')),
+        h('span', 'Nothing yet — add the first thing you want to drill')));
+  }
+
+  const rail = h('div.wo-rail', focuses.map((f, i) =>
+    h('a.wo-tile', { href: `#/focus?card=${i}`, 'aria-label': `${f.front}. Open for cues.` },
+      h('span.wo-num', `${i + 1} / ${focuses.length}`),
+      h('span.wo-front', f.front),
+      h('span.wo-more', f.back ? 'Tap for your cues' : 'Tap to add cues'))));
+
+  // Dots, so a deck wider than the screen looks like one. Updated from the
+  // rail's own scroll position rather than a gesture, so it stays honest
+  // however you moved it.
+  const dots = focuses.length > 1
+    ? h('div.wo-dots', focuses.map((_, i) => h('i' + (i === 0 ? '.is-on' : ''))))
+    : null;
+
+  if (dots) {
+    rail.addEventListener('scroll', () => {
+      const tile = rail.firstElementChild;
+      if (!tile) return;
+      const step = tile.getBoundingClientRect().width + 12;   // tile + gap
+      const at = Math.round(rail.scrollLeft / step);
+      [...dots.children].forEach((d, i) => d.classList.toggle('is-on', i === at));
+    }, { passive: true });
+  }
+
+  return h('div', head, rail, dots);
 }
 
 function gapPanel(gaps) {
@@ -320,7 +340,6 @@ export default async function home(root) {
 
   const entries = await store.allEntries();
   const focuses = await store.getFocuses();
-  const due = store.dueFocuses(focuses, today);
   const promotions = await store.getPromotions();
   const dismissedOn = await store.getSetting('nudgeDismissedOn', '');
 
@@ -344,11 +363,13 @@ export default async function home(root) {
 
   root.append(...[
     brandRow(syncButton({ configured, pending, root }), standing),
-    heroCard(store.countClasses(entries), store.giRatio(entries),
+    // Working on comes first and comes big: it is the thing you are trying to
+    // change, and the one panel worth looking at every single time.
+    workingOn(focuses),
+    statsCard(store.countClasses(entries), store.giRatio(entries),
       store.weekStreak(entries, today), entries, today),
     nudgePanel(store.logNudge(entries, today), dismissedOn, today),
     beltPanel(standing),
-    focusPanel(focuses, due),
     gapPanel(store.findGaps(entries)),
     sectionHead('Last session', h('a', { href: '#/library' }, 'History ›')),
     lastSession(entries),

@@ -15,8 +15,10 @@ Ordered by value to this app, not by effort. Nothing here is a bug; nothing here
 should be built before `docs/AUDIT.md` §1–3.
 
 > **Status: all ten shipped in v17**, along with audit §1, §2, §3 and §10 which
-> they depend on. **§1, the round timer, was then removed in v18** — see the
-> note on it below. This document is kept as the reasoning behind each one —
+> they depend on. Two have since been rolled back at the user's request —
+> **§1, the round timer, in v18**, and **§3's scheduler in v20** — and **§2's
+> calendar moved onto the back of the stats strip in v19**. See the note on
+> each below. This document is kept as the reasoning behind each one —
 > the constraints, the framing, and the line each feature must not cross. Audit
 > §4–§9 remain open.
 
@@ -84,7 +86,16 @@ right side of the attention/skill line without any hedging.
 
 ---
 
-## 3. Spaced repetition on the flashcard deck
+## 3. Spaced repetition on the flashcard deck — ~~shipped v17~~, **removed v20**
+
+> **Removed at the user's request**, along with the Again/Good/Easy rating that
+> drove it: *"Remove the bit that asks if it was good/easy."* The scheduler had
+> no other input, and a scheduler with nothing feeding it is not a gentler
+> scheduler — it is a dead one, so `js/srs.js` went with the buttons. What the
+> reasoning below missed is that drilling is not a memory test. You already
+> know which things you are bad at; that is why you wrote them on a card. The
+> deck is now a short stack you flick through, and the same cards are tiles on
+> the front door.
 
 **What they do.** Anki and Duolingo schedule cards by how well you knew them;
 that scheduling *is* the product. v12 already borrowed the Duolingo/Brilliant

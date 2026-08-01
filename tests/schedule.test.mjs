@@ -1,7 +1,7 @@
-// Dates, spaced repetition, and the attendance queries that read off them.
+// Dates, the deck's data shape, and the attendance queries.
 //
-// Pure node, no browser: js/dates.js and js/srs.js touch nothing but arithmetic,
-// and js/store.js only reaches for IndexedDB inside functions we don't call here.
+// Pure node, no browser: js/dates.js touches nothing but arithmetic, and
+// js/store.js only reaches for IndexedDB inside functions we don't call here.
 //
 //   node tests/schedule.test.mjs
 //
@@ -11,7 +11,6 @@
 
 import assert from 'node:assert/strict';
 import * as dates from '../js/dates.js';
-import * as srs from '../js/srs.js';
 import * as store from '../js/store.js';
 
 let passed = 0;
@@ -69,81 +68,26 @@ test('monthGrid pads to the first Monday and covers the month', () => {
   assert.equal(grid.filter(Boolean).length, 31);
 });
 
-// ---- spaced repetition ----------------------------------------------------
+// ---- the deck --------------------------------------------------------------
+// v20 removed the SM-2 scheduler along with the Again/Good/Easy rating that
+// drove it. What is left is the normalising, which still has to cope with old
+// data — including cards that carry the schedule keys that used to exist.
 
-test('a new card is due immediately', () => {
-  const card = srs.fresh();
-  assert.equal(card.due, '');
-  assert.deepEqual(store.dueFocuses([{ front: 'a', ...card }], '2026-07-31').length, 1);
-});
-
-test('good pushes a card out along the ladder', () => {
-  let card = { ...srs.fresh() };
-  card = { ...card, ...srs.schedule(card, 'good', '2026-07-01') };
-  assert.equal(card.interval, 1);
-  assert.equal(card.due, '2026-07-02');
-
-  card = { ...card, ...srs.schedule(card, 'good', '2026-07-02') };
-  assert.equal(card.interval, 3);
-
-  card = { ...card, ...srs.schedule(card, 'good', '2026-07-05') };
-  assert.equal(card.interval, Math.round(3 * 2.5));   // interval × ease
-});
-
-test('easy goes further than good, and makes the card more forgiving', () => {
-  const base = { ...srs.fresh(), reps: 2, interval: 10, ease: 2.5 };
-  const good = srs.schedule(base, 'good', '2026-07-01');
-  const easy = srs.schedule(base, 'easy', '2026-07-01');
-  assert.ok(easy.interval > good.interval, 'easy should schedule further out');
-  assert.ok(easy.ease > base.ease, 'easy should raise ease');
-  assert.equal(good.ease, base.ease, 'good should leave ease alone');
-});
-
-test('again resets the card and keeps it due today', () => {
-  const base = { ...srs.fresh(), reps: 4, interval: 40, ease: 2.5 };
-  const again = srs.schedule(base, 'again', '2026-07-01');
-  assert.equal(again.interval, 0);
-  assert.equal(again.reps, 0);
-  assert.equal(again.due, '2026-07-01');
-  assert.ok(again.ease < base.ease, 'a lapse should make the card come back sooner in future');
-});
-
-test('ease has a floor, and intervals have a ceiling', () => {
-  let card = { ...srs.fresh() };
-  for (let i = 0; i < 20; i++) card = { ...card, ...srs.schedule(card, 'again', '2026-07-01') };
-  assert.ok(card.ease >= 1.3, `ease fell to ${card.ease}`);
-
-  let long = { ...srs.fresh(), reps: 5, interval: 300, ease: 2.8 };
-  long = { ...long, ...srs.schedule(long, 'easy', '2026-07-01') };
-  assert.ok(long.interval <= 365, `interval ran away to ${long.interval}`);
-});
-
-test('a card only counts as due on or after its due date', () => {
-  const deck = [
-    { front: 'due today', due: '2026-07-31' },
-    { front: 'overdue', due: '2026-07-20' },
-    { front: 'later', due: '2026-08-09' },
-    { front: 'never seen', due: '' },
-  ];
-  const due = store.dueFocuses(deck, '2026-07-31').map(c => c.front);
-  assert.deepEqual(due.sort(), ['due today', 'never seen', 'overdue'].sort());
-  // Most overdue first, so a backlog is worked oldest-out.
-  assert.equal(store.dueFocuses(deck, '2026-07-31')[0].front, 'never seen');
-});
-
-test('an old string-shaped focus still loads, and starts due', () => {
+test('an old string-shaped focus still loads', () => {
   const card = store.normalizeFocus('half guard passing');
-  assert.equal(card.front, 'half guard passing');
-  assert.equal(card.back, '');
-  assert.equal(card.due, '');
-  assert.equal(card.ease, 2.5);
+  assert.deepEqual(card, { front: 'half guard passing', back: '' });
 });
 
-test('a scheduled card keeps its schedule through normalisation', () => {
-  const card = store.normalizeFocus({ front: 'a', back: 'b', due: '2026-09-01', interval: 12, ease: 2.1, reps: 3 });
-  assert.equal(card.due, '2026-09-01');
-  assert.equal(card.interval, 12);
-  assert.equal(card.ease, 2.1);
+test('a card from the spaced-repetition era loads without its schedule', () => {
+  const card = store.normalizeFocus({
+    front: 'a', back: 'b', due: '2026-09-01', interval: 12, ease: 2.1, reps: 3,
+  });
+  assert.deepEqual(card, { front: 'a', back: 'b' },
+    'the dead schedule keys came back with the card');
+});
+
+test('a card with no back is still a card', () => {
+  assert.deepEqual(store.normalizeFocus({ front: 'lockdown' }), { front: 'lockdown', back: '' });
 });
 
 // ---- attendance -----------------------------------------------------------

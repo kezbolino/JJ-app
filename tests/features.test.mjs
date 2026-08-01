@@ -120,10 +120,10 @@ await test('a sync settling after you navigate away cannot wipe the log form', a
 });
 
 // ---------------------------------------------------------------------------
-// 2. Streak, and the calendar on the back of the hero
+// 2. Streak, and the calendar on the back of the stats strip
 // ---------------------------------------------------------------------------
 
-await test('the hero shows a week streak, and the calendar is not on screen until asked', async () => {
+await test('the strip shows a week streak, and the calendar is not on screen until asked', async () => {
   const page = await newPage();
   // Two classes a week for three weeks, so the streak is unambiguous.
   await seed(page, [
@@ -132,16 +132,16 @@ await test('the hero shows a week streak, and the calendar is not on screen unti
     { date: daysAgo(15), gi: 'gi' }, { date: daysAgo(17), gi: 'nogi' },
   ]);
   await go(page, '/');
-  await page.waitForSelector('.hero-flip');
+  await page.waitForSelector('.sbit-total');
 
   const streak = await page.locator('.streak').innerText();
   assert.match(streak, /3 wk/, `streak read "${streak}"`);
 
-  // v19: the calendar came off the dashboard and onto the back of the hero.
+  // v19: the calendar came off the dashboard and onto the back of the strip.
   // It is still in the DOM (it is the other face of the card) — what matters
   // is that the front is what you see, so assert on the flip state.
   assert.equal(await page.locator('.flipcard.is-flipped').count(), 0);
-  assert.equal(await page.locator('.hero-flip').getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.locator('.sbit-total').getAttribute('aria-expanded'), 'false');
   await page.context().close();
 });
 
@@ -150,10 +150,10 @@ await test('tapping the total flips the card to the calendar, and Done flips it 
   await seed(page, [{ date: daysAgo(1), gi: 'gi' }, { date: daysAgo(3), gi: 'nogi' }]);
   await go(page, '/');
 
-  await page.click('.hero-flip');
+  await page.click('.sbit-total');
   await page.waitForTimeout(700);
   assert.equal(await page.locator('.flipcard.is-flipped').count(), 1);
-  assert.equal(await page.locator('.hero-flip').getAttribute('aria-expanded'), 'true');
+  assert.equal(await page.locator('.sbit-total').getAttribute('aria-expanded'), 'true');
   assert.ok(await page.locator('.hcal-month').isVisible(), 'no month showing after the flip');
   const marked = await page.locator('.cal__day.is-on').count();
   assert.ok(marked >= 1, `expected this month's training days marked, got ${marked}`);
@@ -173,9 +173,9 @@ await test('the hidden face is inert, so neither side can be tabbed to while tur
 
   assert.equal(await page.locator('.hero-cal').evaluate(el => el.inert), true,
     'the calendar face is reachable by keyboard while face-down');
-  await page.click('.hero-flip');
+  await page.click('.sbit-total');
   await page.waitForTimeout(700);
-  assert.equal(await page.locator('.hero.flip-face').evaluate(el => el.inert), true,
+  assert.equal(await page.locator('.stats.flip-face').evaluate(el => el.inert), true,
     'the stats face is reachable by keyboard while face-down');
   await page.context().close();
 });
@@ -185,7 +185,7 @@ await test('the arrows page through months and stop at the ends', async () => {
   // One class this month, one two months back, so there is a range to walk.
   await seed(page, [{ date: daysAgo(1) }, { date: daysAgo(70) }]);
   await go(page, '/');
-  await page.click('.hero-flip');
+  await page.click('.sbit-total');
   await page.waitForTimeout(700);
 
   // The card opens on the month of the latest class. Page forward to this
@@ -214,7 +214,7 @@ await test('swiping the calendar changes the month; a vertical drag does not', a
   const page = await newPage();
   await seed(page, [{ date: daysAgo(1) }, { date: daysAgo(70) }]);
   await go(page, '/');
-  await page.click('.hero-flip');
+  await page.click('.sbit-total');
   await page.waitForTimeout(700);
 
   // The handler reads touchstart/touchend only, so two synthetic events are a
@@ -249,7 +249,7 @@ await test('a calendar day links to the class logged that day', async () => {
   const page = await newPage();
   await seed(page, [{ date: daysAgo(1), gi: 'gi', sections: { techniques: 'armbar', rolling: '', thoughts: '' } }]);
   await go(page, '/');
-  await page.click('.hero-flip');
+  await page.click('.sbit-total');
   await page.waitForTimeout(700);
   await page.click('a.cal__day.is-on');
   await page.waitForSelector('textarea');
@@ -258,10 +258,10 @@ await test('a calendar day links to the class logged that day', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Spaced repetition
+// 3. The deck
 // ---------------------------------------------------------------------------
 
-await test('a new deck is all due, and grading a card schedules it away', async () => {
+await test('the deck flips and steps, with no rating asked for', async () => {
   const page = await newPage();
   await setSetting(page, 'focuses', [
     { front: 'half guard passing', back: 'knee across, kill the underhook' },
@@ -270,51 +270,91 @@ await test('a new deck is all due, and grading a card schedules it away', async 
 
   await go(page, '/focus');
   await page.waitForSelector('.flashcard');
-  assert.match(await page.locator('.page-sub').innerText(), /2 cards due/);
+  assert.match(await page.locator('.fc-count').innerText(), /1 \/ 2/);
 
-  // The rating buttons only appear once you have actually tried to recall.
-  // Asserted on real visibility, not on the `hidden` attribute: the attribute
-  // was present and correct while a later `display: grid` rule kept the buttons
-  // on screen anyway, and an attribute-only check waved that straight through.
-  assert.equal(await page.locator('.fc-grade').isVisible(), false,
-    'the grade buttons were on screen before the card was flipped');
+  // v20 removed the Again/Good/Easy rating and the scheduler behind it.
+  assert.equal(await page.locator('.fc-grade').count(), 0, 'the grade buttons are back');
+
   await page.click('.flashcard');
-  await page.waitForTimeout(120);
-  assert.equal(await page.locator('.fc-grade').isVisible(), true);
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.flashcard.flipped').count(), 1, 'tapping did not flip the card');
 
-  await page.click('.fc-g-good');
-  await page.waitForTimeout(200);
-  await page.click('.flashcard');
-  await page.click('.fc-g-good');
-  await page.waitForTimeout(250);
-
-  assert.match(await page.locator('.fc-clear').innerText(), /All caught up/);
-
-  const deck = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
-  for (const card of deck) {
-    assert.ok(card.due > new Date().toISOString().slice(0, 10), `${card.front} is still due today`);
-  }
+  await page.click('.fc-arrow[aria-label="Next"]');
+  await page.waitForTimeout(150);
+  assert.match(await page.locator('.fc-count').innerText(), /2 \/ 2/);
   await page.context().close();
 });
 
-await test('"again" keeps the card in this session instead of hiding it', async () => {
+await test('a card keeps no schedule — nothing due, nothing hidden', async () => {
   const page = await newPage();
   await setSetting(page, 'focuses', [{ front: 'berimbolo', back: 'no' }]);
   await go(page, '/focus');
-  await page.click('.flashcard');
-  await page.click('.fc-g-again');
-  await page.waitForTimeout(200);
-  // Still on a card, not on the all-caught-up panel.
-  assert.equal(await page.locator('.flashcard').count(), 1);
-  assert.equal(await page.locator('.fc-clear').count(), 0);
+  await page.waitForSelector('.flashcard');
+
+  const deck = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.deepEqual(Object.keys(deck[0]).sort(), ['back', 'front'],
+    `a card carries more than front and back: ${JSON.stringify(deck[0])}`);
   await page.context().close();
 });
 
-await test('Home says how many cards are due', async () => {
+// ---------------------------------------------------------------------------
+// 3b. "Working on" as tiles on the front door
+// ---------------------------------------------------------------------------
+
+await test('Working on shows every card as a tile, and a tile opens that card', async () => {
   const page = await newPage();
-  await setSetting(page, 'focuses', [{ front: 'lockdown', back: '' }, { front: 'kimura trap', back: '' }]);
+  await setSetting(page, 'focuses', [
+    { front: 'half guard passing', back: 'knee across' },
+    { front: 'triangle finish', back: 'cut the angle' },
+    { front: 'standing guard break', back: '' },
+  ]);
   await go(page, '/');
-  assert.match(await page.locator('.banner.is-due .b-txt').innerText(), /2 cards due/);
+  await page.waitForSelector('.wo-tile');
+
+  assert.equal(await page.locator('.wo-tile').count(), 3);
+  assert.match(await page.locator('.wo-tile').first().innerText(), /half guard passing/);
+  assert.equal(await page.locator('.wo-dots i').count(), 3, 'no dots for a multi-card deck');
+
+  // Tapping the second tile opens the deck on the second card, not the first.
+  await page.click('.wo-tile:nth-child(2)');
+  await page.waitForSelector('.flashcard');
+  assert.match(await page.locator('.fc-count').innerText(), /2 \/ 3/);
+  assert.match(await page.locator('.fc-text').first().innerText(), /triangle finish/);
+  await page.context().close();
+});
+
+await test('the tiles scroll sideways rather than stacking down the page', async () => {
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'one', back: '' }, { front: 'two', back: '' }, { front: 'three', back: '' },
+  ]);
+  await go(page, '/');
+  await page.waitForSelector('.wo-rail');
+
+  // The rail is a scroll-snapping overflow row: wider content than box is what
+  // makes it swipeable at all, and it is native scrolling rather than a
+  // hand-rolled gesture.
+  const rail = await page.locator('.wo-rail').evaluate(el => ({
+    scrollable: el.scrollWidth > el.clientWidth + 4,
+    snap: getComputedStyle(el).scrollSnapType,
+  }));
+  assert.equal(rail.scrollable, true, 'the tiles are not wider than the rail, so nothing swipes');
+  assert.match(rail.snap, /x/, `expected horizontal scroll snapping, got "${rail.snap}"`);
+
+  // Tiles all sit on the same row.
+  const tops = await page.locator('.wo-tile').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
+  assert.equal(new Set(tops).size, 1, `tiles wrapped onto ${new Set(tops).size} rows`);
+  await page.context().close();
+});
+
+await test('an empty deck invites you to add one instead of showing a blank rail', async () => {
+  const page = await newPage();
+  await go(page, '/');
+  await page.waitForSelector('.wo-empty');
+  assert.equal(await page.locator('.wo-tile').count(), 0);
+  await page.click('.wo-empty');
+  await page.waitForSelector('.page-title');
+  assert.equal(await page.locator('.page-title').innerText(), 'Working on');
   await page.context().close();
 });
 
@@ -332,7 +372,7 @@ await test('a competition session records its type, rounds and self-report', asy
   await page.click('.feel-dot[value="4"]');
   await page.locator('textarea').first().fill('Two matches, both by armbar from closed guard.');
   await page.click('button.btn.primary:has-text("Save entry")');
-  await page.waitForSelector('.hero-num');
+  await page.waitForSelector('.sbit-total');
 
   const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
   assert.equal(saved[0].session, 'comp');
@@ -353,7 +393,7 @@ await test('the session type is optional and clears when tapped again', async ()
   await page.click('.seg-session button:has-text("Open mat")');
   await page.locator('textarea').first().fill('Just a normal class.');
   await page.click('button.btn.primary:has-text("Save entry")');
-  await page.waitForSelector('.hero-num');
+  await page.waitForSelector('.sbit-total');
   const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
   assert.equal(saved[0].session, null);
   await page.context().close();
@@ -448,7 +488,7 @@ await test('linking two entries shows on both ends', async () => {
   await page.waitForTimeout(150);
   assert.equal(await page.locator('.link-chip').count(), 1);
   await page.click('button.btn.primary:has-text("Save changes")');
-  await page.waitForSelector('.hero-num');
+  await page.waitForSelector('.sbit-total');
 
   // The other end shows it as an incoming link without having been edited.
   await go(page, `/log/${older}`);
@@ -469,7 +509,7 @@ await test('deleting moves an entry to the trash and it can be restored', async 
   page.once('dialog', d => d.accept());
   await go(page, `/log/${id}`);
   await page.click('button.btn:has-text("Move to trash")');
-  await page.waitForSelector('.hero-num');
+  await page.waitForSelector('.sbit-total');
 
   // Gone from the live list…
   assert.equal((await page.evaluate(async () => (await import('/js/store.js')).allEntries())).length, 0);

@@ -640,3 +640,37 @@ data if forgotten:
   suites, 113 assertions, green; screenshot-checked the flip in light and dark
   and confirmed 0 running animations under `prefers-reduced-motion` (the flip
   snaps instead of turning).
+- 2026-08-01 — **v20: Home re-weighted around "Working on"; spaced repetition
+  removed.** User: *"the big tile of the total classes logged is too big and not
+  that important. The what I'm working on should be big, and tiled. And I should
+  be able to swipe through them and tap on them for more detail. Remove the bit
+  that asks if it was good/easy."*
+
+  **The deck is now the front door.** "Working on" moved to the top of Home as a
+  row of big tiles — one card each, tap to open the deck at that card
+  (`#/focus?card=N`). The swipe is a **scroll-snapping overflow row**, not a
+  touch handler: native scrolling gets momentum, trackpads, scrollbars and
+  keyboards right for free, and hand-rolled gesture code gets all four wrong.
+  Dots below track the rail's own `scrollLeft`, so they stay honest however you
+  moved it.
+
+  **The hero became a strip.** Total / week / 30 days / gi on one line at
+  1.2rem, with the streak. It still flips to the calendar — and because the
+  strip is 92px while the calendar needs 284px, `.flipcard` now **transitions
+  its height** alongside the rotation instead of reserving the taller face's
+  height permanently. Both faces are absolutely positioned, so that costs
+  nothing. The old `.hero-*` rules are deleted, not orphaned; `tests/smoke.mjs`
+  moved to `.sbit-total` / `.sbit-week`, and the stat cells carry explicit
+  classes so tests never key off position in the row.
+
+  **Spaced repetition is gone.** Removing the Again/Good/Easy rating left SM-2
+  with no input, so `js/srs.js`, `dueFocuses`, `reviewFocus` and the schedule
+  fields on a card went too — same rule as the v18 timer: a half-removed
+  feature is worse than either state. `normalizeFocus` now returns exactly
+  `{front, back}` and **drops the old `due`/`ease`/`interval` keys on read**, so
+  decks written by v17–v19 clean themselves up; there is a test pinning that a
+  card carries nothing else. Home no longer says "N cards due".
+
+  sw `CACHE` → v20, `VERSION` → v20, `js/srs.js` out of `SHELL`. Seven suites,
+  109 assertions, green. Screenshot-checked Home, the flip and the deck in light
+  and dark.

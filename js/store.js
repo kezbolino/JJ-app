@@ -4,7 +4,6 @@ import * as db from './db.js';
 import { POSITIONS, POSITION_BY_ID, rolesFor } from './ontology.js';
 import { tagKey } from './tagger.js';
 import { suggestMoves, moveKey } from './moves.js';
-import * as srs from './srs.js';
 import { localISO, todayISO, addDays, weekOf, dayOfWeek, daysBetween } from './dates.js';
 
 export const ENTRY_TYPES = ['class', 'note', 'question', 'video', 'principle'];
@@ -205,19 +204,17 @@ export const setSetting = (key, value) => db.put('settings', { key, value });
 // the thing (e.g. "half guard passing"), back is your cues/notes to drill.
 // Stored as objects, but old installs saved plain strings, so normalise on read
 // and never assume the shape coming out of IndexedDB.
-// Cards also carry their spaced-repetition schedule (see js/srs.js). Old
-// installs have neither the schedule nor even the {front, back} shape, so
-// normalising on read has to cope with a bare string, a card with no schedule,
-// and a fully scheduled one. A card with no schedule is due now — which is
-// what you want: an existing deck starts by showing you everything once.
+// A card is just { front, back }. Old installs may hold a bare string from
+// before the deck had two sides, so normalising on read has to cope with that.
+//
+// v20 removed the spaced-repetition schedule that used to live here too. It
+// was driven by an Again/Good/Easy rating after each flip, and once that
+// prompt went there was nothing left to feed the scheduler — a scheduler with
+// no input is not a gentler scheduler, it is a dead one. Cards that still
+// carry the old `due`/`ease`/`interval` keys simply drop them here.
 export function normalizeFocus(f) {
-  if (typeof f === 'string') return { front: f, back: '', ...srs.fresh() };
-  return {
-    front: String(f?.front ?? ''),
-    back: String(f?.back ?? ''),
-    ...srs.fresh(),
-    ...srs.pick(f),
-  };
+  if (typeof f === 'string') return { front: f, back: '' };
+  return { front: String(f?.front ?? ''), back: String(f?.back ?? '') };
 }
 
 export async function getFocuses() {
@@ -225,25 +222,6 @@ export async function getFocuses() {
   return (Array.isArray(list) ? list : []).map(normalizeFocus).filter(f => f.front);
 }
 export const setFocuses = list => setSetting('focuses', list.map(normalizeFocus));
-
-/** The cards due today, hardest-overdue first, then any never-seen ones. */
-export function dueFocuses(focuses, today = todayISO()) {
-  return focuses
-    .filter(f => !f.due || f.due <= today)
-    .sort((a, b) => (a.due ?? '').localeCompare(b.due ?? ''));
-}
-
-/**
- * Record a review and reschedule the card. `grade` is 'again' | 'good' | 'easy'.
- * Returns the whole deck so the caller can persist it in one write.
- */
-export async function reviewFocus(front, grade, today = todayISO()) {
-  const deck = await getFocuses();
-  const next = deck.map(card =>
-    card.front === front ? { ...card, ...srs.schedule(card, grade, today) } : card);
-  await setFocuses(next);
-  return next;
-}
 
 // ---- belt ----------------------------------------------------------------
 // Promotions the user has actually been given: [{ rank, date }]. The app does
@@ -590,4 +568,4 @@ export async function unlinkEntries(fromId, toId) {
   }
 }
 
-export { rolesFor, tagKey, suggestMoves, srs };
+export { rolesFor, tagKey, suggestMoves };
