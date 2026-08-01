@@ -585,3 +585,24 @@ data if forgotten:
   `VERSION` → v17; `js/dates.js`, `js/srs.js`, `js/render.js`,
   `js/views/timer.js` and the three icons added to `SHELL`. index.html gained a
   favicon link (the browser was 404ing on `/favicon.ico` every load).
+- 2026-08-01 — **v18: round timer removed.** User: *"Remove the timer, no phones
+  on the mat."* Taken out whole rather than hidden — `js/views/timer.js` deleted,
+  the `#/timer` route and its tab mapping gone from `app.js`, both Home entry
+  points (the squircle in the brand row and the button under the CTA) gone, the
+  `play`/`pause`/`timer` icons dropped from `SHAPES`, the `.t-*` CSS block
+  deleted, and the launcher shortcut removed from the manifest (**two shortcuts
+  now: Log a class, Drill flashcards**). Also removed the `link` icon, which I
+  had added in v17 and never used. `tests/features.test.mjs` lost its three
+  timer tests and gained one that **pins the removal** — `#/timer` must resolve
+  to "Page not found", Home must carry no `href="#/timer"`, and the manifest
+  must offer no timer shortcut. That test exists because a half-removed feature
+  is worse than either state: a dead link on Home or a launcher shortcut into a
+  missing route would both stay silent until someone tapped them. sw `CACHE` →
+  v18, `VERSION` → v18. Six suites, 108 assertions, green.
+
+  **The lesson worth keeping** (written up in `docs/ENHANCEMENTS.md` §1, which
+  is struck through rather than deleted): *"every comparable app has one"* is a
+  fact about the market, not a reason. Every other enhancement in that document
+  improves the app **between** sessions, which is where this app lives — the
+  timer was the only one that assumed a phone in hand during training, and that
+  assumption was never checked. Don't rebuild it without asking.

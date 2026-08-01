@@ -1,9 +1,12 @@
-// The v17 features, driven in a real browser.
+// The v17/v18 features, driven in a real browser.
 //
 // tests/smoke.mjs still owns the core loop (log → tag → position page →
-// dashboard → coverage prompt). This file covers everything added in v17, plus
-// the render-clobber regression, which is the one bug here that destroyed user
-// data rather than just displaying something wrong.
+// dashboard → coverage prompt). This file covers what v17 added and v18 kept,
+// plus the render-clobber regression, which is the one bug here that destroyed
+// user data rather than just displaying something wrong.
+//
+// The round timer was removed in v18 — no phones on the mat — so its three
+// tests went with it. Nothing else in here depended on them.
 //
 //   python3 -m http.server 8099 &   # from the repo root
 //   node tests/features.test.mjs
@@ -117,61 +120,7 @@ await test('a sync settling after you navigate away cannot wipe the log form', a
 });
 
 // ---------------------------------------------------------------------------
-// 2. Round timer
-// ---------------------------------------------------------------------------
-
-await test('the round timer counts down and can be paused', async () => {
-  const page = await newPage();
-  await go(page, '/timer');
-  await page.waitForSelector('.t-time');
-
-  // CSS uppercases these labels, and innerText reflects the rendered case.
-  assert.match(await page.locator('.t-phase').innerText(), /^ready$/i);
-  await page.click('.t-card .btn.primary');
-  await page.waitForTimeout(1400);
-
-  assert.match(await page.locator('.t-phase').innerText(), /^roll$/i);
-  const running = await page.locator('.t-time').innerText();
-  assert.notEqual(running, '5:00', 'the clock never moved');
-
-  await page.click('.t-card .btn.primary');          // pause
-  const paused = await page.locator('.t-time').innerText();
-  await page.waitForTimeout(900);
-  assert.equal(await page.locator('.t-time').innerText(), paused, 'paused clock kept running');
-
-  await page.context().close();
-});
-
-await test('a timer preset changes the round length and is remembered', async () => {
-  const page = await newPage();
-  await go(page, '/timer');
-  await page.click('.t-presets button:has-text("6 × 3 min")');
-  await page.waitForTimeout(150);
-  assert.equal(await page.locator('.t-time').innerText(), '3:00');
-  assert.match(await page.locator('.t-round').innerText(), /of 6/);
-
-  await go(page, '/');
-  await go(page, '/timer');
-  assert.equal(await page.locator('.t-time').innerText(), '3:00', 'preset was not remembered');
-
-  await page.context().close();
-});
-
-await test('leaving the timer stops it — no loop left running behind the app', async () => {
-  const page = await newPage();
-  await go(page, '/timer');
-  await page.click('.t-card .btn.primary');
-  await page.waitForTimeout(600);
-  await go(page, '/');
-  // If the rAF loop survived the route it would still be writing to a detached
-  // node; the observer in timer.js is what tears it down.
-  const alive = await page.evaluate(() => document.querySelectorAll('.t-time').length);
-  assert.equal(alive, 0);
-  await page.context().close();
-});
-
-// ---------------------------------------------------------------------------
-// 3. Calendar and streak
+// 2. Calendar and streak
 // ---------------------------------------------------------------------------
 
 await test('the calendar marks training days and the hero shows a week streak', async () => {
@@ -205,7 +154,7 @@ await test('a calendar day links to the class logged that day', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Spaced repetition
+// 3. Spaced repetition
 // ---------------------------------------------------------------------------
 
 await test('a new deck is all due, and grading a card schedules it away', async () => {
@@ -266,7 +215,7 @@ await test('Home says how many cards are due', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. Session type, rounds, self-report
+// 4. Session type, rounds, self-report
 // ---------------------------------------------------------------------------
 
 await test('a competition session records its type, rounds and self-report', async () => {
@@ -307,7 +256,7 @@ await test('the session type is optional and clears when tapped again', async ()
 });
 
 // ---------------------------------------------------------------------------
-// 6. Belt and promotions
+// 5. Belt and promotions
 // ---------------------------------------------------------------------------
 
 await test('recording a promotion fills the brand mark and counts classes since', async () => {
@@ -336,7 +285,7 @@ await test('no promotion recorded means the app claims no rank', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. The nudge
+// 6. The nudge
 // ---------------------------------------------------------------------------
 
 await test('a missed usual training day is surfaced, and can be dismissed', async () => {
@@ -377,7 +326,7 @@ await test('a missed usual training day is surfaced, and can be dismissed', asyn
 });
 
 // ---------------------------------------------------------------------------
-// 8. Links between entries
+// 7. Links between entries
 // ---------------------------------------------------------------------------
 
 await test('linking two entries shows on both ends', async () => {
@@ -405,7 +354,7 @@ await test('linking two entries shows on both ends', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9. Trash
+// 8. Trash
 // ---------------------------------------------------------------------------
 
 await test('deleting moves an entry to the trash and it can be restored', async () => {
@@ -464,7 +413,7 @@ await test('a trashed entry is not resurrected by a sync', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. Duplicate-day cue, Library paging, import guard, shortcuts
+// 9. Duplicate-day cue, Library paging, import guard, shortcuts
 // ---------------------------------------------------------------------------
 
 await test('logging on a day already logged points at the existing entry', async () => {
@@ -559,11 +508,33 @@ await test('importing a backup never overwrites this device\'s sync config', asy
   await page.context().close();
 });
 
+await test('the round timer is gone — no route, no shortcut, no entry point', async () => {
+  const page = await newPage();
+
+  // Removed in v18 at the user's request: no phones on the mat. Pinned as a
+  // test because a half-removed feature is worse than either state — a dead
+  // link on Home or a launcher shortcut into a "Page not found" would both be
+  // silent until someone tapped them.
+  await go(page, '/timer');
+  assert.equal(await page.locator('.empty:has-text("Page not found")').count(), 1,
+    '#/timer still resolves to something');
+
+  await go(page, '/');
+  assert.equal(await page.locator('a[href="#/timer"]').count(), 0,
+    'Home still links to the timer');
+
+  const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());
+  assert.ok(!manifest.shortcuts.some(sc => sc.url.includes('timer')),
+    'the launcher still offers a timer shortcut');
+
+  await page.context().close();
+});
+
 await test('the manifest offers launcher shortcuts and matches the light default', async () => {
   const page = await newPage();
   const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());
   const urls = manifest.shortcuts.map(s => s.url);
-  assert.deepEqual(urls, ['./#/log', './#/timer', './#/focus']);
+  assert.deepEqual(urls, ['./#/log', './#/focus']);
   assert.equal(manifest.background_color, '#f5f7fc', 'splash is still dark while the app defaults to light');
 
   // Every shortcut has to land somewhere real.

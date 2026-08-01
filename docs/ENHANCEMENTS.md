@@ -15,13 +15,22 @@ Ordered by value to this app, not by effort. Nothing here is a bug; nothing here
 should be built before `docs/AUDIT.md` §1–3.
 
 > **Status: all ten shipped in v17**, along with audit §1, §2, §3 and §10 which
-> they depend on. This document is kept as the reasoning behind each one — the
-> constraints, the framing, and the line each feature must not cross. Audit
+> they depend on. **§1, the round timer, was then removed in v18** — see the
+> note on it below. This document is kept as the reasoning behind each one —
+> the constraints, the framing, and the line each feature must not cross. Audit
 > §4–§9 remain open.
 
 ---
 
-## 1. A round timer
+## 1. A round timer — ~~shipped v17~~, **removed v18**
+
+> **Removed at the user's request: no phones on the mat.** Built in v17, taken
+> out again in v18. The reasoning below was sound about other apps and wrong
+> about this gym, and that is the useful part to keep: *"everyone else has one"*
+> is a fact about the market, not a reason. Every other item in this document
+> makes the app better **between** sessions, which is where this app actually
+> lives; this was the only one that assumed you would have a phone in your hand
+> during training. Don't rebuild it without asking first.
 
 **Everyone else has one.** It is close to universal in BJJ apps, and it's the
 one feature people open a second app for. 5-minute rounds, 1-minute rest, an

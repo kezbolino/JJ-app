@@ -64,8 +64,6 @@ async function runSync(btn, { quiet = false } = {}) {
 function brandRow(syncCtl, standing) {
   return h('div.brand-row', brandMark(standing),
     h('div.brand-actions',
-      h('a.avatar-btn', { href: '#/timer', 'aria-label': 'Round timer', title: 'Round timer' },
-        icon('timer')),
       h('a.avatar-btn.settings-btn', { href: '#/settings', 'aria-label': 'Settings', title: 'Settings' },
         icon('gear')),
       syncCtl));
@@ -256,7 +254,5 @@ export default async function home(root) {
     lastSession(entries),
     h('div.btn-row', { style: 'margin-top:16px' },
       h('a.btn.primary.wide.cta', { href: '#/log' }, icon('plus'), 'Log a class')),
-    h('div.btn-row',
-      h('a.btn.wide', { href: '#/timer' }, icon('timer'), 'Round timer')),
   ].filter(Boolean));
 }

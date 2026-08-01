@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v17';
+const CACHE = 'jj-app-v18';
 
 const SHELL = [
   './',
@@ -35,7 +35,6 @@ const SHELL = [
   'js/views/library.js',
   'js/views/search.js',
   'js/views/settings.js',
-  'js/views/timer.js',
   'manifest.webmanifest',
   // The icons are part of the shell too: the launcher shortcuts and the
   // install prompt both reach for them, and offline is the normal case here.

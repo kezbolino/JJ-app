@@ -865,16 +865,16 @@ a.banner .b-txt.muted { color: var(--muted); }
 
 
 /* ==========================================================================
-   v17 — timer, calendar, deck scheduling, session meta, links, trash.
+   v17 — calendar, deck scheduling, session meta, links, trash.
    All of it speaks the existing language: 22px cards, the chunky pressable
    edge, ink for data and accent for action. Amber keeps its three jobs and
-   gains no new ones — a missed training day is a nudge, so it is amber; a
-   round timer is an action, so it is blue.
+   gains no new ones — a missed training day is waiting on you, so it is amber;
+   everything you tap is blue.
    ========================================================================== */
 
 /* Icons inside buttons. Only .btn.cta svg was ever sized, which was fine while
    the CTA was the only button carrying an icon — the moment another one did
-   (Round timer, Move to trash, Restore) the SVG rendered at its natural size
+   (Move to trash, Restore) the SVG rendered at its natural size
    and swallowed the button. */
 .btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 .btn.small svg { width: 15px; height: 15px; }
@@ -973,43 +973,6 @@ a.cal__day:active { transform: scale(.9); }
   border: 0; background: none; color: var(--muted);
   font-size: 1rem; padding: 4px 6px; cursor: pointer;
 }
-
-/* --- round timer -------------------------------------------------------- */
-.t-card { text-align: center; }
-.t-stage { position: relative; padding: 18px 0 6px; }
-/* The track is drawn by .t-ring-fill's own conic gradient (the unfilled part)
-   and both are punched through by the same mask, so this is just the box. Give
-   it a background and you get a filled disc instead of a ring. */
-.t-ring {
-  width: 208px; height: 208px; margin: 0 auto; border-radius: 50%;
-  position: relative; display: grid; place-items: center;
-}
-/* The progress ring is a conic sweep, so there is no SVG and no arc maths.
-   --t-progress is set from JS each frame. */
-.t-ring-fill {
-  position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(var(--accent) calc(var(--t-progress, 0) * 360deg), var(--track) 0);
-  -webkit-mask: radial-gradient(circle, transparent 0 62%, #000 63%);
-  mask: radial-gradient(circle, transparent 0 62%, #000 63%);
-}
-.t-stage.is-rest .t-ring-fill { background: conic-gradient(var(--good) calc(var(--t-progress, 0) * 360deg), var(--track) 0); }
-.t-stage.is-done .t-ring-fill { background: var(--track); }
-.t-time {
-  position: absolute; top: 92px; left: 0; right: 0;
-  font-size: 3.1rem; font-weight: 600; letter-spacing: -.03em;
-  font-variant-numeric: tabular-nums;
-}
-.t-phase {
-  margin-top: 14px; font-size: .74rem; font-weight: 800;
-  letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
-}
-.t-stage.is-rest .t-phase { color: var(--good); }
-.t-stage.is-done .t-phase { color: var(--muted); }
-.t-round { margin-top: 4px; color: var(--muted); font-size: .84rem; font-weight: 700; }
-.t-presets { margin-bottom: 12px; }
-.t-presets button { font-size: .76rem; }
-.t-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.t-field input { width: 100%; text-align: center; }
 
 /* --- session type + how it went ---------------------------------------- */
 .seg-session { margin: 12px 0 4px; }
@@ -1113,7 +1076,7 @@ a.cal__day:active { transform: scale(.9); }
 @media (prefers-reduced-motion: reduce) {
   .view > *, .btn.cta, .tally__c,
   .tag.suggest:active, .tag.add:active { animation: none; }
-  .feel-dot, .cal__day, .t-ring-fill,
+  .feel-dot, .cal__day,
   .btn, .btn:active, .btn.cta:active,
   .avatar-btn, .avatar-btn:active, .fc-arrow, .fc-arrow:active,
   .seg button, .fc-inner, .deck-rail i,

@@ -13,7 +13,6 @@ import position from './views/position.js';
 import library from './views/library.js';
 import search from './views/search.js';
 import settings from './views/settings.js';
-import timer from './views/timer.js';
 
 const view = document.getElementById('view');
 
@@ -38,9 +37,9 @@ function route() {
   window.scrollTo(0, 0);
 
   // Screens without a tab of their own borrow the one they're reached from:
-  // Settings hangs off Library, the deck and the timer off Home.
+  // Settings hangs off Library, the deck off Home.
   const tab = head === 'settings' ? '/library'
-    : (head === 'focus' || head === 'timer') ? '/'
+    : head === 'focus' ? '/'
     : '/' + (head ?? '');
   for (const link of document.querySelectorAll('.tabbar a')) {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
@@ -55,7 +54,6 @@ function route() {
       case 'map':      return a ? position(view, { positionId: a, role: b ?? null }) : map(view);
       case 'library':  return library(view);
       case 'settings': return settings(view);
-      case 'timer':    return timer(view);
       case 'search':   return search(view, { q: query.q ?? '' });
       default:         view.append(h('p.empty', 'Page not found.'));
     }
