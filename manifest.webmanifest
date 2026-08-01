@@ -44,7 +44,7 @@
     {
       "name": "Drill flashcards",
       "short_name": "Drill",
-      "description": "Review the cards that are due",
+      "description": "Flick through what you are working on",
       "url": "./#/focus",
       "icons": [
         {

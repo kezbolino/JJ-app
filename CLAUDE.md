@@ -673,4 +673,12 @@ data if forgotten:
 
   sw `CACHE` → v20, `VERSION` → v20, `js/srs.js` out of `SHELL`. Seven suites,
   109 assertions, green. Screenshot-checked Home, the flip and the deck in light
-  and dark.
+  and dark. The Drill launcher shortcut said "Review the cards that are due" —
+  fixed in the same version, since "due" stopped meaning anything.
+
+  **Open at the end of this session:** `docs/AUDIT.md` §4–§9 (tombstone
+  hardening, silent sync failure, no time dimension, duplicate-day cue is built
+  but search/Library items are not, Library search labels). And the standing
+  gap: **focuses and `likedMoves` are device-local and still do not sync** —
+  the deck you now see tiled on Home lives on one phone only. Extending the
+  notes-repo format to carry them is the obvious next job.
