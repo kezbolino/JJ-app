@@ -316,10 +316,7 @@ function lastSession(entries) {
   const title = lines[0] || 'Class';
   const rest = lines.slice(1).join(' ');
 
-  const marks = [
-    giFlag(last.gi),
-    last.session ? h('span.gi-flag.s-type', store.SESSION_LABEL[last.session]) : null,
-  ].filter(Boolean);
+  const marks = [giFlag(last.gi)].filter(Boolean);
 
   return h('a.card.session', { href: `#/log/${last.id}` },
     h('div.s-head',

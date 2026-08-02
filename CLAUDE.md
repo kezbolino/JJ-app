@@ -729,3 +729,47 @@ data if forgotten:
   sw `CACHE` → v21, `VERSION` → v21, no files added or removed. Seven suites,
   111 assertions, green (`schedule` run under UTC, `America/Los_Angeles` and
   `Australia/Sydney`); screenshot-checked the Log form.
+- 2026-08-02 — **v22: the session-type picker removed.** User: *"Remove the type
+  of lesson, seminar, private... Etc"*. Open mat / Competition / Private /
+  Seminar are gone whole, the same call as the v18 timer and the v21 rounds
+  block: `sessionSelector` off the Log form, `SESSION_TYPES` / `SESSION_LABEL` /
+  `sessionCounts` out of `store.js`, `entry.session` off `newEntry` and the model
+  doc, `session:` out of the front-matter grammar, the neutral `.s-type` chip off
+  Home's last-session card and off every Library row, `day.sessions` out of
+  `trainingIndex`, and the competition ring (`.cal__day.is-comp`) off the
+  calendar. **Gi / no-gi is now the only thing the model says about what kind of
+  session it was.**
+
+  **The Map's "Mat time" card went with it.** It existed to split classes across
+  the session types, and with them gone it rendered a single row reading
+  "Regular class · 100%" — a chart of nothing. Verified against a before/after
+  screenshot rather than assumed. `.slist*` deleted with it.
+
+  **Two bits of CSS the removal exposed**, both dead before this change and both
+  now gone: `.stat` / `.stat-row` (orphaned in v21 when the Map's stat tiles
+  went — nothing had rendered `div.stat` since), and a **second `.stats-row`
+  rule** in the mat-time block that was also landing on *Home's* stats strip and
+  overriding the real rule 160 lines above it, giving the strip a stray
+  `margin-top: 14px` and a 10px gap instead of 6px. Deleting it left Home's strip
+  correctly centred in its card — screenshot-compared before and after to be sure
+  the fix was a fix. Worth remembering: **duplicate selectors 160 lines apart in
+  a single 1200-line stylesheet are invisible**; grep the whole file for a
+  selector before deleting the block it sits in.
+
+  **Tests.** The two session-type tests were replaced by removal pins, in the
+  same spirit as v18's timer test: the log form must offer no picker and none of
+  the four labels, the Map must render no mat-time card, `store` must export no
+  `SESSION_TYPES`/`SESSION_LABEL`/`sessionCounts`/`rollStats`, a new entry must
+  carry no `session`/`rounds`/`feel`, `trainingIndex` must not track sessions,
+  and `toMarkdown` must neither write `session:` nor read a legacy one back.
+  A new positive test covers the survivor — gi/no-gi still records and still
+  clears when tapped again — because the removal took a sibling of that control
+  and nothing else asserted it.
+
+  `tests/markdown.test.mjs`'s falsy-scalar guard now uses `gi` instead of
+  `session` as its subject. The guard itself stays for the third version running:
+  it is about `field()`, not about whichever field happens to exist this week.
+
+  sw `CACHE` → v22, `VERSION` → v22, no files added or removed. Seven suites,
+  110 assertions, green (`schedule` under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`); screenshot-compared Home, Map and the Log form.

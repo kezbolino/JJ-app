@@ -140,7 +140,6 @@ export function monthCalendar(ym, index, { today = '', onPick = null, showMonth 
       classes.push('is-on');
       if (day.gi && day.nogi) classes.push('is-both');
       else if (day.nogi) classes.push('is-nogi');
-      if (day.sessions.includes('comp')) classes.push('is-comp');
     }
     if (date === today) classes.push('is-today');
 

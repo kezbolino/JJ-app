@@ -79,8 +79,6 @@ export function toMarkdown(entry) {
   field('type', entry.type);
   field('date', entry.date);
   field('gi', entry.gi);
-  // A scalar, so the grammar stays the boring fixed thing it has to be.
-  field('session', entry.session);
   if (entry.tags?.length) lines.push(`tags: [${entry.tags.map(tagToString).join(', ')}]`);
   // The one other inline list, same shape as tags: entry ids this one links to.
   if (entry.related?.length) lines.push(`related: [${entry.related.join(', ')}]`);
@@ -156,7 +154,6 @@ export function fromMarkdown(text) {
     type: unquote(meta.type ?? 'note'),
     date: unquote(meta.date ?? ''),
     gi: meta.gi ? unquote(meta.gi) : null,
-    session: meta.session ? unquote(meta.session) : null,
     title: titleMatch ? titleMatch[1].trim() : '',
     sections: { techniques: '', rolling: '', thoughts: '' },
     body: '',

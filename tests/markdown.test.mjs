@@ -203,15 +203,11 @@ test('empty corrections round-trip', () => {
   assert.deepEqual(back.muted, []);
 });
 
-// --- v17 fields: session type and links ------------------------------------
-// These are the first additions to the front-matter grammar since the format
-// was written. The grammar stays what it was — scalars plus inline lists — and
-// these tests are what stop the additions from rotting the backup.
-
-test('session type survives a round trip', () => {
-  const back = fromMarkdown(toMarkdown({ ...classEntry, session: 'comp' }));
-  assert.equal(back.session, 'comp');
-});
+// --- links between entries -------------------------------------------------
+// The one inline list added to the grammar since the format was written (the
+// session-type scalar that arrived alongside it was removed again in v22). The
+// grammar stays what it was — scalars plus inline lists — and this is what stops
+// the addition from rotting the backup.
 
 test('links between entries survive a round trip', () => {
   const entry = {
@@ -225,30 +221,25 @@ test('links between entries survive a round trip', () => {
 // An optional field that was never filled in comes back absent, not defaulted.
 test('an unrecorded field comes back empty', () => {
   const back = fromMarkdown(toMarkdown(classEntry));
-  assert.equal(back.session, null);
   assert.deepEqual(back.related, []);
+  assert.ok(!toMarkdown(classEntry).includes('related:'), 'related: written for an entry with none');
 });
 
-test('the new keys stay out of the file when unset', () => {
-  const text = toMarkdown(classEntry);
-  for (const key of ['session:', 'related:']) {
-    assert.ok(!text.includes(key), `${key} written for an entry that has none`);
+// Rounds and the 1-5 self-report were removed in v21, the session type in v22,
+// each with the form field that fed it. Notes already in the backup repo still
+// carry the keys, and they must not come back into the model through a pull —
+// same rule as the v18 timer: a half-removed feature is worse than either state.
+test('the removed fields are gone, in the file and on the way back', () => {
+  const text = toMarkdown({ ...classEntry, rounds: 6, feel: 4, session: 'comp' });
+  for (const key of ['rounds:', 'feel:', 'session:']) {
+    assert.ok(!text.includes(key), `${key} is still written to the backup`);
   }
-});
 
-// Rounds and the 1-5 self-report were removed in v21 with the form fields that
-// fed them. Notes already in the backup repo still carry the keys, and they must
-// not come back into the model through a pull — same rule as the v18 timer: a
-// half-removed feature is worse than either state.
-test('rounds and the self-report are gone, in the file and on the way back', () => {
-  const text = toMarkdown({ ...classEntry, rounds: 6, feel: 4 });
-  assert.ok(!text.includes('rounds:'), 'rounds is still written to the backup');
-  assert.ok(!text.includes('feel:'), 'the self-report is still written to the backup');
-
-  const old = toMarkdown(classEntry).replace('---\n\n#', 'rounds: 6\nfeel: 4\n---\n\n#');
+  const old = toMarkdown(classEntry).replace('---\n\n#', 'rounds: 6\nfeel: 4\nsession: comp\n---\n\n#');
   const back = fromMarkdown(old);
-  assert.ok(!('rounds' in back), 'a legacy rounds key came back into the model');
-  assert.ok(!('feel' in back), 'a legacy feel key came back into the model');
+  for (const key of ['rounds', 'feel', 'session']) {
+    assert.ok(!(key in back), `a legacy ${key} key came back into the model`);
+  }
 });
 
 // A note written before v17 has none of these keys. It must still parse, and it
@@ -274,7 +265,6 @@ test('a note from before these fields existed still parses', () => {
   ].join('\n');
   const back = fromMarkdown(old);
   assert.equal(back.date, '2026-05-01');
-  assert.equal(back.session, null);
   assert.deepEqual(back.related, []);
   assert.equal(back.sections.rolling, 'Six rounds, all uphill.');
 });
@@ -284,8 +274,8 @@ test('a note from before these fields existed still parses', () => {
 // rounds is gone now, but the guard it bought stays, because the next number
 // added to the front matter would walk into exactly the same trap.
 test('a falsy scalar is written, not dropped', () => {
-  const text = toMarkdown({ ...classEntry, session: 0 });
-  assert.ok(text.includes('session: 0'), 'a zero was treated as an absent field');
+  const text = toMarkdown({ ...classEntry, gi: 0 });
+  assert.ok(text.includes('gi: 0'), 'a zero was treated as an absent field');
 });
 
 console.log(`\n${passed} passed`);

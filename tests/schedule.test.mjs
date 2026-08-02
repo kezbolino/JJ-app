@@ -167,27 +167,29 @@ test('the nudge never fires for today', () => {
   assert.notEqual(nudge?.date, '2026-08-04');
 });
 
-// ---- session types --------------------------------------------------------
+// ---- what a class entry no longer carries ---------------------------------
+// Rounds and the 1-5 self-report went in v21, the session type in v22, and the
+// queries that read them went too. Pinned here because those queries are what
+// the Map cards called: leave one exported with nothing writing to it and it
+// quietly reports zeros forever.
 
-test('session counts separate competition from an ordinary class', () => {
-  const counts = store.sessionCounts([
-    cls('2026-07-01'),
-    cls('2026-07-02'),
-    cls('2026-07-03', { session: 'comp' }),
-    cls('2026-07-04', { session: 'open-mat' }),
-  ]);
-  assert.equal(counts.null, 2);
-  assert.equal(counts.comp, 1);
-  assert.equal(counts['open-mat'], 1);
+test('nothing scores or categorises a session any more', () => {
+  assert.equal(store.rollStats, undefined, 'rollStats is still exported');
+  assert.equal(store.sessionCounts, undefined, 'sessionCounts is still exported');
+  assert.equal(store.SESSION_TYPES, undefined, 'the session type list is still exported');
+  assert.equal(store.SESSION_LABEL, undefined, 'the session labels are still exported');
+
+  const fresh = store.newEntry();
+  for (const key of ['rounds', 'feel', 'session']) {
+    assert.equal(fresh[key], undefined, `a new entry still carries ${key}`);
+  }
 });
 
-// Rounds and the 1-5 self-report went in v21, and `rollStats` went with them.
-// Pinned here because the query is what the Map card read: leave it exported
-// with nothing writing to it and it quietly reports zeros forever.
-test('rollStats is gone — nothing scores a session any more', () => {
-  assert.equal(store.rollStats, undefined);
-  assert.equal(store.newEntry().rounds, undefined);
-  assert.equal(store.newEntry().feel, undefined);
+test('a training day records attendance and gi, and nothing about the kind of class', () => {
+  const day = store.trainingIndex([cls('2026-07-01', { gi: 'nogi' })]).get('2026-07-01');
+  assert.equal(day.count, 1);
+  assert.equal(day.nogi, 1);
+  assert.equal(day.sessions, undefined, 'the calendar still tracks session types');
 });
 
 // ---- links ----------------------------------------------------------------

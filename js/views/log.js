@@ -34,31 +34,6 @@ function giSelector(entry) {
 }
 
 /**
- * What kind of session this was.
- *
- * Gi/no-gi says what you wore; this says what you were doing. Nothing selected
- * means an ordinary class, which is nearly all of them — so the common case
- * costs no taps at all, and tapping the active one clears it again.
- */
-function sessionSelector(entry) {
-  const buttons = store.SESSION_TYPES.map(([value, label]) =>
-    h('button', { type: 'button', value }, label));
-
-  const paint = () => buttons.forEach(b =>
-    b.setAttribute('aria-pressed', String(entry.session === b.value)));
-
-  for (const button of buttons) {
-    button.addEventListener('click', () => {
-      entry.session = entry.session === button.value ? null : button.value;
-      paint();
-      button.blur();
-    });
-  }
-  paint();
-  return h('div.seg.seg-session', ...buttons);
-}
-
-/**
  * Position → role → technique pickers that narrow as you go.
  * Used both for adding a tag by hand and for teaching the app a new word.
  */
@@ -360,7 +335,6 @@ export default async function log(root, { id, date } = {}) {
       giSelector(entry)),
 
     dupeNotice,
-    sessionSelector(entry),
 
     h('div.field',
       h('label.field-label', 'What we drilled'),

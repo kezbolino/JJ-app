@@ -123,30 +123,9 @@ function exposure(active) {
   }));
 }
 
-/**
- * Mat time by session type.
- *
- * Every count here is of things you wrote down — how many sessions of each kind
- * you logged, and nothing about how they went.
- */
-function sessionCard(entries) {
-  const counts = store.sessionCounts(entries);
-  const ordinary = counts.null ?? 0;
-
-  const rows = [['null', 'Regular class'], ...store.SESSION_TYPES]
-    .map(([id, label]) => [label, id === 'null' ? ordinary : counts[id] ?? 0])
-    .filter(([, n]) => n > 0);
-  if (!rows.length) return null;
-
-  const total = rows.reduce((n, [, count]) => n + count, 0);
-
-  return card('Mat time',
-    h('div.slist', rows.map(([label, n]) =>
-      h('div.slist-row',
-        h('span.slist-name', label),
-        tally(Math.round((n / total) * 100), `${label}: ${n} of ${total}`),
-        h('span.slist-n', String(n))))));
-}
+// The "Mat time" card lived here until v22. It split your classes across the
+// session types (open mat / competition / private / seminar), and there is
+// nothing left to split them by — a class is a class.
 
 // A picker that narrows Position → Move, for starring a move by hand.
 function movePicker() {
@@ -235,11 +214,6 @@ export default async function map(root) {
   // The matrix first: it is the one picture that shows a gap as an absence
   // sitting next to a presence, which is the thing this app exists to notice.
   root.append(heatmap(entries));
-
-  // Mat time sits above the tag-derived panels because it needs no tags at all
-  // — a class you logged with nothing written still counts as mat time.
-  const sessions = sessionCard(entries);
-  if (sessions) root.append(sessions);
 
   if (!active.length) {
     root.append(card(null, empty('Nothing logged yet. The map fills in as you write.')));

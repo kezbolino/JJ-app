@@ -8,25 +8,9 @@ import { localISO, todayISO, addDays, weekOf, dayOfWeek, daysBetween } from './d
 
 export const ENTRY_TYPES = ['class', 'note', 'question', 'video', 'principle'];
 
-/**
- * What kind of session a class entry was.
- *
- * Gi/no-gi says what you wore; this says what you were doing. A competition and
- * a Tuesday fundamentals class are both `type: 'class'` in the model — they are
- * both mat time — but they are not the same activity, and rolling them together
- * hides the one question the journal can honestly answer about competition:
- * what you actually reached for when it counted.
- *
- * null means "an ordinary class", which is the overwhelming majority, so it
- * costs nothing to leave alone.
- */
-export const SESSION_TYPES = [
-  ['open-mat', 'Open mat'],
-  ['comp',     'Competition'],
-  ['private',  'Private'],
-  ['seminar',  'Seminar'],
-];
-export const SESSION_LABEL = Object.fromEntries(SESSION_TYPES);
+// `SESSION_TYPES` (open mat / competition / private / seminar) lived here until
+// v22, when the user asked for the picker to go. A class is a class; gi vs no-gi
+// is the only thing the model still says about what kind of session it was.
 
 /**
  * An entry is the single unit of everything: a class journal, a stray note, a
@@ -40,7 +24,6 @@ export const SESSION_LABEL = Object.fromEntries(SESSION_TYPES);
  *   body,                                          // free text / joined sections
  *   tags: [{kind:'pos', position, role, technique} | {kind:'concept', concept}],
  *   video: { videoId, url, title, thumb } | null,
- *   session: 'open-mat'|'comp'|'private'|'seminar' | null,   // class entries
  *   related: [entryId],           // links you drew to other entries
  *   deletedAt: ISO | null,        // in the trash, recoverable
  *   createdAt, updatedAt
@@ -64,7 +47,6 @@ export function newEntry(patch = {}) {
     body: '',
     tags: [],
     video: null,
-    session: null,
     related: [],
     deletedAt: null,
     createdAt: now,
@@ -406,12 +388,11 @@ export function trainingIndex(entries) {
   const index = new Map();
   for (const entry of entries) {
     if (entry.type !== 'class') continue;
-    const day = index.get(entry.date) ?? { count: 0, gi: 0, nogi: 0, ids: [], sessions: [] };
+    const day = index.get(entry.date) ?? { count: 0, gi: 0, nogi: 0, ids: [] };
     day.count++;
     if (entry.gi === 'gi') day.gi++;
     if (entry.gi === 'nogi') day.nogi++;
     day.ids.push(entry.id);
-    if (entry.session) day.sessions.push(entry.session);
     index.set(entry.date, day);
   }
   return index;
@@ -484,21 +465,11 @@ export function logNudge(entries, today = todayISO()) {
   return null;
 }
 
-/** How the mat time splits across session types. Ordinary classes are `null`. */
-export function sessionCounts(entries) {
-  const counts = { null: 0 };
-  for (const [id] of SESSION_TYPES) counts[id] = 0;
-  for (const entry of entries) {
-    if (entry.type !== 'class') continue;
-    const key = entry.session ?? 'null';
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-  return counts;
-}
-
-// `rollStats` lived here until v21: rounds rolled, and a 1–5 self-report on how
-// a session went. Both were removed at the user's request along with the form
-// fields that fed them. Nothing reads `entry.rounds` or `entry.feel` any more.
+// Two queries about the *kind* of session lived here and are gone:
+// `rollStats` (v21 — rounds rolled and a 1–5 self-report) and `sessionCounts`
+// (v22 — the split across open mat / competition / private / seminar). Both went
+// with the form fields that fed them, at the user's request. Nothing reads
+// `entry.rounds`, `entry.feel` or `entry.session` any more.
 
 // ---- links between entries ------------------------------------------------
 // Tags connect an entry to a *position*. These connect an entry to another

@@ -359,42 +359,51 @@ await test('an empty deck invites you to add one instead of showing a blank rail
 });
 
 // ---------------------------------------------------------------------------
-// 4. Session type
+// 4. What the log form no longer asks
 // ---------------------------------------------------------------------------
 
-await test('a competition session records its type', async () => {
-  const page = await newPage();
-  await go(page, '/log');
-  await page.waitForSelector('textarea');
-
-  await page.click('.seg-session button:has-text("Competition")');
-  await page.locator('textarea').first().fill('Two matches, both by armbar from closed guard.');
-  await page.click('button.btn.primary:has-text("Save entry")');
-  await page.waitForSelector('.sbit-total');
-
-  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
-  assert.equal(saved[0].session, 'comp');
-
-  await go(page, '/map');
-  const text = await page.locator('#view').innerText();
-  assert.match(text, /Mat time/i);
-  assert.match(text, /Competition/i);
-  await page.context().close();
-});
-
-// Removed in v21 at the user's request, along with the Map stats they fed.
-// Pinned for the v18 reason: a half-removed feature is worse than either state —
-// an input still on the form writing to a field nothing reads is silent.
-await test('rounds and "how it went" are gone from the log form', async () => {
+// Rounds and the 1-5 self-report went in v21; the session-type picker (open mat
+// / competition / private / seminar) in v22. Both at the user's request, and
+// both taken out whole rather than hidden. Pinned for the v18 reason: a
+// half-removed feature is worse than either state — an input still on the form
+// writing to a field nothing reads is silent, in both directions.
+await test('the log form asks for the class, not a grade or a category', async () => {
   const page = await newPage();
   await go(page, '/log');
   await page.waitForSelector('textarea');
 
   assert.equal(await page.locator('.feel-dot').count(), 0, 'the 1-5 dots are still on the form');
   assert.equal(await page.locator('input[type="number"]').count(), 0, 'the rounds input is still on the form');
+  assert.equal(await page.locator('.seg-session').count(), 0, 'the session-type picker is still on the form');
+
   const text = await page.locator('#view').innerText();
   assert.doesNotMatch(text, /how it went/i);
   assert.doesNotMatch(text, /\brounds\b/i);
+  for (const label of ['Open mat', 'Competition', 'Private', 'Seminar']) {
+    assert.doesNotMatch(text, new RegExp(label, 'i'), `"${label}" is still offered`);
+  }
+
+  // Gi / no-gi is the one thing left that says what kind of session it was.
+  assert.equal(await page.locator('.seg button:has-text("No-gi")').count(), 1);
+  await page.context().close();
+});
+
+// The Map card those types fed went with them. A "Mat time" panel whose only
+// row is "Regular class: 100%" is a chart of nothing.
+await test('the Map no longer breaks classes down by session type', async () => {
+  const page = await newPage();
+  await seed(page, [
+    { date: daysAgo(1), gi: 'gi', sections: { techniques: 'knee slice pass', rolling: '', thoughts: '' } },
+    { date: daysAgo(4), gi: 'nogi', sections: { techniques: 'triangle from guard', rolling: '', thoughts: '' } },
+  ]);
+  await go(page, '/map');
+  await page.waitForSelector('.page-title');
+  const text = await page.locator('#view').innerText();
+  assert.doesNotMatch(text, /mat time/i);
+  assert.doesNotMatch(text, /open mat|seminar/i);
+  assert.equal(await page.locator('.slist').count(), 0, 'the session breakdown list is still rendered');
+  // The map's own content is untouched by the removal.
+  assert.match(text, /Your map/i);
   await page.context().close();
 });
 
@@ -420,16 +429,24 @@ await test('the middle field is Key details, and keeps what was written before',
   await page.context().close();
 });
 
-await test('the session type is optional and clears when tapped again', async () => {
+await test('gi and no-gi still record, and clear when tapped again', async () => {
   const page = await newPage();
   await go(page, '/log');
-  await page.click('.seg-session button:has-text("Open mat")');
-  await page.click('.seg-session button:has-text("Open mat")');
+  await page.waitForSelector('textarea');
+  await page.click('.seg button:has-text("No-gi")');
   await page.locator('textarea').first().fill('Just a normal class.');
   await page.click('button.btn.primary:has-text("Save entry")');
   await page.waitForSelector('.sbit-total');
-  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
-  assert.equal(saved[0].session, null);
+  let saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  assert.equal(saved[0].gi, 'nogi');
+
+  await go(page, `/log/${saved[0].id}`);
+  await page.waitForSelector('textarea');
+  await page.click('.seg button:has-text("No-gi")');
+  await page.click('button.btn.primary:has-text("Save changes")');
+  await page.waitForSelector('.sbit-total');
+  saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  assert.equal(saved[0].gi, null);
   await page.context().close();
 });
 

@@ -207,8 +207,7 @@ export default async function library(root) {
     h('div.entry-head',
       h('span.entry-date', e.type === 'class' ? fmtDate(e.date) : (TYPE_LABEL[e.type] ?? e.type)),
       e.type !== 'class' && h('span.entry-sub', fmtDate(e.date)),
-      giFlag(e.gi),
-      e.session ? h('span.gi-flag.s-type', store.SESSION_LABEL[e.session]) : null),
+      giFlag(e.gi)),
     (e.title || e.body) && h('div.entry-body',
       (e.title || e.body).slice(0, 140) + ((e.title || e.body).length > 140 ? '…' : '')),
     (e.tags ?? []).length ? h('div.tags', e.tags.slice(0, 4).map(t => tagChip(t))) : null);
