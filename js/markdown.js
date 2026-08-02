@@ -10,9 +10,20 @@
 
 const SECTIONS = [
   ['techniques', 'Techniques'],
-  ['rolling', 'Rolling notes'],
+  ['rolling', 'Key details'],
   ['thoughts', 'Thoughts'],
 ];
+
+// Headings past versions wrote. The backup repo is full of files this app made
+// years of classes ago, and a renamed heading must never turn one of those
+// sections into an empty field — so a rename adds to this list rather than
+// replacing what it used to be called. (`rolling` was "Rolling notes" ≤ v20.)
+const LEGACY_HEADINGS = {
+  rolling: ['rolling notes'],
+};
+
+/** Every heading, current and historical, that fills a section. Lowercased. */
+const headingsFor = (key, heading) => [heading.toLowerCase(), ...(LEGACY_HEADINGS[key] ?? [])];
 
 const TYPE_HEADING = {
   class: 'Class', note: 'Note', question: 'Question',
@@ -55,9 +66,10 @@ export function pathFor(entry) {
 
 export function toMarkdown(entry) {
   const lines = ['---'];
-  // Absent means absent — but 0 is a value, not an absence. `rounds: 0` is a
-  // real answer ("we drilled, I didn't roll"), and a truthiness check would
-  // quietly turn it back into "no rounds recorded" on the next pull.
+  // Absent means absent — but 0 and false are values, not absences. Keep this
+  // an explicit check rather than a truthiness test: the truthy version silently
+  // dropped `rounds: 0` ("we drilled, I didn't roll") on every pull until v17
+  // caught it, and the next numeric field added here would hit the same trap.
   const field = (key, value) => {
     if (value === null || value === undefined || value === '' || value === false) return;
     lines.push(`${key}: ${quote(String(value))}`);
@@ -67,12 +79,8 @@ export function toMarkdown(entry) {
   field('type', entry.type);
   field('date', entry.date);
   field('gi', entry.gi);
-  // Scalars, so the grammar stays the boring fixed thing it has to be. `rounds`
-  // and `feel` are numbers but written as plain text like everything else —
-  // fromMarkdown coerces them back.
+  // A scalar, so the grammar stays the boring fixed thing it has to be.
   field('session', entry.session);
-  field('rounds', entry.rounds);
-  field('feel', entry.feel);
   if (entry.tags?.length) lines.push(`tags: [${entry.tags.map(tagToString).join(', ')}]`);
   // The one other inline list, same shape as tags: entry ids this one links to.
   if (entry.related?.length) lines.push(`related: [${entry.related.join(', ')}]`);
@@ -139,14 +147,6 @@ export function fromMarkdown(text) {
   const tags = inlineList('tags').map(tagFromString);
   const related = inlineList('related');
 
-  // A number that isn't there stays null rather than becoming 0 — "no rounds
-  // recorded" and "rolled zero rounds" are different facts.
-  const number = key => {
-    if (!meta[key]) return null;
-    const n = Number(unquote(meta[key]));
-    return Number.isFinite(n) ? n : null;
-  };
-
   const body = match[2];
   const titleMatch = /^#\s+(.+)$/m.exec(body);
   const afterTitle = titleMatch ? body.slice(body.indexOf(titleMatch[0]) + titleMatch[0].length) : body;
@@ -157,8 +157,6 @@ export function fromMarkdown(text) {
     date: unquote(meta.date ?? ''),
     gi: meta.gi ? unquote(meta.gi) : null,
     session: meta.session ? unquote(meta.session) : null,
-    rounds: number('rounds'),
-    feel: number('feel'),
     title: titleMatch ? titleMatch[1].trim() : '',
     sections: { techniques: '', rolling: '', thoughts: '' },
     body: '',
@@ -187,7 +185,7 @@ export function fromMarkdown(text) {
   if (entry.type === 'class') {
     const blocks = splitSections(afterTitle);
     for (const [key, heading] of SECTIONS) {
-      entry.sections[key] = blocks[heading.toLowerCase()] ?? '';
+      entry.sections[key] = headingsFor(key, heading).map(name => blocks[name]).find(Boolean) ?? '';
     }
     entry.body = [entry.title, entry.sections.techniques, entry.sections.rolling, entry.sections.thoughts]
       .filter(Boolean).join('\n');

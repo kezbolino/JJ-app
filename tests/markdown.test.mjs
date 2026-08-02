@@ -49,6 +49,18 @@ test('class entry survives a round trip', () => {
   assert.equal(back.title, '', 'a generated heading came back as a real title');
 });
 
+// The middle section was relabelled "Rolling notes" → "Key details" in v21. The
+// heading in the file follows the label, but every note already in the backup
+// repo says "Rolling notes" — parse the old name and that field goes blank on
+// the next pull, on every device, with no error anywhere.
+test('the middle section writes its current heading and reads its old one', () => {
+  assert.ok(toMarkdown(classEntry).includes('## Key details'));
+  assert.ok(!toMarkdown(classEntry).includes('## Rolling notes'));
+
+  const legacy = toMarkdown(classEntry).replace('## Key details', '## Rolling notes');
+  assert.equal(fromMarkdown(legacy).sections.rolling, classEntry.sections.rolling);
+});
+
 // A class entry written in the app never has a title — the Log form has no such
 // field — so toMarkdown always invents a `# Class — <date>` heading for it. That
 // heading must not survive as content: it used to be folded into `body` before
@@ -191,17 +203,14 @@ test('empty corrections round-trip', () => {
   assert.deepEqual(back.muted, []);
 });
 
-// --- v17 fields: session type, rounds, self-report, links ------------------
+// --- v17 fields: session type and links ------------------------------------
 // These are the first additions to the front-matter grammar since the format
 // was written. The grammar stays what it was — scalars plus inline lists — and
 // these tests are what stop the additions from rotting the backup.
 
-test('session type, rounds and self-report survive a round trip', () => {
-  const entry = { ...classEntry, session: 'comp', rounds: 6, feel: 4 };
-  const back = fromMarkdown(toMarkdown(entry));
+test('session type survives a round trip', () => {
+  const back = fromMarkdown(toMarkdown({ ...classEntry, session: 'comp' }));
   assert.equal(back.session, 'comp');
-  assert.equal(back.rounds, 6);
-  assert.equal(back.feel, 4);
 });
 
 test('links between entries survive a round trip', () => {
@@ -213,21 +222,33 @@ test('links between entries survive a round trip', () => {
   assert.deepEqual(back.related, entry.related);
 });
 
-// "No rounds recorded" and "rolled zero rounds" are different facts, and the
-// front matter has no way to say the first except by leaving the key out.
-test('an unrecorded number comes back as null, not zero', () => {
+// An optional field that was never filled in comes back absent, not defaulted.
+test('an unrecorded field comes back empty', () => {
   const back = fromMarkdown(toMarkdown(classEntry));
-  assert.equal(back.rounds, null);
-  assert.equal(back.feel, null);
   assert.equal(back.session, null);
   assert.deepEqual(back.related, []);
 });
 
 test('the new keys stay out of the file when unset', () => {
   const text = toMarkdown(classEntry);
-  for (const key of ['session:', 'rounds:', 'feel:', 'related:']) {
+  for (const key of ['session:', 'related:']) {
     assert.ok(!text.includes(key), `${key} written for an entry that has none`);
   }
+});
+
+// Rounds and the 1-5 self-report were removed in v21 with the form fields that
+// fed them. Notes already in the backup repo still carry the keys, and they must
+// not come back into the model through a pull — same rule as the v18 timer: a
+// half-removed feature is worse than either state.
+test('rounds and the self-report are gone, in the file and on the way back', () => {
+  const text = toMarkdown({ ...classEntry, rounds: 6, feel: 4 });
+  assert.ok(!text.includes('rounds:'), 'rounds is still written to the backup');
+  assert.ok(!text.includes('feel:'), 'the self-report is still written to the backup');
+
+  const old = toMarkdown(classEntry).replace('---\n\n#', 'rounds: 6\nfeel: 4\n---\n\n#');
+  const back = fromMarkdown(old);
+  assert.ok(!('rounds' in back), 'a legacy rounds key came back into the model');
+  assert.ok(!('feel' in back), 'a legacy feel key came back into the model');
 });
 
 // A note written before v17 has none of these keys. It must still parse, and it
@@ -254,18 +275,17 @@ test('a note from before these fields existed still parses', () => {
   const back = fromMarkdown(old);
   assert.equal(back.date, '2026-05-01');
   assert.equal(back.session, null);
-  assert.equal(back.rounds, null);
   assert.deepEqual(back.related, []);
   assert.equal(back.sections.rolling, 'Six rounds, all uphill.');
 });
 
-// "I drilled, I didn't roll" is a real answer and a different fact from "I
-// didn't say". The front matter used to be written with a truthiness check,
-// which silently turned the first into the second on the next pull.
-test('zero rounds is a value, not an absence', () => {
-  const back = fromMarkdown(toMarkdown({ ...classEntry, rounds: 0 }));
-  assert.equal(back.rounds, 0);
-  assert.ok(toMarkdown({ ...classEntry, rounds: 0 }).includes('rounds: 0'));
+// A value of 0 or false is a value, not an absence. `rounds: 0` ("we drilled, I
+// didn't roll") was silently dropped by a truthiness check until v17 caught it;
+// rounds is gone now, but the guard it bought stays, because the next number
+// added to the front matter would walk into exactly the same trap.
+test('a falsy scalar is written, not dropped', () => {
+  const text = toMarkdown({ ...classEntry, session: 0 });
+  assert.ok(text.includes('session: 0'), 'a zero was treated as an absent field');
 });
 
 console.log(`\n${passed} passed`);

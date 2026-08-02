@@ -682,3 +682,50 @@ data if forgotten:
   gap: **focuses and `likedMoves` are device-local and still do not sync** —
   the deck you now see tiled on Home lives on one phone only. Extending the
   notes-repo format to carry them is the obvious next job.
+- 2026-08-02 — **v21: rounds and "how it went" removed; Rolling notes → Key
+  details.** User: *"remove the rounds and how it went part"* and *"I want a bit
+  for key details instead of the rolling notes"* (confirmed as a relabel of the
+  existing field, not a new one).
+
+  **Rounds and the self-report are gone whole**, v18-style rather than hidden:
+  the `sessionMeta` block off the Log form, `entry.rounds` / `entry.feel` out of
+  `newEntry` and the model doc, `store.rollStats` deleted, the two `.stat` tiles
+  and the gi-vs-no-gi sentence off the Map's Mat time card, the `N rounds` flag
+  off Home's last-session card, `.meta-row` / `.meta-field` / `.feel` /
+  `.feel-dot` out of the CSS (including the reduced-motion list), and
+  `rounds:` / `feel:` out of the front-matter grammar. Notes already in the
+  backup repo carry those keys; `fromMarkdown` no longer reads them, so they
+  drop out of each file the next time it is pushed. Three tests pin the removal
+  (form, front matter, `rollStats`), because an input still writing to a field
+  nothing reads is silent.
+
+  **What stayed on purpose:** `toMarkdown`'s `field()` keeps its explicit
+  null/undefined/''/false check rather than reverting to a truthiness test. That
+  check was bought by the `rounds: 0` bug in v17 and the next number added to
+  the grammar would walk into the same trap; there is a test on it that no
+  longer mentions rounds.
+
+  **The middle log field is now "Key details"** — same textarea, same place, new
+  label and placeholder, and the markdown heading follows it (`## Key details`).
+  **The storage key is still `sections.rolling`** and that is deliberate:
+  renaming it means migrating every row already in IndexedDB on the user's phone
+  for the sake of a word, and a migration that goes wrong loses notes. The
+  mismatch is documented at the model in `store.js`. `js/markdown.js` gained
+  `LEGACY_HEADINGS` — a rename **adds** to that list rather than replacing what
+  a heading used to be called, or every note in the backup repo written before
+  today would come back with that section blank, on every device, with nothing
+  logged anywhere. Tested both directions.
+
+  **Note for later:** the form now reads WHAT WE DRILLED / KEY DETAILS / KEY
+  THOUGHTS & ADJUSTMENTS. The last two both start with "Key" — asked for, but
+  if it reads muddy on the phone the third one is the one to rename.
+
+  **No word or character limit was added.** The three log textareas have never
+  had a `maxlength` and still don't — see the answer in this session: the only
+  capped inputs in the app are the flashcard front (60), the flashcard back
+  (400) and teach-a-word (40), and every other number in the code is display
+  truncation, not a limit on what is stored.
+
+  sw `CACHE` → v21, `VERSION` → v21, no files added or removed. Seven suites,
+  111 assertions, green (`schedule` run under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`); screenshot-checked the Log form.

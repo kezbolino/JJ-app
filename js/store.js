@@ -41,12 +41,16 @@ export const SESSION_LABEL = Object.fromEntries(SESSION_TYPES);
  *   tags: [{kind:'pos', position, role, technique} | {kind:'concept', concept}],
  *   video: { videoId, url, title, thumb } | null,
  *   session: 'open-mat'|'comp'|'private'|'seminar' | null,   // class entries
- *   rounds: number | null,        // how many rounds you rolled
- *   feel: 1..5 | null,            // your own read on how it went
  *   related: [entryId],           // links you drew to other entries
  *   deletedAt: ISO | null,        // in the trash, recoverable
  *   createdAt, updatedAt
  * }
+ *
+ * `sections.rolling` is labelled **Key details** in the form and in the backup
+ * files; it was called "Rolling notes" up to v20. The storage key kept its old
+ * name deliberately — renaming it would mean migrating every row already in
+ * IndexedDB on the user's phone for the sake of a word, and a migration that
+ * goes wrong loses notes. `js/markdown.js` still parses the old heading.
  */
 export function newEntry(patch = {}) {
   const now = new Date().toISOString();
@@ -61,8 +65,6 @@ export function newEntry(patch = {}) {
     tags: [],
     video: null,
     session: null,
-    rounds: null,
-    feel: null,
     related: [],
     deletedAt: null,
     createdAt: now,
@@ -494,34 +496,9 @@ export function sessionCounts(entries) {
   return counts;
 }
 
-/**
- * Rounds rolled and how sessions felt.
- *
- * `feel` is a self-report about a session, which is a fact about what you
- * wrote — the same footing as everything else here. It is reported as an
- * average of what you logged and never as a rating of you, and it only appears
- * once there are a few, because one bad Tuesday is not a trend.
- */
-export function rollStats(entries) {
-  const classes = entries.filter(e => e.type === 'class');
-  const withRounds = classes.filter(e => Number.isFinite(e.rounds) && e.rounds > 0);
-  const withFeel = classes.filter(e => Number.isFinite(e.feel) && e.feel >= 1);
-
-  const mean = list => list.reduce((n, e) => n + e.feel, 0) / list.length;
-  const feelFor = gi => {
-    const subset = withFeel.filter(e => e.gi === gi);
-    return subset.length >= 3 ? Number(mean(subset).toFixed(1)) : null;
-  };
-
-  return {
-    rounds: withRounds.reduce((n, e) => n + e.rounds, 0),
-    sessionsWithRounds: withRounds.length,
-    feel: withFeel.length >= 3 ? Number(mean(withFeel).toFixed(1)) : null,
-    feelCount: withFeel.length,
-    giFeel: feelFor('gi'),
-    nogiFeel: feelFor('nogi'),
-  };
-}
+// `rollStats` lived here until v21: rounds rolled, and a 1–5 self-report on how
+// a session went. Both were removed at the user's request along with the form
+// fields that fed them. Nothing reads `entry.rounds` or `entry.feel` any more.
 
 // ---- links between entries ------------------------------------------------
 // Tags connect an entry to a *position*. These connect an entry to another

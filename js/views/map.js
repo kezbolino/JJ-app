@@ -124,16 +124,13 @@ function exposure(active) {
 }
 
 /**
- * Mat time by session type, and what rolling you recorded.
+ * Mat time by session type.
  *
- * Every count here is of things you wrote down. `feel` is your own read on a
- * session, reported back as an average of your own entries and never as a score
- * for you — and it stays hidden until there are at least three, because one bad
- * Tuesday is not a trend.
+ * Every count here is of things you wrote down — how many sessions of each kind
+ * you logged, and nothing about how they went.
  */
 function sessionCard(entries) {
   const counts = store.sessionCounts(entries);
-  const rolls = store.rollStats(entries);
   const ordinary = counts.null ?? 0;
 
   const rows = [['null', 'Regular class'], ...store.SESSION_TYPES]
@@ -143,30 +140,12 @@ function sessionCard(entries) {
 
   const total = rows.reduce((n, [, count]) => n + count, 0);
 
-  const bits = [];
-  if (rolls.sessionsWithRounds) {
-    bits.push(h('div.stat',
-      h('div.n', String(rolls.rounds)),
-      h('div.l', `rounds across ${rolls.sessionsWithRounds} ${rolls.sessionsWithRounds === 1 ? 'session' : 'sessions'}`)));
-  }
-  if (rolls.feel !== null) {
-    bits.push(h('div.stat',
-      h('div.n', `${rolls.feel}`),
-      h('div.l', `your own average, ${rolls.feelCount} rated`)));
-  }
-
   return card('Mat time',
     h('div.slist', rows.map(([label, n]) =>
       h('div.slist-row',
         h('span.slist-name', label),
         tally(Math.round((n / total) * 100), `${label}: ${n} of ${total}`),
-        h('span.slist-n', String(n))))),
-    bits.length ? h('div.stats-row', ...bits) : null,
-    rolls.giFeel !== null && rolls.nogiFeel !== null
-      ? h('p.small.muted', { style: 'margin-top:10px' },
-          `You rate gi sessions ${rolls.giFeel} and no-gi ${rolls.nogiFeel} on average — ` +
-          'your own note about how a session went, not a measure of how you did.')
-      : null);
+        h('span.slist-n', String(n))))));
 }
 
 // A picker that narrows Position → Move, for starring a move by hand.

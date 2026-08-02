@@ -359,30 +359,64 @@ await test('an empty deck invites you to add one instead of showing a blank rail
 });
 
 // ---------------------------------------------------------------------------
-// 4. Session type, rounds, self-report
+// 4. Session type
 // ---------------------------------------------------------------------------
 
-await test('a competition session records its type, rounds and self-report', async () => {
+await test('a competition session records its type', async () => {
   const page = await newPage();
   await go(page, '/log');
   await page.waitForSelector('textarea');
 
   await page.click('.seg-session button:has-text("Competition")');
-  await page.locator('.meta-field input[type="number"]').fill('6');
-  await page.click('.feel-dot[value="4"]');
   await page.locator('textarea').first().fill('Two matches, both by armbar from closed guard.');
   await page.click('button.btn.primary:has-text("Save entry")');
   await page.waitForSelector('.sbit-total');
 
   const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
   assert.equal(saved[0].session, 'comp');
-  assert.equal(saved[0].rounds, 6);
-  assert.equal(saved[0].feel, 4);
 
   await go(page, '/map');
   const text = await page.locator('#view').innerText();
   assert.match(text, /Mat time/i);
   assert.match(text, /Competition/i);
+  await page.context().close();
+});
+
+// Removed in v21 at the user's request, along with the Map stats they fed.
+// Pinned for the v18 reason: a half-removed feature is worse than either state —
+// an input still on the form writing to a field nothing reads is silent.
+await test('rounds and "how it went" are gone from the log form', async () => {
+  const page = await newPage();
+  await go(page, '/log');
+  await page.waitForSelector('textarea');
+
+  assert.equal(await page.locator('.feel-dot').count(), 0, 'the 1-5 dots are still on the form');
+  assert.equal(await page.locator('input[type="number"]').count(), 0, 'the rounds input is still on the form');
+  const text = await page.locator('#view').innerText();
+  assert.doesNotMatch(text, /how it went/i);
+  assert.doesNotMatch(text, /\brounds\b/i);
+  await page.context().close();
+});
+
+// The middle log field was relabelled in v21. Text already written under the old
+// label is the same field, so it has to show up in the renamed one.
+await test('the middle field is Key details, and keeps what was written before', async () => {
+  const page = await newPage();
+  await seed(page, [{
+    date: daysAgo(1),
+    sections: { techniques: 'knee slice', rolling: 'grip the collar first', thoughts: '' },
+  }]);
+  await go(page, '/log');
+  await page.waitForSelector('textarea');
+  // The labels render uppercase — assert on what they say, not on their casing.
+  const labels = await page.locator('.field .field-label').allInnerTexts();
+  assert.ok(labels.some(l => /^key details$/i.test(l.trim())), `labels were ${JSON.stringify(labels)}`);
+  assert.ok(!labels.some(l => /rolling notes/i.test(l)), 'the old label is still on the form');
+
+  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  await go(page, `/log/${saved[0].id}`);
+  await page.waitForSelector('textarea');
+  assert.equal(await page.locator('.field textarea').nth(1).inputValue(), 'grip the collar first');
   await page.context().close();
 });
 

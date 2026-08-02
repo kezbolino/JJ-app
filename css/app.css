@@ -1057,23 +1057,12 @@ a.cal__day:active { transform: scale(.9); }
   font-size: 1rem; padding: 4px 6px; cursor: pointer;
 }
 
-/* --- session type + how it went ---------------------------------------- */
+/* --- session type ------------------------------------------------------- */
+/* The rounds input and the 1-5 "how it went" dots lived here until v21. */
 .seg-session { margin: 12px 0 4px; }
 .seg-session button { font-size: .76rem; }
 .seg-filter { margin-bottom: 12px; }
 .seg-filter button { font-size: .74rem; }
-
-.meta-row { display: grid; grid-template-columns: 84px 1fr; gap: 16px; margin-top: 16px; align-items: end; }
-.meta-field input { width: 100%; text-align: center; }
-.feel { display: flex; gap: 6px; }
-.feel-dot {
-  flex: 1; aspect-ratio: 1; max-width: 46px;
-  border: 2px solid var(--btn-line); background: var(--surface);
-  border-radius: var(--r-chip); color: var(--muted);
-  font-weight: 800; font-size: .86rem; cursor: pointer;
-  transition: background .16s var(--spring), color .16s var(--spring);
-}
-.feel-dot[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 /* --- entry links -------------------------------------------------------- */
 .links { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
@@ -1114,7 +1103,7 @@ a.cal__day:active { transform: scale(.9); }
 
 /* Session-type and rounds chips reuse the gi flag's shape but never its
    colour — gi/no-gi is the one that earns the accent tint. */
-.gi-flag.s-type, .gi-flag.s-rounds { background: var(--surface-2); color: var(--muted); }
+.gi-flag.s-type { background: var(--surface-2); color: var(--muted); }
 
 /* Each view's top-level blocks rise in a short staggered cascade. The router
    rebuilds these nodes on every route, so the animation re-fires on each
@@ -1140,7 +1129,7 @@ a.cal__day:active { transform: scale(.9); }
 @media (prefers-reduced-motion: reduce) {
   .view > *, .btn.cta, .tally__c,
   .tag.suggest:active, .tag.add:active { animation: none; }
-  .feel-dot, .cal__day, .sbit-cue, .hcal-arrow, .wo-dots i,
+  .cal__day, .sbit-cue, .hcal-arrow, .wo-dots i,
   .btn, .btn:active, .btn.cta:active,
   .avatar-btn, .avatar-btn:active, .fc-arrow, .fc-arrow:active,
   .seg button, .fc-inner, .flip-inner, .flipcard, .deck-rail i,

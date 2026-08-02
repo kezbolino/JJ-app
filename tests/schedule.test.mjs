@@ -167,7 +167,7 @@ test('the nudge never fires for today', () => {
   assert.notEqual(nudge?.date, '2026-08-04');
 });
 
-// ---- session types and self-report ---------------------------------------
+// ---- session types --------------------------------------------------------
 
 test('session counts separate competition from an ordinary class', () => {
   const counts = store.sessionCounts([
@@ -181,28 +181,13 @@ test('session counts separate competition from an ordinary class', () => {
   assert.equal(counts['open-mat'], 1);
 });
 
-test('rounds add up; a self-report needs three before it is reported', () => {
-  const two = store.rollStats([
-    cls('2026-07-01', { rounds: 5, feel: 4 }),
-    cls('2026-07-02', { rounds: 6, feel: 2 }),
-  ]);
-  assert.equal(two.rounds, 11);
-  assert.equal(two.sessionsWithRounds, 2);
-  assert.equal(two.feel, null, 'two ratings is not a trend');
-
-  const three = store.rollStats([
-    cls('2026-07-01', { feel: 4 }),
-    cls('2026-07-02', { feel: 2 }),
-    cls('2026-07-03', { feel: 3 }),
-  ]);
-  assert.equal(three.feel, 3);
-  assert.equal(three.feelCount, 3);
-});
-
-test('a session with no rounds recorded is not a session with zero rounds', () => {
-  const stats = store.rollStats([cls('2026-07-01'), cls('2026-07-02', { rounds: 4 })]);
-  assert.equal(stats.rounds, 4);
-  assert.equal(stats.sessionsWithRounds, 1);
+// Rounds and the 1-5 self-report went in v21, and `rollStats` went with them.
+// Pinned here because the query is what the Map card read: leave it exported
+// with nothing writing to it and it quietly reports zeros forever.
+test('rollStats is gone — nothing scores a session any more', () => {
+  assert.equal(store.rollStats, undefined);
+  assert.equal(store.newEntry().rounds, undefined);
+  assert.equal(store.newEntry().feel, undefined);
 });
 
 // ---- links ----------------------------------------------------------------

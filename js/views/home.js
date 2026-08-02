@@ -319,8 +319,6 @@ function lastSession(entries) {
   const marks = [
     giFlag(last.gi),
     last.session ? h('span.gi-flag.s-type', store.SESSION_LABEL[last.session]) : null,
-    Number.isFinite(last.rounds) && last.rounds > 0
-      ? h('span.gi-flag.s-rounds', `${last.rounds} rounds`) : null,
   ].filter(Boolean);
 
   return h('a.card.session', { href: `#/log/${last.id}` },

@@ -59,53 +59,6 @@ function sessionSelector(entry) {
 }
 
 /**
- * Rounds rolled, and how it went.
- *
- * Both optional and both skippable — the save never waits on them. Rounds is a
- * count, the same kind of fact as attendance. "How it went" is a self-report
- * about a session: it is a fact about what you wrote down, and it is only ever
- * shown back as an average of what you logged. It is never a rating of you.
- */
-function sessionMeta(entry) {
-  const rounds = h('input', {
-    type: 'number', min: '0', max: '50', inputMode: 'numeric',
-    placeholder: '—',
-    value: Number.isFinite(entry.rounds) ? String(entry.rounds) : '',
-  });
-  rounds.addEventListener('input', () => {
-    const n = Number(rounds.value);
-    entry.rounds = rounds.value === '' || !Number.isFinite(n) ? null : Math.max(0, Math.min(50, n));
-  });
-
-  const dots = [1, 2, 3, 4, 5].map(n => {
-    const btn = h('button.feel-dot', {
-      type: 'button', value: String(n),
-      'aria-label': `How it went: ${n} out of 5`,
-    }, String(n));
-    return btn;
-  });
-  const paintFeel = () => dots.forEach(d =>
-    d.setAttribute('aria-pressed', String(entry.feel === Number(d.value))));
-  for (const dot of dots) {
-    dot.addEventListener('click', () => {
-      const n = Number(dot.value);
-      entry.feel = entry.feel === n ? null : n;   // tap again to clear
-      paintFeel();
-      dot.blur();
-    });
-  }
-  paintFeel();
-
-  return h('div.meta-row',
-    h('div.meta-field',
-      h('label.field-label', 'Rounds'),
-      rounds),
-    h('div.meta-field',
-      h('label.field-label', 'How it went'),
-      h('div.feel', ...dots)));
-}
-
-/**
  * Position → role → technique pickers that narrow as you go.
  * Used both for adding a tag by hand and for teaching the app a new word.
  */
@@ -185,7 +138,7 @@ export default async function log(root, { id, date } = {}) {
   const allForLinks = await store.allEntries();
 
   // A voice note shared in from a transcriber (see app.js consumeShare) lands
-  // here as raw text. Drop it into the freeform "Rolling notes" field of a new
+  // here as raw text. Drop it into the freeform "Key details" field of a new
   // entry so nothing's mislabelled, and let the tagger pick tags out of it as
   // usual. Consumed once; editing an existing entry never pulls it in.
   let sharedIn = false;
@@ -413,16 +366,14 @@ export default async function log(root, { id, date } = {}) {
       h('label.field-label', 'What we drilled'),
       field('techniques', 'Knee slice pass, leg weave, cross face pressure…')),
     h('div.field',
-      h('label.field-label', 'Rolling notes'),
-      field('rolling', 'Passed Steve twice. Got guillotined three times…')),
+      h('label.field-label', 'Key details'),
+      field('rolling', 'Grip the collar before you sit. Head on the far side…')),
     h('div.field',
       h('label.field-label', 'Key thoughts & adjustments'),
       field('thoughts', 'Need to keep my hips lower when passing.')),
 
     h('p.mic-hint', icon('mic'),
       'Tip: tap a field and switch to your voice keyboard to talk your notes in.'),
-
-    sessionMeta(entry),
 
     h('hr.hr'),
 
