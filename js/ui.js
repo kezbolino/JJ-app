@@ -201,7 +201,7 @@ export function brandMark(standing = null) {
     : `Belt ranks, each sized by the average years spent at it: ${label}`;
 
   return h('div.brand-mark',
-    h('h1.brand-jj', 'JJ'),
+    h('h1.brand-jj', 'Ju Ji'),
     h('div.belt' + (reached >= 0 ? '.is-ranked' : ''), { role: 'img', 'aria-label': aria },
       BELT_RANKS.map((b, i) => h('i.belt-' + b.rank + (reached >= 0 && i > reached ? '.is-future' : ''), {
         style: `width:${Math.round(b.years * PX_PER_YEAR)}px`,

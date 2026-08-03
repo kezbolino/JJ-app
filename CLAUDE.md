@@ -11,6 +11,12 @@ is a working title only — it came from ChatGPT and the user has explicitly
 declined to rename the repo to match it. Don't reintroduce it as the project
 name.
 
+**On-screen product name is `Ju Ji`, as of 2026-08-03** — the brand mark, page
+title, manifest name and footer all read "Ju Ji" now; see the session log
+entry for that date. This is separate from the repo/codebase name above: the
+GitHub repo, file paths and internal identifiers stay `JJ-app`/`jj-app-*`.
+Don't conflate the two or "fix" one to match the other.
+
 Part of the Project Hub → `github.com/kezbolino/project-hub`.
 
 ## Shape
@@ -790,3 +796,49 @@ data if forgotten:
   reopen, and check the footer before judging anything on screen — this is the
   same thing that sent v10 chasing a "front page all over the place" bug that
   turned out to be real (see 2026-07-29), so verify the version *first*.
+- 2026-08-03 — **v23: renamed on-screen to "Ju Ji"; favicon/app icons now
+  carry the belt colours too.** User: *"i want the app to be renamed 'Ju Ji'
+  ... change the logo on the top left corner. I also want to change the
+  favicon to use the coloured belts bit too."* Scoped as a display rebrand,
+  not a repo rename (see the note added to "What this is" above) — the GitHub
+  repo, `sw.js` cache-key prefix (`jj-app-vNN`) and internal module/error-text
+  references to "JJ-app" (`js/markdown.js`, `js/sync.js` commit messages) were
+  deliberately left alone as out of scope.
+
+  **Top-left logo.** `brandMark()` in `js/ui.js` now renders the wordmark
+  `Ju Ji` instead of `JJ`, same element (`h1.brand-jj`), same belt-timeline row
+  underneath — no CSS changes needed, and by what looks like a coincidence of
+  the existing type scale the rendered wordmark width already matches the belt
+  row's width (both ~61px at the in-app size), so nothing looked lopsided.
+  Screenshot-checked at 420px and a narrow 360px Android width in both themes;
+  no overflow.
+
+  **Favicon / app icons.** The three files in `icons/` were flat "JJ" glyphs
+  with no colour. Regenerated all three (`icon-192.png`, `icon-512.png`,
+  `icon-maskable.png`) as one design: dark-navy rounded square (matches the
+  old icon's background so it isn't a jarring swap), the `Ju Ji` wordmark in
+  Nunito 700, and the same five belt-rank pills from the in-app mark
+  underneath — so the favicon is now literally a bigger render of the top-left
+  logo, which is what "use the coloured belts bit too" asked for. Built with a
+  disposable SVG generator script (Playwright + local `fonts/nunito.woff2`,
+  not checked into the repo — this was a one-off render, not a build step the
+  project needs) rather than freehand pixels, so the wordmark and belt
+  proportions are exact, not eyeballed. The maskable variant needed its own
+  pass: Android crops maskable icons to a centred safe-zone circle (radius 40%
+  of the icon), and the first attempt at safe padding put the wordmark's
+  corners at a measured 362px from centre against a 205px safe radius — it
+  would have been clipped on a circular launcher mask. Fixed by scaling the
+  maskable content to 90% with the background filling edge-to-edge (flat, no
+  rounded corner — the OS applies its own mask shape), leaving content at
+  ~177px from centre, comfortably inside the safe zone.
+
+  **Other display strings.** `<title>` in `index.html`, `name`/`short_name` in
+  `manifest.webmanifest` (both now `Ju Ji` — short enough that `short_name`
+  didn't need to be abbreviated), and the footer template literal in
+  `js/app.js` (`` `Ju Ji ${VERSION}` ``) all updated to match.
+
+  sw `CACHE` → v23, `VERSION` → v23 (icon bytes changed, so the cached shell
+  must invalidate). No files added or removed, so `SHELL` in `sw.js` is
+  unchanged. All seven suites green (110 assertions); the existing manifest
+  test ("the manifest offers launcher shortcuts and matches the light
+  default") doesn't assert on `name`/`short_name` so it wasn't touched.

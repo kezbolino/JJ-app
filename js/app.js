@@ -19,7 +19,7 @@ const view = document.getElementById('view');
 appearance.apply();
 
 const foot = document.getElementById('appfoot');
-if (foot) foot.textContent = `JJ-app ${VERSION}`;
+if (foot) foot.textContent = `Ju Ji ${VERSION}`;
 
 function parseHash() {
   const raw = location.hash.slice(1) || '/';
