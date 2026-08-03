@@ -48,7 +48,8 @@ js/markdown.js        entry ↔ markdown file (the backup format)
 js/sync.js            GitHub backup repo sync, via the Git Data API
 js/youtube.js         link parsing and title lookup
 js/ui.js              h() element builder and shared bits
-js/views/*.js         home, log, map, position, library, search, settings
+js/stretches.js       the post-class cool-down: stretches, timing, SVG figures
+js/views/*.js         home, log, map, position, library, search, settings, stretch
 sw.js                 offline cache — bump CACHE when files change
 tests/                markdown round-trip, app smoke test, sync test
 ```
@@ -59,17 +60,19 @@ tests/                markdown round-trip, app smoke test, sync test
 node tests/markdown.test.mjs    # pure node, fast
 node tests/tagger.test.mjs      # pure node, fast
 node tests/moves.test.mjs       # pure node, fast
+node tests/stretches.test.mjs   # pure node, fast — routine data + timing maths
 node tests/schedule.test.mjs    # pure node, fast — dates, SRS, attendance
 python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
-node tests/features.test.mjs    # Playwright; timer, calendar, deck, trash, links
+node tests/features.test.mjs    # Playwright; calendar, deck, trash, links, stretch
 ```
 
-**Run all seven after touching anything in `js/`.** Between them they cover the
+**Run all eight after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
 including user corrections, backup format fidelity, multi-device sync including
-deletions, the move-suggestion engine, and everything added in v17.
+deletions, the move-suggestion engine, the stretch routine, and everything
+added in v17.
 
 `tests/schedule.test.mjs` is worth running under a couple of timezones —
 `TZ=America/Los_Angeles` and `TZ=Australia/Sydney` — because the date bugs it
@@ -941,3 +944,91 @@ data if forgotten:
   512px) scale. All seven suites green (110 assertions), including the
   promotion/rank-highlight test. sw `CACHE` → v25, `VERSION` → v25, no files
   added or removed.
+- 2026-08-03 — **v26: a post-class stretch routine at `#/stretch`.** User asked
+  for a stretching timer: a 10-second get-ready beep, a 30-second hold, repeat,
+  with a researched list of stretches covering the major BJJ muscle groups,
+  each with a still illustration and a name, running 10–15 minutes.
+
+  **This is not the v18 round timer coming back, and the removal test still
+  passes untouched.** The lesson written up when the timer was removed was that
+  *"every comparable app has one"* is not a reason, and that the timer was the
+  only feature assuming a phone in hand **during** training. A cool-down is the
+  opposite case — you are off the mat, changed, winding down — so it does not
+  reopen that decision. It deliberately lives at `#/stretch`, which leaves
+  `#/timer` resolving to "Page not found" and the v18 pin ("no route, no
+  shortcut, no entry point") green with no edits. Anyone tempted to merge the
+  two routes should read this paragraph first.
+
+  **The routine.** Eleven stretches, 18 holds, 12:00 exactly — 7 two-sided
+  (two holds each) and 4 single. Ordered as a flow so you change position as
+  little as possible and finish lying down: kneeling upper body → all fours →
+  lunges → hips → seated → supine. Drawn from the common recommendations across
+  BJJ mobility sources; between them they hit hip flexors, glutes/piriformis,
+  adductors, hip internal+external rotation, hamstrings, quads, thoracic
+  rotation, lats/shoulders, neck and the wrists that gripping wrecks. There is
+  a test asserting each of those areas is still named by something in the list,
+  so trimming the routine can't silently drop a muscle group.
+
+  **Timing is derived from the clock, never counted.** Every segment is the
+  same 40s (10 ready + 30 hold), so the entire routine is one expression over
+  elapsed milliseconds: `segIdx = floor(elapsed / SEGMENT_MS)`. A phone that
+  throttles background timers or sleeps mid-routine resumes on the correct
+  stretch instead of drifting further behind the longer it runs. Pause banks
+  the elapsed time and drops the anchor; skip/back rewrite the bank. This is
+  the same discipline the v17 round timer used and the reason it never drifted.
+
+  **Teardown is the render token, and it has its own test.** The router just
+  empties `#view`; nothing tells a view it has been replaced. The interval
+  checks `isCurrent(token)` and shuts itself, the wake lock and the
+  AudioContext down when it stops being the visible screen. Left unfixed, an
+  abandoned routine ticks against detached nodes and holds the screen awake for
+  the rest of the session — same class of bug as the v16 render-clobber, so it
+  is pinned the same way: the test wraps `setInterval`/`clearInterval`, starts
+  the routine, navigates to `#/log`, and asserts the live-interval count
+  returns to baseline.
+
+  **Beeps are synthesised, not files** — an `AudioContext` oscillator costs no
+  bytes in the shell and nothing to cache, which is the whole shape of this
+  app. Low tone entering "get ready", higher one entering "hold", ticks at
+  3-2-1 in both phases, three-note chime at the end. The context can only be
+  built from a user gesture, so it is created inside the Start tap. There is a
+  mute toggle, which needed a new `sound`/`soundOff` icon pair: the first
+  attempt reused `mic`, which means *record* — the opposite end of the audio
+  chain from "the app is beeping at you".
+
+  **The illustrations are inline SVG line figures**, same family as `icon()` —
+  stroke-based, round caps, `currentColor` so they theme. Not images: binaries
+  would need cache entries and would break the "small files, no deps" shape.
+  **They were drawn, rendered to a contact sheet and looked at, three rounds.**
+  That was not optional — the first pass produced four unreadable blobs
+  (child's pose, thread-the-needle, the seated fold and the supine twist all
+  read as abstract shapes or, worse, as a standing person). Two things fixed
+  them: separating limbs that anatomically overlap (the fold's head and its
+  reaching arm land in the same place, so the arm was shortened to the shin
+  until they cleared each other), and picking the view that shows the *point* —
+  frog is drawn front-on because splayed knees **are** the stretch. The supine
+  twist needed a mat outline and no ground line: a bird's-eye figure over a
+  horizon line reads as someone standing and leaning over, which is the exact
+  opposite of "lie on your back". **If you add a stretch, render the sheet and
+  look at it — these cannot be judged from the path data.**
+
+  **Honest about what it is:** the intro says "General guidance, not physio",
+  the finish screen says "Nothing was logged — this is just the cool-down", and
+  the routine writes nothing to the journal. Same rule as coverage-is-attention
+  -not-skill: the app doesn't get to imply it knows more than it does. Amber
+  stayed out of it entirely — a cool-down is never "waiting on you", which is
+  the only thing amber means here.
+
+  Entry point is a neutral button under the Log CTA on Home (same moment: you
+  just finished, you're about to write it up), with the minutes computed from
+  `routineMs()` so the label can't drift from what actually runs. **No launcher
+  shortcut** — not asked for, and adding one would have meant editing the
+  manifest test's exact-shortcut assertion.
+
+  New files `js/stretches.js` and `js/views/stretch.js` (both added to
+  `SHELL`), new suite `tests/stretches.test.mjs` — **the suite count is now
+  eight, not seven**. 42 new assertions; all eight green, `schedule` re-run
+  under `America/Los_Angeles` and `Australia/Sydney`. Screenshot-checked the
+  intro, a running hold and the finish screen in light and dark, confirmed 0
+  running animations under `prefers-reduced-motion` and no horizontal overflow
+  at a 360px Android width. sw `CACHE` → v26, `VERSION` → v26.

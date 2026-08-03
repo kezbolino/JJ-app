@@ -18,6 +18,7 @@ import {
 } from '../ui.js';
 import { positionLabel, ROLE_LABEL } from '../ontology.js';
 import { monthOf, monthLabel, shiftMonth } from '../dates.js';
+import { routineMs } from '../stretches.js';
 import * as store from '../store.js';
 import * as sync from '../sync.js';
 import { renderToken, isCurrent } from '../render.js';
@@ -370,5 +371,11 @@ export default async function home(root) {
     lastSession(entries),
     h('div.btn-row', { style: 'margin-top:16px' },
       h('a.btn.primary.wide.cta', { href: '#/log' }, icon('plus'), 'Log a class')),
+    // The cool-down sits under the log CTA because that is the same moment:
+    // you have just finished, you are about to write it up. The minutes come
+    // from the routine itself so the label can't drift from what it runs.
+    h('div.btn-row', { style: 'margin-top:10px' },
+      h('a.btn.wide.stretch-cta', { href: '#/stretch' },
+        `Stretch off · ${Math.round(routineMs() / 60000)} min`)),
   ].filter(Boolean));
 }

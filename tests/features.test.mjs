@@ -725,6 +725,118 @@ await test('the round timer is gone — no route, no shortcut, no entry point', 
   await page.context().close();
 });
 
+// ---------------------------------------------------------------------------
+// The post-class stretch routine (v26). Distinct from the round timer removed
+// in v18 — that one lived on the mat, this one runs after it — so the removal
+// test above still has to pass alongside these.
+// ---------------------------------------------------------------------------
+
+await test('the stretch routine lists every stretch before you start', async () => {
+  const page = await newPage();
+  await go(page, '/stretch');
+
+  const names = await page.locator('.st-item-name').allTextContents();
+  assert.ok(names.length >= 8, 'the routine barely lists anything');
+  assert.ok(names.includes('Kneeling hip flexor lunge'), 'the hip flexor stretch is missing');
+
+  // Each row says whether it is one hold or two, which is what makes the
+  // "both sides" promise visible before you commit 12 minutes to it.
+  const sides = await page.locator('.st-item-side').allTextContents();
+  assert.equal(sides.length, names.length);
+  assert.ok(sides.some(s => s === 'Both sides'));
+
+  // Every stretch is illustrated, not just named.
+  assert.equal(await page.locator('.st-item-fig svg').count(), names.length);
+
+  assert.match(await page.locator('.st-intro-n').innerText(), /^\d+:\d\d$/);
+  await page.context().close();
+});
+
+await test('starting the routine opens on the first stretch, getting ready', async () => {
+  const page = await newPage();
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+
+  // Case-insensitive throughout: these labels are uppercased in CSS, so
+  // innerText reports them shouting. The words are the contract, not the case.
+  assert.match(await page.locator('.st-phase').innerText(), /get ready/i);
+  assert.equal(await page.locator('.st-count').innerText(), '0:10');
+  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 18/i);
+  assert.ok(await page.locator('.st-fig svg').isVisible(), 'no illustration while stretching');
+  assert.ok((await page.locator('.st-cue').innerText()).length > 20, 'no coaching cue on screen');
+  await page.context().close();
+});
+
+await test('a two-sided stretch runs the same stretch twice, left then right', async () => {
+  const page = await newPage();
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+
+  const first = await page.locator('.st-name').innerText();
+  assert.match(await page.locator('.st-side').innerText(), /left side/i);
+
+  await page.click('.st-skip');
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.st-name').innerText(), first, 'the second side changed stretch');
+  assert.match(await page.locator('.st-side').innerText(), /right side/i);
+  assert.match(await page.locator('.st-step').innerText(), /hold 2 of 18/i);
+
+  // Back returns to the side you just came from rather than the start.
+  await page.click('.st-back');
+  await page.waitForTimeout(200);
+  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 18/i);
+  await page.context().close();
+});
+
+await test('pausing stops the clock, and resuming starts it again', async () => {
+  const page = await newPage();
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+
+  await page.click('.st-pause');
+  assert.equal(await page.locator('.st-pause').innerText(), 'Resume');
+  const held = await page.locator('.st-count').innerText();
+  await page.waitForTimeout(1300);
+  assert.equal(await page.locator('.st-count').innerText(), held, 'the clock ran while paused');
+
+  await page.click('.st-pause');
+  await page.waitForTimeout(1300);
+  assert.notEqual(await page.locator('.st-count').innerText(), held, 'the clock stayed stuck after resuming');
+  await page.context().close();
+});
+
+await test('leaving the routine stops its timer instead of leaving it running', async () => {
+  // The router just empties #view; nothing tells a view it has been replaced.
+  // An interval left behind would tick against detached nodes for the rest of
+  // the session, holding the wake lock with it. Same class of bug as the
+  // render-clobber at the top of this file, so it gets pinned the same way.
+  const page = await newPage();
+  await page.evaluate(() => {
+    window.__ids = new Set();
+    const si = window.setInterval, ci = window.clearInterval;
+    window.setInterval = (...a) => { const id = si(...a); window.__ids.add(id); return id; };
+    window.clearInterval = id => { window.__ids.delete(id); return ci(id); };
+  });
+
+  await go(page, '/stretch');
+  const before = await page.evaluate(() => window.__ids.size);
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  assert.equal(await page.evaluate(() => window.__ids.size), before + 1, 'the routine never started a timer');
+
+  await go(page, '/log');
+  await page.waitForTimeout(400);          // one tick is all it needs to notice
+  assert.equal(await page.evaluate(() => window.__ids.size), before,
+    'the stretch timer is still running after navigating away');
+
+  // And the screen you left for is intact.
+  assert.equal(await page.locator('textarea').count() > 0, true, 'the log form did not render');
+  await page.context().close();
+});
+
 await test('the manifest offers launcher shortcuts and matches the light default', async () => {
   const page = await newPage();
   const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());

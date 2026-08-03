@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v25';
+const CACHE = 'jj-app-v26';
 
 const SHELL = [
   './',
@@ -19,6 +19,7 @@ const SHELL = [
   'js/db.js',
   'js/store.js',
   'js/moves.js',
+  'js/stretches.js',
   'js/ontology.js',
   'js/tagger.js',
   'js/overrides.js',
@@ -28,6 +29,7 @@ const SHELL = [
   'js/sync.js',
   'js/views/home.js',
   'js/views/focus.js',
+  'js/views/stretch.js',
   'js/views/log.js',
   'js/views/map.js',
   'js/views/position.js',

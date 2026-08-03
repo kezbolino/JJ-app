@@ -280,6 +280,13 @@ const SHAPES = {
   flame:    [['path', 'M12 3s5 4.2 5 9a5 5 0 0 1-10 0c0-1.7.8-3.2 1.7-4.3.3 1.2 1 2 1.8 2.3C10.2 8.4 12 6.2 12 3Z']],
   // A stack of cards, for the deck.
   cards:    [['rect', 4, 7, 12, 13, 2], ['path', 'M8 5h9a2 2 0 0 1 2 2v10']],
+  // Speaker + waves, and the muted twin. Not the mic: that one means "record",
+  // which is the opposite end of the audio chain from "the app is beeping".
+  sound:    [['path', 'M4 9.5h3.5L11 6v12L7.5 14.5H4Z'],
+             ['path', 'M14.5 9.5a3.6 3.6 0 0 1 0 5'],
+             ['path', 'M17.5 7a7.4 7.4 0 0 1 0 10']],
+  soundOff: [['path', 'M4 9.5h3.5L11 6v12L7.5 14.5H4Z'],
+             ['line', 15, 10, 20, 15], ['line', 20, 10, 15, 15]],
   // A cog: eight teeth around a hub. Drawn as one path so the stroke joins
   // cleanly at this size — the primitives would leave gaps between the teeth.
   gear:     [['circle', 12, 12, 3.1],

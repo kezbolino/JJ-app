@@ -1114,6 +1114,143 @@ a.cal__day:active { transform: scale(.9); }
 @keyframes fx-pop { 0% { transform: scale(.85); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
 .tag.suggest:active, .tag.add:active { animation: fx-pop .3s var(--spring); }
 
+/* ==========================================================================
+   v26 — the post-class stretch routine.
+   Ink for the figures (they are the content), blue for the active hold, and
+   nothing amber: the cool-down is never "waiting on you", which is the only
+   thing amber is allowed to mean.
+   ========================================================================== */
+
+/* Announced to screen readers, never drawn. The routine's stretch and phase
+   changes go through here; the ticking seconds deliberately do not. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.stretch-fig { color: var(--text); display: block; width: 100%; height: 100%; }
+.stretch-fig .fig-ground {
+  stroke: var(--dash); stroke-width: 2.5; stroke-dasharray: 6 6; stroke-linecap: butt;
+}
+
+/* --- before you start --------------------------------------------------- */
+.st-intro { text-align: center; }
+.st-intro-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px 12px; flex-wrap: wrap; text-align: left; margin-bottom: 14px;
+}
+.st-intro-n { font-size: 2rem; font-weight: 600; letter-spacing: -.015em; line-height: 1; }
+.st-intro-l {
+  color: var(--muted); font-size: .84rem; font-weight: 700; margin-top: 5px;
+  white-space: nowrap;
+}
+.st-intro-cycle {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end;
+  font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+}
+.st-intro-cycle span {
+  background: var(--surface-2); color: var(--sub);
+  padding: 5px 9px; border-radius: var(--r-chip);
+}
+.st-intro-cycle .st-arrow { background: none; padding: 0; color: var(--muted); }
+
+.st-list { list-style: none; margin: var(--gap) 0 0; padding: 0; }
+.st-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px; background: var(--surface); border-radius: var(--r-tile);
+  border-bottom: 2px solid var(--line);
+}
+.st-item:last-child { border-bottom: 0; }
+.st-item-fig { width: 52px; height: 44px; flex-shrink: 0; }
+.st-item-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-item-name { font-weight: 700; font-size: .94rem; }
+.st-item-sub { color: var(--muted); font-size: .78rem; font-weight: 600; }
+.st-item-side {
+  flex-shrink: 0; font-size: .7rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--sub);
+  background: var(--surface-2); padding: 5px 8px; border-radius: var(--r-chip);
+}
+.st-note {
+  color: var(--muted); font-size: .8rem; font-weight: 600;
+  text-align: center; margin: 14px 4px 0; line-height: 1.5;
+}
+
+/* --- running ------------------------------------------------------------ */
+.st.is-running { text-align: center; }
+.st-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); margin-bottom: 8px;
+}
+.st-rail, .st-phaserail {
+  background: var(--track); border-radius: 999px; overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(18, 23, 42, .1);
+}
+.st-rail { height: 8px; }
+.st-rail i { display: block; height: 100%; width: 0; background: var(--text); border-radius: 999px; }
+.st-phaserail { height: 6px; margin: 12px auto 0; max-width: 300px; }
+.st-phaserail i { display: block; height: 100%; width: 0; background: var(--muted); border-radius: 999px; }
+.st.is-hold .st-phaserail i { background: var(--accent); }
+
+.st-stage { position: relative; margin: 18px 0 4px; }
+.st-fig { height: 190px; margin: 0 auto; max-width: 300px; }
+.st-side {
+  display: inline-block; margin-top: 2px;
+  font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+  background: var(--accent-soft); color: var(--accent-edge);
+  padding: 5px 11px; border-radius: var(--r-chip);
+}
+.st-name { font-size: 1.4rem; font-weight: 600; margin: 10px 0 0; letter-spacing: -.01em; }
+.st-targets { color: var(--muted); font-size: .82rem; font-weight: 700; margin: 4px 0 0; }
+
+.st-clock {
+  display: flex; align-items: baseline; justify-content: center; gap: 12px;
+  margin-top: 14px;
+}
+.st-phase {
+  font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted);
+}
+.st.is-hold .st-phase { color: var(--accent); }
+.st-count {
+  font-size: 3rem; font-weight: 600; letter-spacing: -.02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.st.is-paused .st-count, .st.is-paused .st-fig { opacity: .4; }
+
+.st-cue {
+  color: var(--sub); font-size: .92rem; line-height: 1.55; font-weight: 600;
+  margin: 14px auto 0; max-width: 380px;
+}
+.st-ctl { display: flex; gap: 10px; margin-top: 18px; }
+.st-ctl .btn { flex: 1; }
+.st-ctl .st-pause { flex: 1.4; }
+
+.st-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 14px;
+}
+.st-sound {
+  width: 38px; height: 38px; border-radius: var(--r-tile);
+  border: 2px solid var(--btn-line); background: var(--surface);
+  color: var(--sub); display: grid; place-items: center; cursor: pointer;
+}
+.st-sound svg { width: 17px; height: 17px; }
+.st-sound.is-muted { color: var(--muted); opacity: .55; }
+.st-end {
+  background: none; border: 0; cursor: pointer;
+  color: var(--muted); font-family: inherit; font-size: .84rem; font-weight: 700;
+  padding: 8px 4px; text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* --- finished ----------------------------------------------------------- */
+.st-done { text-align: center; padding: 24px 8px; }
+.st-done-ico { color: var(--accent); margin-bottom: 6px; }
+.st-done-ico svg { width: 40px; height: 40px; }
+.st-done h2 { font-size: 1.5rem; font-weight: 600; margin: 0; }
+.st-done p { color: var(--muted); font-size: .88rem; font-weight: 600; margin: 8px auto 0; max-width: 330px; line-height: 1.5; }
+.st-done .btn-row { justify-content: center; }
+
 @media (prefers-reduced-motion: reduce) {
   .view > *, .btn.cta, .tally__c,
   .tag.suggest:active, .tag.add:active { animation: none; }
@@ -1122,7 +1259,7 @@ a.cal__day:active { transform: scale(.9); }
   .avatar-btn, .avatar-btn:active, .fc-arrow, .fc-arrow:active,
   .seg button, .fc-inner, .flip-inner, .flipcard, .deck-rail i,
   .tabbar a::before, .tabbar a svg, .tabbar a:active svg,
-  .cov-fill,
+  .cov-fill, .st-rail i, .st-phaserail i,
   input, textarea, select,
   .note-card:active, .vidref:active, a.card:active, .exp-row:active {
     transition: none;
