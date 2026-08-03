@@ -842,3 +842,56 @@ data if forgotten:
   unchanged. All seven suites green (110 assertions); the existing manifest
   test ("the manifest offers launcher shortcuts and matches the light
   default") doesn't assert on `name`/`short_name` so it wasn't touched.
+- 2026-08-03 — **v24: app icons only — uppercase `JUJI`, equal-width pills,
+  slimmer U.** Follow-up to v23, worked out interactively over several
+  disposable preview renders (uppercase vs mixed case, 5 pill-style options,
+  then a same-size-pills-aligned-to-the-letters pass) before the user picked
+  a direction: chip-style pills (square-ish corners), no space (`JUJI` not
+  `Ju Ji`), and the pill row's first/last edge exactly under the wordmark's
+  first/last letter rather than just matching its total width.
+
+  **Real bug caught during that alignment pass, not a design opinion.** The
+  belt-pill width was being computed from `text.getBBox()` measured *before*
+  Nunito had actually loaded — `document.fonts.ready` resolves trivially if
+  nothing has requested the font yet, so the very first measurement silently
+  used fallback-font metrics, ~25% wider than Nunito's. Fixed in the
+  generator by explicitly `document.fonts.load('700 150px Nunito')`-ing
+  before any measurement. Not a shipped-code bug (this only affects the
+  disposable icon-generator script), but worth remembering if `js/ui.js`
+  or anywhere else ever measures text width off a webfont: request the font
+  explicitly, `.ready` alone isn't a guarantee.
+
+  **The "why is the U so fat" question was also a real, measurable thing**,
+  not just a feel: at this weight Nunito's uppercase U has a 102px advance
+  width against 48px for J and 37px for I — more than double, not the ~20%
+  a heavier stroke alone would explain. Fixed by laying the wordmark out
+  glyph-by-glyph (`text.getExtentOfChar(i)` on a hidden measurement copy)
+  instead of one flowed `<text>`, then rendering the U on its own with
+  `textLength`/`lengthAdjust="spacingAndGlyphs"` set to 85% of its natural
+  width — compressing just that glyph — and shifting J and I after it left
+  by the same amount so the word stays tight with no gap. Tried 75% and 65%
+  too; 85% was picked as the one that reads as "less heavy" without reading
+  as visibly squeezed.
+
+  **Deliberately not touched: the in-app top-left brand mark
+  (`brandMark()` in `js/ui.js`).** This whole exploration was scoped to the
+  favicon/app icons — every preview was explicitly labelled and shown at
+  favicon size. The in-app mark's belt row is not decorative: it is sized by
+  `BELT_RANKS` years-per-belt (`js/ui.js`, "Belt mark is now a timeline",
+  2026-07-31) and is meant to read as a rough timeline, not five equal
+  chips. Equalising those pill widths in the real app would silently undo
+  that decision without being asked to, so the top-left logo still reads
+  mixed-case `Ju Ji` over the real proportional belt bar — only the
+  icon/favicon files changed this version. If the uppercase/equal-pill look
+  is wanted there too, that needs its own explicit ask, since it trades away
+  data the timeline was built to carry.
+
+  Maskable icon's safe-zone content scale re-tuned for the new (tighter,
+  U-compressed) glyph layout: 100% content scale now measures 178px from
+  centre against the 205px safe radius (previously needed 90% for the old
+  wordmark). Same disposable Playwright + local `fonts/nunito.woff2`
+  generator approach as v23, still not checked into the repo.
+
+  sw `CACHE` → v24, `VERSION` → v24 (icon bytes changed again). No files
+  added, removed or renamed, so `SHELL` is unchanged. All seven suites green
+  (110 assertions).
