@@ -1163,3 +1163,32 @@ data if forgotten:
   suites green (36 browser assertions; `schedule` under UTC,
   `America/Los_Angeles` and `Australia/Sydney`), screenshot-checked both
   routines, 0 animations under reduced motion, no overflow at 360px.
+
+  **Open at the end of this session — read this first next time.**
+
+  1. **15 movements have no artwork.** They are listed in `PENDING_ART` in
+     `js/stretch-art.js`: `ankle-rock` and `sphinx` in the cool-down, and all
+     13 rest-day movements. They render fine without figures (no frame, not an
+     empty box), so this is cosmetic, not broken. The user was offered image
+     prompts for them and the session ended before they were written — that is
+     the next job.
+  2. **How to process artwork when it arrives** is written up in the v26
+     follow-up entry above ("the stick figures replaced with real artwork").
+     The short version, because it is easy to get wrong: keep only the
+     unclassed (black) path and delete every white one; **never round the
+     coordinates** (relative commands accumulate error until the figures flood
+     into silhouettes); normalise framing by moving the `viewBox` to a square
+     centred on the measured bbox with a 5% margin. The conversion script was
+     deliberately disposable and is not in the repo — Pillow, numpy and
+     potracer are pip-installable here, and Playwright is what measures the
+     bounding boxes.
+  3. **Drawing the rest-day movements is harder than the stretches**, because
+     several are movements rather than positions. A still has to pick the
+     moment that reads: the bottom of the Cossack squat, hips-low mid-step for
+     the bear crawl, the hang at the bottom of the Jefferson curl. Say so in
+     the prompt rather than leaving it to the generator.
+
+  Still open from earlier sessions, unchanged: `docs/AUDIT.md` §4–§9
+  (tombstone hardening, silent sync failure, no time dimension, Library search
+  labels), and the standing gap that **focuses and `likedMoves` are
+  device-local and do not sync**.
