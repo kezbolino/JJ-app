@@ -48,7 +48,8 @@ js/markdown.js        entry ↔ markdown file (the backup format)
 js/sync.js            GitHub backup repo sync, via the Git Data API
 js/youtube.js         link parsing and title lookup
 js/ui.js              h() element builder and shared bits
-js/stretches.js       the post-class cool-down: stretches, timing, SVG figures
+js/stretches.js       the post-class cool-down: stretches, timing, segments
+js/stretch-art.js     ~47 KB of figure paths — data only, don't hand-edit
 js/views/*.js         home, log, map, position, library, search, settings, stretch
 sw.js                 offline cache — bump CACHE when files change
 tests/                markdown round-trip, app smoke test, sync test
@@ -1010,7 +1011,9 @@ data if forgotten:
   twist needed a mat outline and no ground line: a bird's-eye figure over a
   horizon line reads as someone standing and leaning over, which is the exact
   opposite of "lie on your back". **If you add a stretch, render the sheet and
-  look at it — these cannot be judged from the path data.**
+  look at it — these cannot be judged from the path data.** *(Superseded the
+  same day — those stick figures were replaced with proper contour drawings;
+  see the next entry. The "render it and look at it" rule still stands.)*
 
   **Honest about what it is:** the intro says "General guidance, not physio",
   the finish screen says "Nothing was logged — this is just the cool-down", and
@@ -1032,3 +1035,48 @@ data if forgotten:
   intro, a running hold and the finish screen in light and dark, confirmed 0
   running animations under `prefers-reduced-motion` and no horizontal overflow
   at a 360px Android width. sw `CACHE` → v26, `VERSION` → v26.
+- 2026-08-03 — **Still v26: the stick figures replaced with real artwork.** The
+  user generated proper contour line drawings from the prompt written earlier in
+  the session and handed back 11 SVGs. **`CACHE`/`VERSION` stay at v26** — main
+  is still serving v22, so v23–v26 have never reached a device and there is
+  nothing cached to invalidate. Bumping again would only invent a version
+  nobody ever ran.
+
+  **What arrived and what was wrong with it.** Each file was a 1024×1024 SVG
+  built as a flat two-colour illustration: a full-canvas `#fff` rectangle,
+  then one unclassed (default black) path holding the line work, then several
+  more `#fff` paths painting the body interior. Rendered on a white page that
+  looks right; dropped into a themed app it is a white sticker that disappears
+  in light mode and glares in dark. The fix turned out to be subtraction, not
+  tracing: **keep only the unclassed path and throw every white one away.**
+  The black path alone is the complete drawing — verified by rendering it on a
+  mid-grey sheet before touching anything else. "White" is not a colour this
+  app is allowed to assume, so nothing that painted white survived.
+
+  **The trap, which cost a full rebuild.** Precision was trimmed first —
+  rounding every decimal to 1dp for ~8 KB. It destroyed them: pigeon collapsed
+  to a 51px-tall sliver, the lunge became a wedge, and several figures flooded
+  into solid silhouettes. Cause: these paths are full of **relative** commands,
+  so rounding each delta accumulates error along the chain until interior
+  contours no longer close and nonzero winding fills them in. The bbox numbers
+  gave it away before the render did — a 763×560 figure reporting 467×51.
+  **Never round coordinates in this artwork.** Framing is normalised by moving
+  the `viewBox` instead: a square centred on each pose's measured bounding box
+  with a 5% margin, which crops and equalises scale while leaving every
+  coordinate byte-exact.
+
+  **Where it lives.** New module `js/stretch-art.js` (added to `SHELL`) holding
+  `ART = { id: { viewBox, d } }`, ~47 KB. Split from `js/stretches.js`
+  deliberately: this repo gets edited from a phone, and 47 KB of path data in
+  the same file as the routine would bury the part that is meant to be read.
+  `STRETCHES` entries no longer carry a `figure` — the `id` is the key into
+  `ART` — and `stretchFigure(stretch, label)` now emits one `<path>` under
+  `fill="currentColor"`. A missing id draws an empty frame rather than throwing,
+  because a routine that is mid-hold should not die over a picture; the test
+  suite is what catches it, and it also fails on artwork no stretch uses and on
+  any colour baked into the path data. `.fig-ground` and the ground/mat logic
+  are gone — the new figures carry their own implied floor.
+
+  Ten stretch assertions green, all eight suites green, screenshot-checked the
+  intro list and a running hold in both themes (the figures invert correctly on
+  dark), 0 animations under reduced motion, no overflow at 360px.

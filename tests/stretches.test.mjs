@@ -7,6 +7,7 @@ import {
   STRETCHES, segments, routineMs, clock,
   READY_MS, HOLD_MS, SEGMENT_MS,
 } from '../js/stretches.js';
+import { ART } from '../js/stretch-art.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -35,15 +36,29 @@ test('every stretch is complete and uniquely named', () => {
   }
 });
 
-test('every stretch has a drawable figure', () => {
+test('every stretch has artwork, and there is no artwork going spare', () => {
+  // A stretch whose id has no ART entry renders an empty frame mid-routine —
+  // stretchFigure() deliberately does not throw, so this is what catches it.
   for (const s of STRETCHES) {
-    assert.ok(s.figure, `${s.id} has no figure`);
-    const [cx, cy, r] = s.figure.head;
-    assert.ok(Number.isFinite(cx) && Number.isFinite(cy) && r > 0, `${s.id} head is malformed`);
-    assert.ok(s.figure.strokes.length >= 3, `${s.id} is too sparse to read as a body`);
-    for (const d of s.figure.strokes) {
-      assert.match(d, /^M[\d.]/, `${s.id} has a stroke that does not start with a move`);
-    }
+    const art = ART[s.id];
+    assert.ok(art, `${s.id} has no figure in stretch-art.js`);
+    assert.match(art.viewBox, /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/, `${s.id} viewBox is malformed`);
+    assert.match(art.d, /^M[-\d.]/, `${s.id} path does not start with a move`);
+    assert.ok(art.d.length > 500, `${s.id} path is too short to be a figure`);
+  }
+  const ids = new Set(STRETCHES.map(s => s.id));
+  for (const key of Object.keys(ART)) {
+    assert.ok(ids.has(key), `ART carries "${key}", which no stretch uses`);
+  }
+});
+
+test('the artwork is square-framed and theme-neutral', () => {
+  for (const [id, art] of Object.entries(ART)) {
+    const [, , w, hgt] = art.viewBox.split(' ').map(Number);
+    assert.equal(w, hgt, `${id} is not framed square, so it will scale oddly`);
+    // No baked colours: the figures have to inherit currentColor or they
+    // vanish against one of the two themes.
+    assert.doesNotMatch(art.d, /#[0-9a-f]{3,6}/i, `${id} has a colour in its path data`);
   }
 });
 

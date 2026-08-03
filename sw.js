@@ -20,6 +20,7 @@ const SHELL = [
   'js/store.js',
   'js/moves.js',
   'js/stretches.js',
+  'js/stretch-art.js',
   'js/ontology.js',
   'js/tagger.js',
   'js/overrides.js',

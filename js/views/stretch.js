@@ -1,8 +1,8 @@
 // The post-class stretch routine, on a timer.
 //
-// 10 seconds to get into the shape, 30 to hold it, once per side. The list and
-// the figures live in js/stretches.js; this file is the clock, the sound and
-// the screen.
+// 10 seconds to get into the shape, 30 to hold it, once per side. The list
+// lives in js/stretches.js and the artwork in js/stretch-art.js; this file is
+// the clock, the sound and the screen.
 //
 // Three things here are deliberate, and two of them are bugs this app has
 // already paid for once:
@@ -158,7 +158,7 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
   // ---- painting ---------------------------------------------------------
   const paintSegment = i => {
     const { stretch: s, side } = segs[i];
-    figSlot.replaceChildren(stretchFigure(s.figure, `${s.name} illustration`));
+    figSlot.replaceChildren(stretchFigure(s, `${s.name} illustration`));
     nameEl.textContent = s.name;
     targetEl.textContent = s.targets;
     cueEl.textContent = s.cue;
@@ -295,7 +295,7 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
 function overview() {
   return h('ol.st-list', STRETCHES.map(s =>
     h('li.st-item',
-      h('span.st-item-fig', stretchFigure(s.figure)),
+      h('span.st-item-fig', stretchFigure(s)),
       h('span.st-item-txt',
         h('span.st-item-name', s.name),
         h('span.st-item-sub', s.targets)),

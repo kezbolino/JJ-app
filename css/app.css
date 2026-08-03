@@ -1128,10 +1128,9 @@ a.cal__day:active { transform: scale(.9); }
   padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+/* One filled path per pose, `fill="currentColor"` on the svg — so the figures
+   take the text colour and flip with the theme. See js/stretch-art.js. */
 .stretch-fig { color: var(--text); display: block; width: 100%; height: 100%; }
-.stretch-fig .fig-ground {
-  stroke: var(--dash); stroke-width: 2.5; stroke-dasharray: 6 6; stroke-linecap: butt;
-}
 
 /* --- before you start --------------------------------------------------- */
 .st-intro { text-align: center; }
