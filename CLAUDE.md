@@ -895,3 +895,49 @@ data if forgotten:
   sw `CACHE` → v24, `VERSION` → v24 (icon bytes changed again). No files
   added, removed or renamed, so `SHELL` is unchanged. All seven suites green
   (110 assertions).
+- 2026-08-03 — **v25: the in-app top-left brand mark now matches the v24
+  icon — and the belt-years timeline is gone.** User: *"ok i want it the
+  same on the app, the years can go."* Direct instruction to drop the
+  years-weighted belt sizing (`BELT_RANKS` used to carry `{rank, years}` and
+  a `PX_PER_YEAR` constant — see "Belt mark is now a timeline", 2026-07-31)
+  in favour of the same JUJI / equal-pill / compressed-U design shipped to
+  the icons in v24.
+
+  **`BELT_RANKS` is now just `['white','blue','purple','brown','black']`** —
+  `settings.js`'s rank dropdown updated from `b.rank` to the plain string.
+  Nothing else in the codebase read `.years`, so nothing else needed to
+  change.
+
+  **The wordmark is SVG now, not a text node.** `js/ui.js` gained
+  `WORDMARK_GLYPHS` — the same per-glyph x/width layout computed for the
+  v24 icons (Nunito bold, -0.035em tracking, U compressed to 85%), but
+  expressed as fractions of font-size and hard-coded rather than measured at
+  render time. This was a deliberate choice, not laziness: the layout is
+  static (same word, same weights, always), so measuring it live on every
+  render would mean carrying the app into the same `document.fonts.ready`
+  trap documented in the v24 entry above, for no benefit — precomputing once
+  and shipping the numbers is simpler and cannot race. `wordmarkSvg()`
+  builds it; `h1.brand-jj` carries `aria-label="Ju Ji"` so screen readers get
+  the name even though the SVG itself is `aria-hidden`. **Fixed to Nunito
+  regardless of the App-font picker** (Settings → Appearance can still swap
+  body text to System/Serif/Mono) — this is brand identity, not body copy,
+  same reasoning as the icon files themselves not changing with it.
+
+  **The belt pills stayed HTML `<i>` elements, not SVG** — deliberately,
+  because `tests/features.test.mjs` asserts on them directly
+  (`.belt.is-ranked i.belt-white:not(.is-future)` etc.) and rewriting them as
+  SVG `<rect>`s would have broken that selector for no visual gain. Width,
+  height, radius and gap are now all computed from `WORDMARK_FONT_SIZE` and
+  set inline (equal width per pill, chip corners rather than full pill
+  rounding), replacing the old years-proportional inline widths; the
+  `is-ranked`/`is-future` dimming behaviour for a recorded promotion is
+  unchanged. `css/app.css` lost the now-dead hard-coded `.belt`/`.belt i`
+  sizing (gap, margin-top, height, border-radius all moved inline) and
+  gained `.wordmark-svg text { fill: var(--text) }`.
+
+  Screenshot-checked in light and dark at 420px and a narrow 360px width (no
+  overflow), zoomed in 4x to confirm the U reads balanced and the pills are
+  legible rather than vanishing at this much smaller (~46px vs the icon's
+  512px) scale. All seven suites green (110 assertions), including the
+  promotion/rank-highlight test. sw `CACHE` → v25, `VERSION` → v25, no files
+  added or removed.

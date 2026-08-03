@@ -165,49 +165,95 @@ export function monthCalendar(ym, index, { today = '', onPick = null, showMonth 
       cells));
 }
 
+/** The adult belt ranks, in order. Equal-weight now — see brandMark() below. */
+export const BELT_RANKS = ['white', 'blue', 'purple', 'brown', 'black'];
+
 /**
- * The adult belt ranks, in order, with the years typically spent at each before
- * the next one — so the mark is a timeline, not just five colours.
- *
- * These are rough community averages, not rules: how long a belt takes varies
- * enormously by gym, by how often you train and by who is promoting you. Black
- * is the IBJJF's 3 years to first degree, which keeps it a real number rather
- * than "the rest of your life".
+ * Glyph layout for the JUJI wordmark, precomputed once at design time rather
+ * than measured at runtime (see CLAUDE.md's v25 session log entry for how):
+ * Nunito bold, -0.035em tracking, each character's x/width as a fraction of
+ * font-size. The uppercase U is compressed to 85% of its natural width —
+ * unscaled, Nunito's U runs more than double the advance width of J or I at
+ * this weight and reads as noticeably fatter than the rest of the word.
+ * Fixed to Nunito regardless of the user's App-font setting (Settings →
+ * Appearance): this is the brand mark, not body text, same as the app icon.
  */
-export const BELT_RANKS = [
-  { rank: 'white',  years: 2 },
-  { rank: 'blue',   years: 2.5 },
-  { rank: 'purple', years: 2 },
-  { rank: 'brown',  years: 1.5 },
-  { rank: 'black',  years: 3 },
+const WORDMARK_GLYPHS = [
+  { ch: 'J', x: 0,          w: 0.31906250 },
+  { ch: 'U', x: 0.31895833, w: 0.57640625, compressed: true },
+  { ch: 'J', x: 0.89526042, w: 0.31906250 },
+  { ch: 'I', x: 1.21421875, w: 0.24708333 },
 ];
+const WORDMARK_WIDTH_EM = 1.46130208;
+const WORDMARK_ASCENT_EM = 1.01333333;  // -bbox.y / fontSize, baseline to top
+const WORDMARK_HEIGHT_EM = 1.36666667;  // bbox.height / fontSize
 
-const PX_PER_YEAR = 4.4;   // keeps the whole mark around 60px wide
+const WORDMARK_FONT_SIZE = 32;
+const WORDMARK_PILL_GAP = WORDMARK_FONT_SIZE * (3 / 29);
+const WORDMARK_PILL_H = WORDMARK_FONT_SIZE * (6 / 29);
+const WORDMARK_PILL_RADIUS = WORDMARK_PILL_H * 0.2;
+const WORDMARK_MARGIN_TOP = WORDMARK_FONT_SIZE * (7 / 29);
+
+/** svg('text', {x,y,...}) — the SVG-namespace sibling of h(), text content only. */
+function svgText(attrs, text) {
+  const t = document.createElementNS(SVG_NS, 'text');
+  for (const [k, v] of Object.entries(attrs)) t.setAttribute(k, v);
+  t.textContent = text;
+  return t;
+}
+
+function wordmarkSvg() {
+  const svgW = WORDMARK_FONT_SIZE * WORDMARK_WIDTH_EM;
+  const svgH = WORDMARK_FONT_SIZE * WORDMARK_HEIGHT_EM;
+  const baselineY = WORDMARK_FONT_SIZE * WORDMARK_ASCENT_EM;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  svg.setAttribute('width', svgW);
+  svg.setAttribute('height', svgH);
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('class', 'wordmark-svg');
+
+  for (const g of WORDMARK_GLYPHS) {
+    const attrs = {
+      x: g.x * WORDMARK_FONT_SIZE, y: baselineY,
+      'font-size': WORDMARK_FONT_SIZE, 'font-weight': 700,
+      'font-family': 'Nunito, sans-serif',
+    };
+    if (g.compressed) {
+      attrs.textLength = g.w * WORDMARK_FONT_SIZE;
+      attrs.lengthAdjust = 'spacingAndGlyphs';
+    }
+    svg.append(svgText(attrs, g.ch));
+  }
+  return svg;
+}
 
 /**
- * The brand device: JJ over the belt ranks, each sized by its typical years.
+ * The brand device: the JUJI wordmark over five equal belt-rank pills.
  *
- * Pass a `standing` from `store.beltStanding()` and the mark stops being
- * decoration: the ranks up to and including yours are drawn in full, the ones
- * after are held back. It shows the rank you told the app you were given —
- * nothing here estimates a rank, and nothing marks progress *through* a belt,
+ * Pass a `standing` from `store.beltStanding()` and the pills stop being
+ * decoration: the ranks up to and including yours are drawn in full, the
+ * ones after are held back. It shows the rank you told the app you were
+ * given — nothing here estimates a rank or marks progress *through* a belt,
  * because how far along you are is not something an app can know.
  */
 export function brandMark(standing = null) {
-  const reached = standing ? BELT_RANKS.findIndex(b => b.rank === standing.rank) : -1;
-  const label = BELT_RANKS.map(b => `${b.rank} ${b.years}`).join(', ');
+  const reached = standing ? BELT_RANKS.findIndex(rank => rank === standing.rank) : -1;
   const aria = reached >= 0
     ? `Belt ranks. Yours: ${standing.rank}, awarded ${standing.date}.`
-    : `Belt ranks, each sized by the average years spent at it: ${label}`;
+    : `Belt ranks: ${BELT_RANKS.join(', ')}`;
+
+  const pillW = (WORDMARK_FONT_SIZE * WORDMARK_WIDTH_EM - WORDMARK_PILL_GAP * (BELT_RANKS.length - 1)) / BELT_RANKS.length;
 
   return h('div.brand-mark',
-    h('h1.brand-jj', 'Ju Ji'),
-    h('div.belt' + (reached >= 0 ? '.is-ranked' : ''), { role: 'img', 'aria-label': aria },
-      BELT_RANKS.map((b, i) => h('i.belt-' + b.rank + (reached >= 0 && i > reached ? '.is-future' : ''), {
-        style: `width:${Math.round(b.years * PX_PER_YEAR)}px`,
-        title: reached >= 0 && i === reached
-          ? `${b.rank} — your rank since ${standing.date}`
-          : `${b.rank} — about ${b.years} ${b.years === 1 ? 'year' : 'years'}`,
+    h('h1.brand-jj', { 'aria-label': 'Ju Ji' }, wordmarkSvg()),
+    h('div.belt' + (reached >= 0 ? '.is-ranked' : ''), {
+      role: 'img', 'aria-label': aria, style: `gap:${WORDMARK_PILL_GAP}px; margin-top:${WORDMARK_MARGIN_TOP}px`,
+    },
+      BELT_RANKS.map((rank, i) => h('i.belt-' + rank + (reached >= 0 && i > reached ? '.is-future' : ''), {
+        style: `width:${pillW}px; height:${WORDMARK_PILL_H}px; border-radius:${WORDMARK_PILL_RADIUS}px`,
+        title: reached >= 0 && i === reached ? `${rank} — your rank since ${standing.date}` : rank,
       }))));
 }
 

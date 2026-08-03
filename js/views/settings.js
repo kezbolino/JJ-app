@@ -46,7 +46,7 @@ function appearanceCard() {
 function beltCard(promotions, standing, reload) {
   const rankSelect = h('select',
     h('option', { value: '' }, 'Rank…'),
-    BELT_RANKS.map(b => h('option', { value: b.rank }, b.rank[0].toUpperCase() + b.rank.slice(1))));
+    BELT_RANKS.map(rank => h('option', { value: rank }, rank[0].toUpperCase() + rank.slice(1))));
   const dateInput = h('input', { type: 'date', value: store.todayISO() });
 
   const add = async () => {

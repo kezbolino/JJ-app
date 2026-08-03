@@ -274,21 +274,23 @@ a { color: var(--accent); text-decoration: none; }
 }
 .brand-actions { display: flex; align-items: center; gap: 8px; }
 .brand-mark { display: block; }
-.brand-jj {
-  font-size: 29px; font-weight: 700; letter-spacing: -1px;
-  color: var(--text); margin: 0; line-height: 1;
-}
+.brand-jj { margin: 0; line-height: 1; }
+/* The wordmark is drawn as SVG text (js/ui.js wordmarkSvg()) rather than a
+   text node, so the glyph-level layout (equal pill alignment, the compressed
+   U — see WORDMARK_GLYPHS) is exact. Fixed to Nunito regardless of the
+   user's App-font setting: this is the brand mark, not body text. */
+.wordmark-svg text { fill: var(--text); }
 /* The five adult belt ranks, in order. Real rank colours, not app colours —
    which also takes brand duty off amber, leaving it to mean only "gap" or
    "waiting on you". White and black are the problem cases: white vanishes on a
    light background and black on a dark one, so every segment carries a hairline
    and the two extremes get their own per-theme value. */
-.belt { display: flex; gap: 3px; margin-top: 7px; }
-/* Width is set inline, from the years each rank typically takes — see
-   BELT_RANKS in js/ui.js. The mark is a timeline, so the numbers live with the
-   data rather than being hard-coded here. */
+.belt { display: flex; }
+/* Width, height, radius and gap are set inline from js/ui.js — they're all
+   derived from WORDMARK_FONT_SIZE so the pill row and the wordmark above it
+   scale together. */
 .belt i {
-  display: block; height: 6px; border-radius: 3px;
+  display: block;
   box-shadow: inset 0 0 0 1px var(--belt-line);
 }
 .belt .belt-white  { background: var(--belt-white); }
