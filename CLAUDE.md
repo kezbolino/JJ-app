@@ -773,3 +773,20 @@ data if forgotten:
   sw `CACHE` → v22, `VERSION` → v22, no files added or removed. Seven suites,
   110 assertions, green (`schedule` under UTC, `America/Los_Angeles` and
   `Australia/Sydney`); screenshot-compared Home, Map and the Log form.
+- 2026-08-03 — **v21 + v22 deployed.** Both shipped together: `main` fast-
+  forwarded to `ebeaec2` and pushed, so GitHub Pages is serving v22 at
+  `https://kezbolino.github.io/JJ-app/`. `CACHE` and `VERSION` both read v22 and
+  match — the footer number only means "latest" when they do.
+
+  **Expect one noisy sync.** Notes already in `jj-app-data` still carry
+  `rounds:`, `feel:` and `session:` in their front matter and `## Rolling notes`
+  as a heading. Nothing reads those keys now, so each note sheds them and picks
+  up `## Key details` the next time it is pushed — one commit touching a lot of
+  files, which is the removal working, not a bug. The old heading is still parsed
+  (`LEGACY_HEADINGS`), so nothing in that field is lost in between.
+
+  Also worth remembering next session: the installed PWA on the phone serves the
+  old shell until the service worker takes the new `CACHE`. Close it fully and
+  reopen, and check the footer before judging anything on screen — this is the
+  same thing that sent v10 chasing a "front page all over the place" bug that
+  turned out to be real (see 2026-07-29), so verify the version *first*.
