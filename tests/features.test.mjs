@@ -745,8 +745,13 @@ await test('the stretch routine lists every stretch before you start', async () 
   assert.equal(sides.length, names.length);
   assert.ok(sides.some(s => s === 'Both sides'));
 
-  // Every stretch is illustrated, not just named.
-  assert.equal(await page.locator('.st-item-fig svg').count(), names.length);
+  // Not everything is drawn yet (see PENDING_ART in js/stretch-art.js). What
+  // matters is that a movement awaiting art renders no frame at all, rather
+  // than an empty box that reads as broken.
+  const frames = await page.locator('.st-item-fig').count();
+  const drawn = await page.locator('.st-item-fig svg').count();
+  assert.equal(frames, drawn, 'an empty figure frame is in the list');
+  assert.ok(drawn > 0, 'nothing in the list is illustrated at all');
 
   assert.match(await page.locator('.st-intro-n').innerText(), /^\d+:\d\d$/);
   await page.context().close();
@@ -762,7 +767,7 @@ await test('starting the routine opens on the first stretch, getting ready', asy
   // innerText reports them shouting. The words are the contract, not the case.
   assert.match(await page.locator('.st-phase').innerText(), /get ready/i);
   assert.equal(await page.locator('.st-count').innerText(), '0:10');
-  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 18/i);
+  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 21/i);
   assert.ok(await page.locator('.st-fig svg').isVisible(), 'no illustration while stretching');
   assert.ok((await page.locator('.st-cue').innerText()).length > 20, 'no coaching cue on screen');
   await page.context().close();
@@ -781,12 +786,12 @@ await test('a two-sided stretch runs the same stretch twice, left then right', a
   await page.waitForTimeout(200);
   assert.equal(await page.locator('.st-name').innerText(), first, 'the second side changed stretch');
   assert.match(await page.locator('.st-side').innerText(), /right side/i);
-  assert.match(await page.locator('.st-step').innerText(), /hold 2 of 18/i);
+  assert.match(await page.locator('.st-step').innerText(), /hold 2 of 21/i);
 
   // Back returns to the side you just came from rather than the start.
   await page.click('.st-back');
   await page.waitForTimeout(200);
-  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 18/i);
+  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 21/i);
   await page.context().close();
 });
 
@@ -834,6 +839,70 @@ await test('leaving the routine stops its timer instead of leaving it running', 
 
   // And the screen you left for is intact.
   assert.equal(await page.locator('textarea').count() > 0, true, 'the log form did not render');
+  await page.context().close();
+});
+
+await test('the picker swaps to the rest-day routine, which is a different session', async () => {
+  const page = await newPage();
+  await go(page, '/stretch');
+
+  // Two routines, cool-down selected by default.
+  assert.equal(await page.locator('.st-pick button').count(), 2);
+  assert.equal(await page.locator('.st-pick button.is-on').innerText(), 'After class');
+  assert.equal(await page.locator('.st-needs').count(), 0, 'the cool-down needs no equipment');
+
+  const coolLength = await page.locator('.st-intro-n').innerText();
+  await page.click('.st-pick button:nth-child(2)');
+  await page.waitForTimeout(200);
+
+  assert.equal(await page.locator('.st-pick button.is-on').innerText(), 'Rest day');
+  assert.notEqual(await page.locator('.st-intro-n').innerText(), coolLength,
+    'both routines claim the same length');
+  assert.match(await page.locator('.st-needs').innerText(), /chair/i);
+
+  // Rest is what makes it a strength session rather than a stretch.
+  assert.match(await page.locator('.st-intro-cycle').innerText(), /rest/i);
+  const names = await page.locator('.st-item-name').allTextContents();
+  assert.ok(names.includes('Cossack squat'), 'no loaded end-range work in the rest-day list');
+  // Every rep-based movement has to say how much to do or you are guessing.
+  assert.equal(await page.locator('.st-item-side').count(), names.length);
+
+  // The hash carries the choice so a reload stays put.
+  assert.match(await page.evaluate(() => location.hash), /r=rest-day/);
+  await page.context().close();
+});
+
+await test('the rest-day routine runs a rest phase between sets', async () => {
+  const page = await newPage();
+  await go(page, '/stretch?r=rest-day');
+  assert.equal(await page.locator('.st-pick button.is-on').innerText(), 'Rest day');
+
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  assert.match(await page.locator('.st-phase').innerText(), /get ready/i);
+  assert.match(await page.locator('.st-step').innerText(), /work 1 of 18/i);
+
+  // Skipping lands at the top of the next set, so the phase is "get ready"
+  // again — proving rest belongs to the set it follows, not the one it precedes.
+  await page.click('.st-skip');
+  await page.waitForTimeout(200);
+  assert.match(await page.locator('.st-step').innerText(), /work 2 of 18/i);
+  await page.context().close();
+});
+
+await test('a movement with no artwork yet leaves the frame out instead of drawing a blank', async () => {
+  const page = await newPage();
+  await go(page, '/stretch?r=rest-day');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+
+  // Nothing in the rest-day session is drawn yet, so the figure slot must be
+  // hidden rather than showing an empty box that reads as broken.
+  assert.equal(await page.locator('.st-fig svg').count(), 0);
+  assert.ok(await page.locator('.st-fig').isHidden(), 'an empty figure frame is on screen');
+  // The movement is still fully usable without a picture.
+  assert.ok((await page.locator('.st-name').innerText()).length > 0);
+  assert.ok((await page.locator('.st-cue').innerText()).length > 20);
   await page.context().close();
 });
 

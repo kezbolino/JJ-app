@@ -1,35 +1,39 @@
-// The post-class stretch routine, on a timer.
+// The stretch screen: pick a routine, then run it.
 //
-// 10 seconds to get into the shape, 30 to hold it, once per side. The list
-// lives in js/stretches.js and the artwork in js/stretch-art.js; this file is
-// the clock, the sound and the screen.
+// Two routines share this one engine — the post-class cool-down (passive
+// holds) and the rest-day session (bodyweight end-range strength). They differ
+// in what a segment is made of, not in how time is counted. See
+// js/stretches.js for the list and for why they are different kinds of thing.
 //
-// Three things here are deliberate, and two of them are bugs this app has
+// Four things here are deliberate, and two of them are bugs this app has
 // already paid for once:
 //
-// 1. **Time comes from the clock, never from counting ticks.** Every segment is
-//    the same length, so the whole routine is one arithmetic expression over
-//    elapsed milliseconds. A phone that throttles timers in the background, or
-//    sleeps for a minute, resumes on the correct stretch instead of drifting
-//    further behind the longer you run.
-// 2. **The render token is the teardown.** The router just empties `#view` from
-//    under whatever was drawn there; nothing tells a view it is being replaced.
-//    The interval checks `isCurrent()` and shuts itself — and the wake lock and
-//    the audio context — down the moment this stops being the visible screen.
+// 1. **Time comes from the clock, never from counting ticks.** Every segment
+//    inside a routine is the same length, so the current segment is one
+//    division over elapsed milliseconds. A phone that throttles timers in the
+//    background, or sleeps for a minute, resumes on the correct movement
+//    instead of drifting further behind the longer you run.
+// 2. **The render token is the teardown.** The router just empties `#view`
+//    from under whatever was drawn there; nothing tells a view it is being
+//    replaced. The interval checks `isCurrent()` and shuts itself — and the
+//    wake lock and the audio context — down the moment this stops being the
+//    visible screen.
 // 3. **Beeps are synthesised, not files.** An AudioContext oscillator costs no
 //    bytes in the shell and nothing to cache, which is the whole shape of this
 //    app. The context can only be created from a user gesture, so it is built
 //    when you tap Start.
+// 4. **A rest phase of 0 is not special-cased.** The cool-down simply has one,
+//    so it never fires. That keeps one code path for both routines.
 //
 // This is not the round timer that was removed in v18 — that one asked you to
-// have a phone at the edge of the mat during training. This runs afterwards,
-// when you are off the mat and winding down, which is where the app lives.
+// have a phone at the edge of the mat during training. Both of these run when
+// you are off it.
 
-import { h, clear, icon } from '../ui.js';
+import { h, icon } from '../ui.js';
 import { renderToken, isCurrent } from '../render.js';
 import {
-  STRETCHES, segments, routineMs, clock, stretchFigure,
-  READY_MS, SEGMENT_MS,
+  ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs,
+  clock, stretchFigure, hasArt,
 } from '../stretches.js';
 
 /**
@@ -73,7 +77,8 @@ function createBeeper() {
   return {
     unlock: () => ensure(),
     ready: () => tone(430, 180, 0.16),          // "get into the shape"
-    go: () => tone(880, 280, 0.20),             // "hold it"
+    go: () => tone(880, 280, 0.20),             // "hold it" / "work"
+    rest: () => tone(330, 240, 0.14),           // "stop, breathe"
     tick: () => tone(720, 90, 0.12),            // 3 · 2 · 1
     finish: () => { tone(660, 200); tone(880, 200, 0.18, 0.21); tone(1170, 420, 0.18, 0.42); },
     setMuted: v => { muted = v; },
@@ -105,8 +110,12 @@ function createWakeLock() {
  * anchor; skipping rewrites the bank. Nothing accumulates per tick, so nothing
  * drifts.
  */
-function runner(mount, segs, { beep, wake, onExit, token }) {
-  const totalMs = segs.length * SEGMENT_MS;
+function runner(mount, routine, { beep, wake, onExit, token }) {
+  const segs = segments(routine);
+  const SEG = segmentMs(routine);
+  const { ready: READY, work: WORK } = routine.phases;
+  const totalMs = segs.length * SEG;
+
   let baseElapsed = 0;
   let anchor = performance.now();
   let timer = null;
@@ -121,6 +130,7 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
   const figSlot = h('div.st-fig');
   const nameEl = h('h2.st-name');
   const sideEl = h('span.st-side');
+  const doseEl = h('span.st-dose');
   const targetEl = h('p.st-targets');
   const cueEl = h('p.st-cue');
   const phaseEl = h('span.st-phase');
@@ -145,7 +155,7 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
   mount.replaceChildren(
     h('div.st-top', stepEl, leftEl),
     overallRail,
-    h('div.st-stage', figSlot, sideEl),
+    h('div.st-stage', figSlot, h('div.st-badges', sideEl, doseEl)),
     nameEl,
     targetEl,
     h('div.st-clock', phaseEl, countEl),
@@ -157,24 +167,42 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
 
   // ---- painting ---------------------------------------------------------
   const paintSegment = i => {
-    const { stretch: s, side } = segs[i];
-    figSlot.replaceChildren(stretchFigure(s, `${s.name} illustration`));
-    nameEl.textContent = s.name;
-    targetEl.textContent = s.targets;
-    cueEl.textContent = s.cue;
+    const { item, side } = segs[i];
+    // No artwork yet → leave the space out rather than draw an empty frame.
+    const fig = stretchFigure(item, `${item.name} illustration`);
+    figSlot.replaceChildren(...(fig ? [fig] : []));
+    figSlot.hidden = !fig;
+    nameEl.textContent = item.name;
+    targetEl.textContent = item.targets;
+    cueEl.textContent = item.cue;
     sideEl.textContent = side ?? '';
     sideEl.hidden = !side;
-    stepEl.textContent = `Hold ${i + 1} of ${segs.length}`;
+    doseEl.textContent = item.dose ?? '';
+    doseEl.hidden = !item.dose;
+    stepEl.textContent = `${routine.workLabel} ${i + 1} of ${segs.length}`;
   };
 
+  // During rest the screen keeps the movement you just did but says what is
+  // coming, so you can set up for it before the next "get ready" starts.
+  const paintRest = i => {
+    const next = segs[i + 1];
+    cueEl.textContent = next
+      ? `Next: ${next.item.name}${next.side ? ` — ${next.side.toLowerCase()}` : ''}`
+      : 'Last one — nearly there.';
+  };
+
+  const PHASE_LABEL = { ready: 'Get ready', work: routine.workLabel, rest: 'Rest' };
+
   const paintClock = (phase, secs, within) => {
-    const ready = phase === 'ready';
-    phaseEl.textContent = ready ? 'Get ready' : 'Hold';
+    phaseEl.textContent = PHASE_LABEL[phase];
     countEl.textContent = `0:${String(secs).padStart(2, '0')}`;
-    mount.classList.toggle('is-ready', ready);
-    mount.classList.toggle('is-hold', !ready);
-    const span = ready ? READY_MS : SEGMENT_MS - READY_MS;
-    const done = ready ? within : within - READY_MS;
+    mount.classList.toggle('is-ready', phase === 'ready');
+    mount.classList.toggle('is-hold', phase === 'work');
+    mount.classList.toggle('is-rest', phase === 'rest');
+    const span = phase === 'ready' ? READY : phase === 'work' ? WORK : SEG - READY - WORK;
+    const done = phase === 'ready' ? within
+      : phase === 'work' ? within - READY
+      : within - READY - WORK;
     phaseBar.style.width = `${Math.min(100, (done / span) * 100)}%`;
   };
 
@@ -183,15 +211,15 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
     finished = true;
     stop();
     beep.finish();
-    mount.classList.remove('is-ready', 'is-hold');
+    mount.classList.remove('is-ready', 'is-hold', 'is-rest');
     mount.replaceChildren(
       h('div.st-done',
         h('div.st-done-ico', icon('flame')),
-        h('h2', 'Stretched off'),
-        h('p', `${STRETCHES.length} stretches · ${clock(totalMs)}. Nothing was logged — this is just the cool-down.`),
+        h('h2', routine.id === 'post-class' ? 'Stretched off' : 'Session done'),
+        h('p', `${routine.items.length} ${routine.unit} · ${clock(totalMs)}. ${routine.doneNote}`),
         h('div.btn-row',
           h('button.btn.primary', { type: 'button', onclick: () => onExit('again') }, 'Go again'),
-          h('a.btn', { href: '#/log' }, 'Log the class'))));
+          h('a.btn', { href: '#/log' }, 'Log a class'))));
   };
 
   // ---- the tick ---------------------------------------------------------
@@ -202,21 +230,23 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
     const e = elapsed();
     if (e >= totalMs) { finish(); return; }
 
-    const i = Math.floor(e / SEGMENT_MS);
-    const within = e - i * SEGMENT_MS;
-    const phase = within < READY_MS ? 'ready' : 'hold';
-    const remaining = (phase === 'ready' ? READY_MS : SEGMENT_MS) - within;
-    const secs = Math.max(1, Math.ceil(remaining / 1000));
+    const i = Math.floor(e / SEG);
+    const within = e - i * SEG;
+    const phase = within < READY ? 'ready' : within < READY + WORK ? 'work' : 'rest';
+    const boundary = phase === 'ready' ? READY : phase === 'work' ? READY + WORK : SEG;
+    const secs = Math.max(1, Math.ceil((boundary - within) / 1000));
 
     const key = `${i}:${phase}`;
     if (key !== lastKey) {
       lastKey = key;
       lastCount = -1;
-      if (phase === 'ready') { paintSegment(i); beep.ready(); } else beep.go();
-      const { stretch: s, side } = segs[i];
-      live.textContent = phase === 'ready'
-        ? `Get ready. ${s.name}${side ? `, ${side}` : ''}.`
-        : `Hold. ${s.name}${side ? `, ${side}` : ''}.`;
+      const { item, side } = segs[i];
+      if (phase === 'ready') { paintSegment(i); beep.ready(); }
+      else if (phase === 'work') beep.go();
+      else { paintRest(i); beep.rest(); }
+      live.textContent = phase === 'rest'
+        ? `Rest. Next: ${segs[i + 1]?.item.name ?? 'finish'}.`
+        : `${PHASE_LABEL[phase]}. ${item.name}${side ? `, ${side}` : ''}.`;
     }
 
     if (secs !== lastCount) {
@@ -248,23 +278,20 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
 
   pauseBtn.addEventListener('click', () => setPaused(running()));
 
-  // Skip jumps to the start of the next hold; Back to the start of this one,
-  // or the previous one if you are already at the top of it.
+  // Skip jumps to the start of the next segment; Back to the start of this
+  // one, or the previous one if you are already at the top of it.
   const jumpTo = ms => {
     baseElapsed = Math.max(0, Math.min(ms, totalMs));
     if (running()) anchor = performance.now();
     lastKey = '';
     if (baseElapsed >= totalMs) finish(); else tick();
   };
-  skipBtn.addEventListener('click', () => {
-    const i = Math.floor(elapsed() / SEGMENT_MS);
-    jumpTo((i + 1) * SEGMENT_MS);
-  });
+  skipBtn.addEventListener('click', () => jumpTo((Math.floor(elapsed() / SEG) + 1) * SEG));
   backBtn.addEventListener('click', () => {
     const e = elapsed();
-    const i = Math.floor(e / SEGMENT_MS);
-    const atTop = e - i * SEGMENT_MS < 1500;
-    jumpTo(Math.max(0, (atTop ? i - 1 : i) * SEGMENT_MS));
+    const i = Math.floor(e / SEG);
+    const atTop = e - i * SEG < 1500;
+    jumpTo(Math.max(0, (atTop ? i - 1 : i) * SEG));
   });
 
   soundBtn.addEventListener('click', () => {
@@ -292,52 +319,78 @@ function runner(mount, segs, { beep, wake, onExit, token }) {
 }
 
 /** The list you see before starting: what is coming, in order. */
-function overview() {
-  return h('ol.st-list', STRETCHES.map(s =>
-    h('li.st-item',
-      h('span.st-item-fig', stretchFigure(s)),
+function overview(routine) {
+  return h('ol.st-list', routine.items.map(item => {
+    const fig = stretchFigure(item);
+    return h('li.st-item',
+      fig ? h('span.st-item-fig', fig) : null,
       h('span.st-item-txt',
-        h('span.st-item-name', s.name),
-        h('span.st-item-sub', s.targets)),
-      h('span.st-item-side', s.bilateral ? 'Both sides' : '1 hold'))));
+        h('span.st-item-name', item.name),
+        h('span.st-item-sub', item.targets)),
+      h('span.st-item-side', item.dose ?? (item.bilateral ? 'Both sides' : '1 hold')));
+  }));
 }
 
-export default async function stretch(root) {
+export default async function stretch(root, { routine: routineId } = {}) {
   const token = renderToken();
-  const segs = segments();
-  const total = routineMs();
   const beep = createBeeper();
   const wake = createWakeLock();
 
+  let routine = getRoutine(routineId ?? DEFAULT_ROUTINE);
   const mount = h('div.st');
   let teardown = null;
+
+  // Segmented picker. Choosing swaps the intro in place and rewrites the hash
+  // with replaceState — no hashchange, so the router doesn't rebuild the view
+  // under us, but a reload still lands on the routine you picked.
+  const picker = () => h('div.st-pick', { role: 'tablist' },
+    ROUTINES.map(r => {
+      const on = r.id === routine.id;
+      return h('button' + (on ? '.is-on' : ''), {
+        type: 'button', role: 'tab', 'aria-selected': String(on),
+        onclick: () => {
+          if (r.id === routine.id) return;
+          routine = r;
+          history.replaceState(null, '', `#/stretch?r=${r.id}`);
+          showIntro();
+        },
+      }, r.name);
+    }));
 
   const showIntro = () => {
     teardown?.();
     teardown = null;
     wake.release();
     mount.className = 'st';
+
+    const segs = segments(routine);
+    const { ready, work, rest } = routine.phases;
+
     mount.replaceChildren(
+      picker(),
       h('section.card.st-intro',
         h('div.st-intro-head',
           h('div',
-            h('div.st-intro-n', clock(total)),
-            h('div.st-intro-l', `${STRETCHES.length} stretches · ${segs.length} holds`)),
+            h('div.st-intro-n', clock(routineMs(routine))),
+            h('div.st-intro-l', `${routine.items.length} ${routine.unit} · ${segs.length} sets`)),
           h('div.st-intro-cycle',
-            h('span', '10s get ready'),
+            h('span', `${ready / 1000}s ready`),
             h('span.st-arrow', '→'),
-            h('span', '30s hold'))),
-        h('button.btn.primary.wide.cta', { type: 'button', onclick: begin }, 'Start stretching')),
-      overview(),
-      h('p.st-note',
-        'General guidance, not physio. Ease into each one and back off anything that pinches.'));
+            h('span', `${work / 1000}s ${routine.workLabel.toLowerCase()}`),
+            ...(rest ? [h('span.st-arrow', '→'), h('span', `${rest / 1000}s rest`)] : []))),
+        routine.needs.length
+          ? h('p.st-needs', `You'll need: ${routine.needs.join(' · ')}`)
+          : null,
+        h('button.btn.primary.wide.cta', { type: 'button', onclick: begin }, 'Start')),
+      overview(routine),
+      h('p.st-note', routine.note));
   };
 
   const begin = () => {
     beep.unlock();          // must happen inside the tap
     wake.request();
     mount.className = 'st is-running';
-    teardown = runner(mount, segs, {
+    teardown = runner(mount, routine, {
       beep, wake, token,
       onExit: reason => (reason === 'again' ? begin() : showIntro()),
     });
@@ -347,7 +400,7 @@ export default async function stretch(root) {
     h('div.page-head',
       h('div',
         h('h1.page-title', 'Stretch'),
-        h('p.page-sub', 'Post-class cool-down'))),
+        h('p.page-sub', 'Cool-down and mobility'))),
     mount);
 
   showIntro();

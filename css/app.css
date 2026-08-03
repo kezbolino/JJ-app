@@ -1132,8 +1132,28 @@ a.cal__day:active { transform: scale(.9); }
    take the text colour and flip with the theme. See js/stretch-art.js. */
 .stretch-fig { color: var(--text); display: block; width: 100%; height: 100%; }
 
+/* --- routine picker ----------------------------------------------------- */
+.st-pick {
+  display: flex; gap: 4px; padding: 4px; margin-bottom: var(--gap);
+  background: var(--surface-2); border-radius: var(--r-tile);
+}
+.st-pick button {
+  flex: 1; border: 0; cursor: pointer; font-family: inherit;
+  padding: 9px 8px; border-radius: 10px; background: none; color: var(--muted);
+  font-size: .86rem; font-weight: 800;
+  transition: background .16s var(--spring), color .16s var(--spring);
+}
+.st-pick button.is-on {
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 2px 0 var(--edge);
+}
+
 /* --- before you start --------------------------------------------------- */
 .st-intro { text-align: center; }
+.st-needs {
+  color: var(--muted); font-size: .8rem; font-weight: 700;
+  margin: 0 0 12px; text-align: left;
+}
 .st-intro-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px 12px; flex-wrap: wrap; text-align: left; margin-bottom: 14px;
@@ -1190,15 +1210,26 @@ a.cal__day:active { transform: scale(.9); }
 .st-phaserail { height: 6px; margin: 12px auto 0; max-width: 300px; }
 .st-phaserail i { display: block; height: 100%; width: 0; background: var(--muted); border-radius: 999px; }
 .st.is-hold .st-phaserail i { background: var(--accent); }
+/* Rest reads as green — it is the one phase where doing nothing is correct.
+   Deliberately not amber: amber only ever means "gap / waiting on you". */
+.st.is-rest .st-phaserail i { background: var(--good); }
+.st.is-rest .st-phase { color: var(--good); }
+.st.is-rest .st-count { opacity: .75; }
 
 .st-stage { position: relative; margin: 18px 0 4px; }
 .st-fig { height: 190px; margin: 0 auto; max-width: 300px; }
-.st-side {
+/* A movement with no artwork yet leaves the frame out entirely rather than
+   drawing an empty box — see PENDING_ART in js/stretch-art.js. */
+.st-fig[hidden] + .st-badges { margin-top: 26px; }
+.st-badges { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.st-side, .st-dose {
   display: inline-block; margin-top: 2px;
   font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
-  background: var(--accent-soft); color: var(--accent-edge);
   padding: 5px 11px; border-radius: var(--r-chip);
 }
+.st-side { background: var(--accent-soft); color: var(--accent-edge); }
+/* Ink, not blue: the dose is data about the movement, not something to tap. */
+.st-dose { background: var(--surface-2); color: var(--sub); }
 .st-name { font-size: 1.4rem; font-weight: 600; margin: 10px 0 0; letter-spacing: -.01em; }
 .st-targets { color: var(--muted); font-size: .82rem; font-weight: 700; margin: 4px 0 0; }
 

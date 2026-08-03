@@ -1,13 +1,13 @@
-// The stretch routine's data and timing maths — pure node, no browser.
+// The routines' data and timing maths — pure node, no browser.
 //
 //   node tests/stretches.test.mjs
 
 import assert from 'node:assert/strict';
 import {
-  STRETCHES, segments, routineMs, clock,
+  ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
   READY_MS, HOLD_MS, SEGMENT_MS,
 } from '../js/stretches.js';
-import { ART } from '../js/stretch-art.js';
+import { ART, PENDING_ART } from '../js/stretch-art.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -15,91 +15,136 @@ const test = (name, fn) => {
   catch (e) { console.log('✗', name, '\n  ', e.message); process.exitCode = 1; }
 };
 
-test('the cycle is 10 seconds to get ready and 30 to hold', () => {
-  // The whole timer is derived from these two numbers, and they are what was
-  // asked for. A change here silently rewrites every hold in the routine.
+const postClass = getRoutine('post-class');
+const restDay = getRoutine('rest-day');
+const allItems = ROUTINES.flatMap(r => r.items);
+
+test('the cool-down cycle is 10 seconds to get ready and 30 to hold', () => {
+  // What was asked for, and what the whole timer derives from.
   assert.equal(READY_MS, 10_000);
   assert.equal(HOLD_MS, 30_000);
   assert.equal(SEGMENT_MS, 40_000);
+  assert.deepEqual(postClass.phases, { ready: 10_000, work: 30_000, rest: 0 });
 });
 
-test('every stretch is complete and uniquely named', () => {
-  assert.ok(STRETCHES.length >= 8, 'too few stretches to cover the body');
+test('the cool-down has no rest phase and the rest-day session does', () => {
+  // Strength work needs rest between sets; static stretching does not. A rest
+  // of 0 is what lets both routines share one code path in the view.
+  assert.equal(postClass.phases.rest, 0);
+  assert.ok(restDay.phases.rest > 0, 'rest-day sets run back to back');
+  assert.equal(segmentMs(postClass), 40_000);
+  assert.equal(segmentMs(restDay), 65_000);
+});
+
+test('an unknown routine id falls back to the cool-down instead of crashing', () => {
+  assert.equal(getRoutine('nope').id, DEFAULT_ROUTINE);
+  assert.equal(getRoutine(undefined).id, DEFAULT_ROUTINE);
+});
+
+test('every item is complete, and ids are unique across both routines', () => {
   const ids = new Set();
-  for (const s of STRETCHES) {
-    assert.ok(s.id && !ids.has(s.id), `duplicate or missing id: ${s.id}`);
-    ids.add(s.id);
-    assert.ok(s.name, `${s.id} has no name`);
-    assert.ok(s.targets, `${s.id} names no muscle group`);
-    assert.ok(s.cue && s.cue.length > 20, `${s.id} has no usable cue`);
-    assert.equal(typeof s.bilateral, 'boolean', `${s.id} does not say whether it has sides`);
+  for (const item of allItems) {
+    assert.ok(item.id && !ids.has(item.id), `duplicate or missing id: ${item.id}`);
+    ids.add(item.id);
+    assert.ok(item.name, `${item.id} has no name`);
+    assert.ok(item.targets, `${item.id} names no muscle group`);
+    assert.ok(item.cue && item.cue.length > 20, `${item.id} has no usable cue`);
+    assert.equal(typeof item.bilateral, 'boolean', `${item.id} does not say whether it has sides`);
   }
 });
 
-test('every stretch has artwork, and there is no artwork going spare', () => {
-  // A stretch whose id has no ART entry renders an empty frame mid-routine —
-  // stretchFigure() deliberately does not throw, so this is what catches it.
-  for (const s of STRETCHES) {
-    const art = ART[s.id];
-    assert.ok(art, `${s.id} has no figure in stretch-art.js`);
-    assert.match(art.viewBox, /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/, `${s.id} viewBox is malformed`);
-    assert.match(art.d, /^M[-\d.]/, `${s.id} path does not start with a move`);
-    assert.ok(art.d.length > 500, `${s.id} path is too short to be a figure`);
+test('every rest-day movement says how much to do', () => {
+  // A rep-based movement with no dose is unusable — you'd be guessing.
+  for (const item of restDay.items) {
+    assert.ok(item.dose, `${item.id} does not say how many reps or how long`);
   }
-  const ids = new Set(STRETCHES.map(s => s.id));
+});
+
+test('every item either has artwork or is declared as awaiting it', () => {
+  // The point of PENDING_ART: a typo'd id fails here instead of silently
+  // rendering nothing forever.
+  for (const item of allItems) {
+    const drawn = Boolean(ART[item.id]);
+    const pending = PENDING_ART.has(item.id);
+    assert.ok(drawn || pending, `${item.id} has no figure and is not in PENDING_ART`);
+    assert.ok(!(drawn && pending), `${item.id} is both drawn and pending — drop it from PENDING_ART`);
+  }
+  const ids = new Set(allItems.map(i => i.id));
   for (const key of Object.keys(ART)) {
-    assert.ok(ids.has(key), `ART carries "${key}", which no stretch uses`);
+    assert.ok(ids.has(key), `ART carries "${key}", which no routine uses`);
+  }
+  for (const key of PENDING_ART) {
+    assert.ok(ids.has(key), `PENDING_ART carries "${key}", which no routine uses`);
   }
 });
 
-test('the artwork is square-framed and theme-neutral', () => {
+test('the artwork that exists is square-framed and theme-neutral', () => {
   for (const [id, art] of Object.entries(ART)) {
+    assert.match(art.viewBox, /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/, `${id} viewBox is malformed`);
     const [, , w, hgt] = art.viewBox.split(' ').map(Number);
     assert.equal(w, hgt, `${id} is not framed square, so it will scale oddly`);
-    // No baked colours: the figures have to inherit currentColor or they
-    // vanish against one of the two themes.
+    assert.match(art.d, /^M[-\d.]/, `${id} path does not start with a move`);
+    // No baked colours: a figure with its own fill vanishes against one theme.
     assert.doesNotMatch(art.d, /#[0-9a-f]{3,6}/i, `${id} has a colour in its path data`);
   }
 });
 
-test('the routine covers the areas grappling actually taxes', () => {
-  const all = STRETCHES.map(s => `${s.name} ${s.targets}`).join(' ').toLowerCase();
-  for (const area of ['hip', 'hamstring', 'quad', 'glute', 'adductor', 'shoulder', 'neck', 'spine', 'wrist']) {
-    assert.ok(all.includes(area), `nothing in the routine targets the ${area}s`);
+test('the cool-down covers the areas grappling actually taxes', () => {
+  const all = postClass.items.map(s => `${s.name} ${s.targets}`).join(' ').toLowerCase();
+  for (const area of ['hip', 'hamstring', 'quad', 'glute', 'adductor', 'shoulder',
+    'neck', 'spine', 'wrist', 'ankle', 'thoracic']) {
+    assert.ok(all.includes(area), `nothing in the cool-down targets the ${area}s`);
   }
 });
 
-test('a two-sided stretch becomes two holds, one-sided becomes one', () => {
-  const bilateral = STRETCHES.filter(s => s.bilateral).length;
-  const single = STRETCHES.length - bilateral;
-  assert.equal(segments().length, bilateral * 2 + single);
+test('the rest-day session loads the end of the range, not just the neck', () => {
+  const all = restDay.items.map(s => `${s.name} ${s.targets}`).join(' ').toLowerCase();
+  for (const area of ['adductor', 'hamstring', 'glute', 'hip', 'shoulder', 'neck', 'thoracic']) {
+    assert.ok(all.includes(area), `nothing in the rest-day session targets the ${area}s`);
+  }
 });
 
-test('the two sides of a stretch are adjacent, left then right', () => {
-  const segs = segments();
-  for (let i = 0; i < segs.length; i++) {
-    if (!segs[i].stretch.bilateral) {
-      assert.equal(segs[i].side, null, `${segs[i].stretch.id} should not name a side`);
-      continue;
+test('a two-sided item becomes two sets, one-sided becomes one', () => {
+  for (const routine of ROUTINES) {
+    const bilateral = routine.items.filter(i => i.bilateral).length;
+    const single = routine.items.length - bilateral;
+    assert.equal(segments(routine).length, bilateral * 2 + single, `${routine.id} segment count`);
+  }
+});
+
+test('the two sides of an item are adjacent, left then right', () => {
+  for (const routine of ROUTINES) {
+    const segs = segments(routine);
+    for (let i = 0; i < segs.length; i++) {
+      if (!segs[i].item.bilateral) {
+        assert.equal(segs[i].side, null, `${segs[i].item.id} should not name a side`);
+        continue;
+      }
+      if (segs[i].side !== 'Left side') continue;
+      assert.equal(segs[i + 1]?.item.id, segs[i].item.id, 'the sides of an item are split up');
+      assert.equal(segs[i + 1].side, 'Right side');
     }
-    if (segs[i].side !== 'Left side') continue;
-    assert.equal(segs[i + 1]?.stretch.id, segs[i].stretch.id, 'the sides of a stretch are split up');
-    assert.equal(segs[i + 1].side, 'Right side');
   }
 });
 
-test('every side of every stretch gets a hold', () => {
-  const segs = segments();
-  for (const s of STRETCHES) {
-    const mine = segs.filter(seg => seg.stretch.id === s.id);
-    assert.equal(mine.length, s.bilateral ? 2 : 1, `${s.id} is held the wrong number of times`);
+test('every side of every item gets a set', () => {
+  for (const routine of ROUTINES) {
+    const segs = segments(routine);
+    for (const item of routine.items) {
+      const mine = segs.filter(seg => seg.item.id === item.id);
+      assert.equal(mine.length, item.bilateral ? 2 : 1, `${item.id} runs the wrong number of times`);
+    }
   }
 });
 
-test('the routine lands in the 10–15 minute window it was asked for', () => {
-  const mins = routineMs() / 60_000;
-  assert.ok(mins >= 10 && mins <= 15, `routine is ${mins} min, outside 10–15`);
-  assert.equal(routineMs(), segments().length * SEGMENT_MS);
+test('both routines land in the window they were asked for', () => {
+  const cool = routineMs(postClass) / 60_000;
+  assert.ok(cool >= 10 && cool <= 15, `cool-down is ${cool} min, outside 10–15`);
+  const rest = routineMs(restDay) / 60_000;
+  assert.ok(rest >= 15 && rest <= 22, `rest day is ${rest} min, nowhere near the 20 asked for`);
+  for (const r of ROUTINES) {
+    assert.equal(routineMs(r), segments(r).length * segmentMs(r), `${r.id} total`);
+  }
 });
 
 test('clock formats mm:ss and never goes negative', () => {

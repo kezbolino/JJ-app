@@ -48,7 +48,7 @@ js/markdown.js        entry ↔ markdown file (the backup format)
 js/sync.js            GitHub backup repo sync, via the Git Data API
 js/youtube.js         link parsing and title lookup
 js/ui.js              h() element builder and shared bits
-js/stretches.js       the post-class cool-down: stretches, timing, segments
+js/stretches.js       two routines (cool-down, rest day): items, phases, segments
 js/stretch-art.js     ~47 KB of figure paths — data only, don't hand-edit
 js/views/*.js         home, log, map, position, library, search, settings, stretch
 sw.js                 offline cache — bump CACHE when files change
@@ -1101,3 +1101,65 @@ data if forgotten:
   `Ju Ji v26` *before* judging anything on screen. This is the same trap that
   sent v10 chasing a layout bug (2026-07-29), and the jump is four versions
   wide here, so the icon and brand changes are the visible tell that it landed.
+- 2026-08-03 — **v27: a second routine, and two gaps closed in the first.** User
+  asked whether the cool-down should rotate its stretches, whether it is
+  optimal, and what to do on rest days. Researched it rather than guessing, and
+  three findings drove the whole version:
+
+  **1. Don't rotate the list.** Flexibility adaptation is specific to the joint
+  angle you keep loading, so swapping stretches each session to keep it
+  interesting resets the stimulus. The boring sameness is the feature — this is
+  now written at the top of `js/stretches.js` so nobody "improves" it later.
+
+  **2. The cool-down was missing two things.** Ankle dorsiflexion (ankle is
+  among the more commonly injured segments in BJJ, and nothing touched it) and
+  thoracic *extension* (thread-the-needle covers rotation; hours folded under
+  side control is all flexion). Added `ankle-rock` and `sphinx` → 13 stretches,
+  21 holds, **14:00**.
+
+  **3. Static stretching is the wrong tool for building range.** Post-exercise
+  stretching has no meaningful effect on next-day soreness, and resistance work
+  through a full range produces flexibility gains comparable to static
+  stretching *plus* strength — which is what actually holds when a joint gets
+  cranked. So the rest-day routine is **bodyweight end-range strength**, not
+  more stretching: 13 movements, 18 sets, **19:30**, floor + chair + pull-up
+  bar (the user's kit). Cossack squats, 90/90 lift-offs, Copenhagen planks,
+  Jefferson curls, dead hangs, neck isometrics.
+
+  **The engine barely changed, and that was the design win.** Segments stay
+  **uniform within a routine**, so `segIdx = floor(elapsed / SEGMENT_MS)`
+  survives intact — the cool-down is 40s (10 ready + 30 hold + 0 rest), the
+  rest day 65s (10 + 35 + 20). The rest phase is not special-cased: the
+  cool-down simply has one of length zero, so it never fires and both routines
+  share one code path. Resist any refactor that gives movements individual
+  durations — that is what would turn a division into a running total, and a
+  running total is what drifts.
+
+  **`PENDING_ART` is the mechanism worth keeping.** All 15 new movements ship
+  with no drawing. `stretchFigure()` returns `null` rather than an empty frame,
+  the view hides the slot, and `js/stretch-art.js` carries an explicit
+  `PENDING_ART` set. The test asserts every item is in `ART` **or**
+  `PENDING_ART`, never both, and that neither set carries an id no routine
+  uses — so a typo'd id fails the suite instead of silently rendering nothing
+  forever. Delete an id from the set when its figure lands; nothing else needs
+  touching.
+
+  Picker is a segmented control on the intro; choosing rewrites the hash with
+  `replaceState` so a reload keeps your choice without the router rebuilding
+  the view underneath. Home still links to the cool-down only — the rest-day
+  session is one tap further in, and the button's minutes come from
+  `routineMs()` so the label can't drift. Rest is coloured `--good`, green:
+  amber keeps its three jobs and a rest phase is not "waiting on you".
+
+  **A lesson about shipping mid-refactor.** The user said "ship it" while
+  `js/stretches.js` had already been rewritten to drop the `STRETCHES` export
+  but the view and Home still imported it. That would have taken out *Home*,
+  not just the stretch screen. Verified the breakage with a node import before
+  saying so, then finished the work rather than shipping or reverting. Worth
+  remembering: this repo has no build step and no type checker, so a renamed
+  export fails at runtime, on the device, on the front door.
+
+  sw `CACHE` → v27, `VERSION` → v27, no files added or removed. All eight
+  suites green (36 browser assertions; `schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`), screenshot-checked both
+  routines, 0 animations under reduced motion, no overflow at 360px.
