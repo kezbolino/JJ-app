@@ -1080,3 +1080,24 @@ data if forgotten:
   Ten stretch assertions green, all eight suites green, screenshot-checked the
   intro list and a running hold in both themes (the figures invert correctly on
   dark), 0 animations under reduced motion, no overflow at 360px.
+- 2026-08-03 — **v23–v26 deployed.** `main` fast-forwarded from v22 to the head
+  of `claude/ju-ji-branding-6nr7si` and pushed, so GitHub Pages is serving v26
+  at `https://kezbolino.github.io/JJ-app/`. Four versions shipped in one go —
+  the "Ju Ji" rename, the JUJI app icons, the matching in-app brand mark, and
+  the stretch routine. `CACHE` and `VERSION` both read v26 and match, which is
+  the only thing that makes the footer number mean anything.
+
+  Ship gate before pushing: all eight suites green (`schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`), `CACHE` == `VERSION`, clean
+  tree, fast-forward confirmed rather than a merge.
+
+  **No noisy sync this time.** v21/v22 shed front-matter keys and so rewrote
+  every note in `jj-app-data` on the next push; nothing in v23–v26 touches
+  `js/markdown.js` or the entry model, so the backup repo should see no churn
+  from this deploy.
+
+  **The phone will serve the old shell until the service worker takes v26** —
+  close the installed PWA fully and reopen, then check the footer reads
+  `Ju Ji v26` *before* judging anything on screen. This is the same trap that
+  sent v10 chasing a layout bug (2026-07-29), and the jump is four versions
+  wide here, so the icon and brand changes are the visible tell that it landed.
