@@ -1438,3 +1438,58 @@ data if forgotten:
   Same 26 filenames, same ids, only the bytes changed. No code touched in
   `js/`; sw `CACHE` → v32, `VERSION` → v32 so the new clips actually
   invalidate the old cached (silent) ones on the phone.
+- 2026-08-04 — **v33: the stretch routine now survives leaving the screen.**
+  User: "Are you able to retain the timer if I click to another menu? And
+  have it running in the background?" — "keeps beeping is enough for now,"
+  no on-screen indicator needed elsewhere.
+
+  **This inverts a deliberate, tested design decision**, not a small tweak.
+  Since v26 the routine's whole state lived inside the Stretch screen itself,
+  and a render-token check inside `tick()` deliberately tore the timer, the
+  wake lock and both audio contexts down the instant the router cleared
+  `#view` — there was a test pinning exactly that ("leaving the routine stops
+  its timer instead of leaving it running"), because an earlier version of
+  this pattern (the v16 render-clobber bug) left a stale interval running
+  against a screen the user had already left. Making the routine survive
+  navigation meant solving that same problem from the other direction:
+  keep the *engine* alive across screens, while still guaranteeing a screen
+  you've left can never paint over the one you're on now.
+
+  **The fix is a split between engine and renderer.** `session` is now a
+  module-level object (survives the router clearing `#view`, since ES module
+  state isn't tied to any one screen) holding the routine, elapsed-time
+  bookkeeping, and the beep/voice/wake instances; its own `setInterval`
+  advances time and fires audio purely as a function of elapsed
+  milliseconds, same as before, and never touches the DOM. Each *screen*
+  that mounts `#/stretch` calls `attachRunning()`, which builds the running
+  screen's DOM fresh and registers a paint callback in `session.renderers` —
+  the callback checks its own render token on every tick (`js/render.js`,
+  the same mechanism that already guarded async continuations elsewhere) and
+  unregisters itself the moment a newer screen has taken over, but that only
+  stops *painting*; the session keeps running underneath regardless. Visiting
+  `#/stretch` while a session exists skips the intro and reattaches straight
+  to the running screen, mid-clock, instead of restarting it. `startSession`/
+  `endSession` are now the only things that actually stop the engine — the
+  End routine button, or the routine finishing (which gives the finish chime
+  900ms to ring out before closing the audio contexts).
+
+  **Pause, skip and back now operate on the session, not a screen-local
+  closure** (`setPaused`/`jumpTo` take the session as an argument), so muting
+  the sound, pausing, or where you are in the routine all persist correctly
+  across a screen leaving and reattaching — re-opening the screen rebuilds
+  the mute button's icon from `session.beep.isMuted()` rather than assuming
+  unmuted.
+
+  **The old test was rewritten, not deleted**, since its actual point (a
+  stale screen must never corrupt the one you've navigated to) still holds —
+  only the specific assertion about the interval flipped. It now also
+  confirms the engine keeps running while `#/log` is on screen and that
+  returning to `#/stretch` resumes mid-clock rather than at the intro, and
+  drove this for real in a browser: started a routine, skipped to a second
+  move, left for `#/log`, waited a full 40-second segment there, and
+  confirmed the *next* move's voice cue fired as a network request while
+  `#/log` was the visible screen — then confirmed returning to `#/stretch`
+  landed on "HOLD 3 OF 21," not segment 1.
+
+  All eight suites green (known week-streak flake aside). sw `CACHE` → v33,
+  `VERSION` → v33, no files added or removed.

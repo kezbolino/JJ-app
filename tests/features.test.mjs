@@ -813,11 +813,12 @@ await test('pausing stops the clock, and resuming starts it again', async () => 
   await page.context().close();
 });
 
-await test('leaving the routine stops its timer instead of leaving it running', async () => {
+await test('leaving the routine keeps it running, and coming back resumes it', async () => {
   // The router just empties #view; nothing tells a view it has been replaced.
-  // An interval left behind would tick against detached nodes for the rest of
-  // the session, holding the wake lock with it. Same class of bug as the
-  // render-clobber at the top of this file, so it gets pinned the same way.
+  // The engine lives at module scope precisely so it survives that — only
+  // the *painting* stops for a screen you've left, pinned the same way the
+  // render-clobber bug at the top of this file is: a stale render must not
+  // touch the screen you've moved on to.
   const page = await newPage();
   await page.evaluate(() => {
     window.__ids = new Set();
@@ -833,12 +834,24 @@ await test('leaving the routine stops its timer instead of leaving it running', 
   assert.equal(await page.evaluate(() => window.__ids.size), before + 1, 'the routine never started a timer');
 
   await go(page, '/log');
-  await page.waitForTimeout(400);          // one tick is all it needs to notice
-  assert.equal(await page.evaluate(() => window.__ids.size), before,
-    'the stretch timer is still running after navigating away');
+  await page.waitForTimeout(2500);
+  assert.equal(await page.evaluate(() => window.__ids.size), before + 1,
+    'the stretch timer stopped after navigating away');
 
   // And the screen you left for is intact.
   assert.equal(await page.locator('textarea').count() > 0, true, 'the log form did not render');
+
+  // Coming back resumes the same session — the running screen, clock already
+  // moved on — rather than restarting at the intro.
+  await go(page, '/stretch');
+  assert.equal(await page.locator('.st-count').count(), 1, 'returning to stretch did not resume the running session');
+  assert.notEqual(await page.locator('.st-count').innerText(), '0:10',
+    'the clock did not keep moving while the screen was elsewhere');
+
+  // Ending it explicitly is what actually stops the timer.
+  await page.click('.st-end');
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => window.__ids.size), before, 'ending the routine left its timer running');
   await page.context().close();
 });
 

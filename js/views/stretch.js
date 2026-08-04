@@ -13,11 +13,18 @@
 //    division over elapsed milliseconds. A phone that throttles timers in the
 //    background, or sleeps for a minute, resumes on the correct movement
 //    instead of drifting further behind the longer you run.
-// 2. **The render token is the teardown.** The router just empties `#view`
-//    from under whatever was drawn there; nothing tells a view it is being
-//    replaced. The interval checks `isCurrent()` and shuts itself — and the
-//    wake lock and the audio context — down the moment this stops being the
-//    visible screen.
+// 2. **The routine lives at module scope, not inside the screen.** A single
+//    `session` object below survives navigating to another tab — the engine
+//    (the `setInterval`, the beeps, the voice cues) keeps running regardless
+//    of what `#view` currently holds, so tapping over to Log mid-hold doesn't
+//    silence anything. What the render token now gates is narrower than it
+//    used to be: only *painting* the screen, not the engine itself. Each
+//    mounted screen registers a paint callback in `session.renderers`; the
+//    callback checks its own token on every tick and unregisters itself the
+//    moment a newer screen has taken over `#view`, so a stale screen you've
+//    already left can't get repainted, but the routine underneath it doesn't
+//    stop. Coming back to `#/stretch` re-attaches to whatever is still
+//    running instead of restarting at the intro.
 // 3. **Beeps are synthesised, not files.** An AudioContext oscillator costs no
 //    bytes in the shell and nothing to cache, which is the whole shape of this
 //    app. The context can only be created from a user gesture, so it is built
@@ -170,29 +177,129 @@ function createWakeLock() {
   };
 }
 
-/**
- * The running routine.
- *
- * `baseElapsed` + `anchor` is the whole clock: elapsed time is what has been
- * banked plus what has run since the last resume. Pausing banks and drops the
- * anchor; skipping rewrites the bank. Nothing accumulates per tick, so nothing
- * drifts.
- */
-function runner(mount, routine, { beep, voice, wake, onExit, token }) {
+// ---------------------------------------------------------------------------
+// The engine. One `session` at a time, living at module scope so it survives
+// the router clearing `#view` out from under whatever screen was drawn there.
+// Nothing in here touches the DOM — that is the renderer's job, below.
+// ---------------------------------------------------------------------------
+
+let session = null;
+
+const sessionElapsed = s => s.baseElapsed + (s.anchor === null ? 0 : performance.now() - s.anchor);
+const sessionRunning = s => s.anchor !== null;
+
+/** Everything about the current instant, purely a function of elapsed time. */
+function computeState(s) {
+  const e = sessionElapsed(s);
+  if (e >= s.totalMs) return { e, done: true };
+  const i = Math.floor(e / s.SEG);
+  const within = e - i * s.SEG;
+  const phase = within < s.READY ? 'ready' : within < s.READY + s.WORK ? 'work' : 'rest';
+  const boundary = phase === 'ready' ? s.READY : phase === 'work' ? s.READY + s.WORK : s.SEG;
+  const secs = Math.max(1, Math.ceil((boundary - within) / 1000));
+  return { e, done: false, i, within, phase, secs };
+}
+
+function engineTick() {
+  const s = session;
+  if (!s) return;
+  const st = computeState(s);
+  if (st.done) { finishSession(); return; }
+
+  const key = `${st.i}:${st.phase}`;
+  if (key !== s.lastKey) {
+    s.lastKey = key;
+    s.lastCount = -1;
+    const { item } = s.segs[st.i];
+    if (st.phase === 'ready') { s.beep.ready(); if (!s.beep.isMuted()) s.voice.say(item.id); }
+    else if (st.phase === 'work') s.beep.go();
+    else s.beep.rest();
+  }
+  if (st.secs !== s.lastCount) {
+    s.lastCount = st.secs;
+    if (st.secs <= 3) s.beep.tick();
+  }
+
+  for (const paint of s.renderers) paint(st);
+}
+
+function startSession(routine) {
+  endSession(); // defensive: replace, don't stack, if one is somehow still live
+  const beep = createBeeper();
+  const voice = createVoice();
+  const wake = createWakeLock();
+  beep.unlock();           // must happen inside the tap
+  voice.unlock();          // same reason — an AudioContext resumes from a gesture or not at all
+  wake.request();
+
   const segs = segments(routine);
-  const SEG = segmentMs(routine);
-  const { ready: READY, work: WORK } = routine.phases;
-  const totalMs = segs.length * SEG;
+  const s = {
+    routine, segs, SEG: segmentMs(routine),
+    READY: routine.phases.ready, WORK: routine.phases.work,
+    totalMs: segs.length * segmentMs(routine),
+    baseElapsed: 0, anchor: performance.now(),
+    lastKey: '', lastCount: -1, finished: false,
+    beep, voice, wake, timer: null, renderers: new Set(),
+  };
+  s.onVisible = () => { if (sessionRunning(s)) s.wake.reacquire(); };
+  document.addEventListener('visibilitychange', s.onVisible);
+  session = s;
+  s.timer = setInterval(engineTick, 100);
+  engineTick();
+}
 
-  let baseElapsed = 0;
-  let anchor = performance.now();
-  let timer = null;
-  let lastKey = '';
-  let lastCount = -1;
-  let finished = false;
+/** The routine ran its full length. Let the finish chime ring out, then clean up. */
+function finishSession() {
+  const s = session;
+  if (!s || s.finished) return;
+  s.finished = true;
+  clearInterval(s.timer);
+  s.timer = null;
+  s.beep.finish();
+  for (const paint of s.renderers) paint({ done: true });
+  setTimeout(() => { if (session === s) endSession(); }, 900);
+}
 
-  const elapsed = () => baseElapsed + (anchor === null ? 0 : performance.now() - anchor);
-  const running = () => anchor !== null;
+/** The only way the engine actually stops: End routine, or the timeout above. */
+function endSession() {
+  const s = session;
+  if (!s) return;
+  session = null;
+  clearInterval(s.timer);
+  s.wake.release();
+  s.beep.close();
+  s.voice.close();
+  document.removeEventListener('visibilitychange', s.onVisible);
+}
+
+function setPaused(s, on) {
+  if (on) { s.baseElapsed = sessionElapsed(s); s.anchor = null; s.wake.release(); }
+  else { s.anchor = performance.now(); s.wake.request(); }
+}
+
+// Skip jumps to the start of the next segment; Back to the start of this one,
+// or the previous one if you are already at the top of it.
+function jumpTo(s, ms) {
+  s.baseElapsed = Math.max(0, Math.min(ms, s.totalMs));
+  if (sessionRunning(s)) s.anchor = performance.now();
+  s.lastKey = '';
+  if (s.baseElapsed >= s.totalMs) finishSession(); else engineTick();
+}
+
+// ---------------------------------------------------------------------------
+// The renderer. Built fresh every time `#/stretch` is visited; attaches to
+// whatever `session` already exists rather than owning the clock itself.
+// ---------------------------------------------------------------------------
+
+/**
+ * Draws the running screen for the current `session` into `mount`, and
+ * registers to keep drawing it on every engine tick. Returns a detach
+ * function — call it when *this* screen is done, which only unregisters the
+ * paint callback, and does not touch the session underneath it.
+ */
+function attachRunning(mount, token, onExit) {
+  const s = session;
+  const routine = s.routine;
 
   // ---- the screen -------------------------------------------------------
   const figSlot = h('div.st-fig');
@@ -212,12 +319,14 @@ function runner(mount, routine, { beep, voice, wake, onExit, token }) {
   // Changes announce themselves; the ticking seconds deliberately do not.
   const live = h('p.sr-only', { role: 'status', 'aria-live': 'polite' });
 
-  const pauseBtn = h('button.btn.primary.st-pause', { type: 'button' }, 'Pause');
+  const pauseBtn = h('button.btn.primary.st-pause', { type: 'button' }, sessionRunning(s) ? 'Pause' : 'Resume');
   const skipBtn = h('button.btn.st-skip', { type: 'button' }, 'Skip ›');
   const backBtn = h('button.btn.st-back', { type: 'button' }, '‹ Back');
-  const soundBtn = h('button.st-sound', {
-    type: 'button', 'aria-pressed': 'false', 'aria-label': 'Mute the sound', title: 'Sound on',
-  }, icon('sound'));
+  const muted = s.beep.isMuted();
+  const soundBtn = h('button.st-sound' + (muted ? '.is-muted' : ''), {
+    type: 'button', 'aria-pressed': String(muted), 'aria-label': muted ? 'Unmute the sound' : 'Mute the sound',
+    title: muted ? 'Sound off' : 'Sound on',
+  }, icon(muted ? 'soundOff' : 'sound'));
   const endBtn = h('button.st-end', { type: 'button' }, 'End routine');
 
   mount.replaceChildren(
@@ -235,7 +344,7 @@ function runner(mount, routine, { beep, voice, wake, onExit, token }) {
 
   // ---- painting ---------------------------------------------------------
   const paintSegment = i => {
-    const { item, side } = segs[i];
+    const { item, side } = s.segs[i];
     // No artwork yet → leave the space out rather than draw an empty frame.
     const fig = stretchFigure(item, `${item.name} illustration`);
     figSlot.replaceChildren(...(fig ? [fig] : []));
@@ -247,13 +356,13 @@ function runner(mount, routine, { beep, voice, wake, onExit, token }) {
     sideEl.hidden = !side;
     doseEl.textContent = item.dose ?? '';
     doseEl.hidden = !item.dose;
-    stepEl.textContent = `${routine.workLabel} ${i + 1} of ${segs.length}`;
+    stepEl.textContent = `${routine.workLabel} ${i + 1} of ${s.segs.length}`;
   };
 
   // During rest the screen keeps the movement you just did but says what is
   // coming, so you can set up for it before the next "get ready" starts.
   const paintRest = i => {
-    const next = segs[i + 1];
+    const next = s.segs[i + 1];
     cueEl.textContent = next
       ? `Next: ${next.item.name}${next.side ? ` — ${next.side.toLowerCase()}` : ''}`
       : 'Last one — nearly there.';
@@ -267,125 +376,77 @@ function runner(mount, routine, { beep, voice, wake, onExit, token }) {
     mount.classList.toggle('is-ready', phase === 'ready');
     mount.classList.toggle('is-hold', phase === 'work');
     mount.classList.toggle('is-rest', phase === 'rest');
-    const span = phase === 'ready' ? READY : phase === 'work' ? WORK : SEG - READY - WORK;
+    const span = phase === 'ready' ? s.READY : phase === 'work' ? s.WORK : s.SEG - s.READY - s.WORK;
     const done = phase === 'ready' ? within
-      : phase === 'work' ? within - READY
-      : within - READY - WORK;
+      : phase === 'work' ? within - s.READY
+      : within - s.READY - s.WORK;
     phaseBar.style.width = `${Math.min(100, (done / span) * 100)}%`;
   };
 
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    stop();
-    beep.finish();
+  const finishScreen = () => {
     mount.classList.remove('is-ready', 'is-hold', 'is-rest');
     mount.replaceChildren(
       h('div.st-done',
         h('div.st-done-ico', icon('flame')),
         h('h2', routine.id === 'post-class' ? 'Stretched off' : 'Session done'),
-        h('p', `${routine.items.length} ${routine.unit} · ${clock(totalMs)} mins. ${routine.doneNote}`),
+        h('p', `${routine.items.length} ${routine.unit} · ${clock(s.totalMs)} mins. ${routine.doneNote}`),
         h('div.btn-row',
           h('button.btn.primary', { type: 'button', onclick: () => onExit('again') }, 'Go again'),
           h('a.btn', { href: '#/log' }, 'Log a class'))));
   };
 
-  // ---- the tick ---------------------------------------------------------
-  const tick = () => {
-    // The router emptied #view under us — this is the only teardown signal.
-    if (!isCurrent(token)) { stop(); wake.release(); beep.close(); voice.close(); return; }
+  let lastAnnounceKey = '';
+  const paint = st => {
+    // A newer screen has taken over #view; this one is done painting, but
+    // the routine underneath it is not — leave the session running.
+    if (!isCurrent(token)) { s.renderers.delete(paint); return; }
+    if (st.done) { finishScreen(); return; }
 
-    const e = elapsed();
-    if (e >= totalMs) { finish(); return; }
+    const { item, side } = s.segs[st.i];
+    if (st.phase === 'rest') paintRest(st.i); else paintSegment(st.i);
 
-    const i = Math.floor(e / SEG);
-    const within = e - i * SEG;
-    const phase = within < READY ? 'ready' : within < READY + WORK ? 'work' : 'rest';
-    const boundary = phase === 'ready' ? READY : phase === 'work' ? READY + WORK : SEG;
-    const secs = Math.max(1, Math.ceil((boundary - within) / 1000));
-
-    const key = `${i}:${phase}`;
-    if (key !== lastKey) {
-      lastKey = key;
-      lastCount = -1;
-      const { item, side } = segs[i];
-      if (phase === 'ready') { paintSegment(i); beep.ready(); if (!beep.isMuted()) voice.say(item.id); }
-      else if (phase === 'work') beep.go();
-      else { paintRest(i); beep.rest(); }
-      live.textContent = phase === 'rest'
-        ? `Rest. Next: ${segs[i + 1]?.item.name ?? 'finish'}.`
-        : `${PHASE_LABEL[phase]}. ${item.name}${side ? `, ${side}` : ''}.`;
+    const key = `${st.i}:${st.phase}`;
+    if (key !== lastAnnounceKey) {
+      lastAnnounceKey = key;
+      live.textContent = st.phase === 'rest'
+        ? `Rest. Next: ${s.segs[st.i + 1]?.item.name ?? 'finish'}.`
+        : `${PHASE_LABEL[st.phase]}. ${item.name}${side ? `, ${side}` : ''}.`;
     }
 
-    if (secs !== lastCount) {
-      lastCount = secs;
-      if (secs <= 3) beep.tick();
-    }
-
-    paintClock(phase, secs, within);
-    overallBar.style.width = `${(e / totalMs) * 100}%`;
-    leftEl.textContent = `${clock(totalMs - e)} left`;
+    paintClock(st.phase, st.secs, st.within);
+    overallBar.style.width = `${(st.e / s.totalMs) * 100}%`;
+    leftEl.textContent = `${clock(s.totalMs - st.e)} left`;
+    pauseBtn.textContent = sessionRunning(s) ? 'Pause' : 'Resume';
+    mount.classList.toggle('is-paused', !sessionRunning(s));
   };
-
-  const start = () => { if (!timer) timer = setInterval(tick, 100); };
-  const stop = () => { clearInterval(timer); timer = null; };
 
   // ---- controls ---------------------------------------------------------
-  const setPaused = on => {
-    if (on) {
-      baseElapsed = elapsed();
-      anchor = null;
-      wake.release();
-    } else {
-      anchor = performance.now();
-      wake.request();
-    }
-    pauseBtn.textContent = on ? 'Resume' : 'Pause';
-    mount.classList.toggle('is-paused', on);
-  };
-
-  pauseBtn.addEventListener('click', () => setPaused(running()));
-
-  // Skip jumps to the start of the next segment; Back to the start of this
-  // one, or the previous one if you are already at the top of it.
-  const jumpTo = ms => {
-    baseElapsed = Math.max(0, Math.min(ms, totalMs));
-    if (running()) anchor = performance.now();
-    lastKey = '';
-    if (baseElapsed >= totalMs) finish(); else tick();
-  };
-  skipBtn.addEventListener('click', () => jumpTo((Math.floor(elapsed() / SEG) + 1) * SEG));
+  pauseBtn.addEventListener('click', () => { setPaused(s, sessionRunning(s)); paint(computeState(s)); });
+  skipBtn.addEventListener('click', () => jumpTo(s, (Math.floor(sessionElapsed(s) / s.SEG) + 1) * s.SEG));
   backBtn.addEventListener('click', () => {
-    const e = elapsed();
-    const i = Math.floor(e / SEG);
-    const atTop = e - i * SEG < 1500;
-    jumpTo(Math.max(0, (atTop ? i - 1 : i) * SEG));
+    const e = sessionElapsed(s);
+    const i = Math.floor(e / s.SEG);
+    const atTop = e - i * s.SEG < 1500;
+    jumpTo(s, Math.max(0, (atTop ? i - 1 : i) * s.SEG));
   });
 
   soundBtn.addEventListener('click', () => {
-    const muted = !beep.isMuted();
-    beep.setMuted(muted);
-    if (muted) voice.stop();
-    soundBtn.replaceChildren(icon(muted ? 'soundOff' : 'sound'));
-    soundBtn.classList.toggle('is-muted', muted);
-    soundBtn.setAttribute('aria-pressed', String(muted));
-    soundBtn.setAttribute('aria-label', muted ? 'Unmute the sound' : 'Mute the sound');
-    soundBtn.title = muted ? 'Sound off' : 'Sound on';
+    const nowMuted = !s.beep.isMuted();
+    s.beep.setMuted(nowMuted);
+    if (nowMuted) s.voice.stop();
+    soundBtn.replaceChildren(icon(nowMuted ? 'soundOff' : 'sound'));
+    soundBtn.classList.toggle('is-muted', nowMuted);
+    soundBtn.setAttribute('aria-pressed', String(nowMuted));
+    soundBtn.setAttribute('aria-label', nowMuted ? 'Unmute the sound' : 'Mute the sound');
+    soundBtn.title = nowMuted ? 'Sound off' : 'Sound on';
   });
 
-  endBtn.addEventListener('click', () => { stop(); wake.release(); onExit('end'); });
+  endBtn.addEventListener('click', () => { endSession(); onExit('end'); });
 
-  const onVisible = () => { if (running()) wake.reacquire(); };
-  document.addEventListener('visibilitychange', onVisible);
+  s.renderers.add(paint);
+  paint(computeState(s));
 
-  tick();
-  start();
-
-  return () => {
-    stop();
-    voice.stop();
-    document.removeEventListener('visibilitychange', onVisible);
-  };
+  return () => { s.renderers.delete(paint); };
 }
 
 /** The list you see before starting: what is coming, in order. */
@@ -403,11 +464,11 @@ function overview(routine) {
 
 export default async function stretch(root, { routine: routineId } = {}) {
   const token = renderToken();
-  const beep = createBeeper();
-  const voice = createVoice();
-  const wake = createWakeLock();
 
-  let routine = getRoutine(routineId ?? DEFAULT_ROUTINE);
+  // A routine already running takes priority over whatever was in the URL —
+  // you can't switch what's running mid-session, and this is how coming back
+  // to the tab resumes it instead of restarting at the intro.
+  let routine = session ? session.routine : getRoutine(routineId ?? DEFAULT_ROUTINE);
   const mount = h('div.st');
   let teardown = null;
 
@@ -431,7 +492,6 @@ export default async function stretch(root, { routine: routineId } = {}) {
   const showIntro = () => {
     teardown?.();
     teardown = null;
-    wake.release();
     mount.className = 'st';
 
     const segs = segments(routine);
@@ -458,15 +518,16 @@ export default async function stretch(root, { routine: routineId } = {}) {
       h('p.st-note', routine.note));
   };
 
-  const begin = () => {
-    beep.unlock();          // must happen inside the tap
-    voice.unlock();         // same reason — an AudioContext resumes from a gesture or not at all
-    wake.request();
+  const showRunning = () => {
+    teardown?.();
+    teardown = null;
     mount.className = 'st is-running';
-    teardown = runner(mount, routine, {
-      beep, voice, wake, token,
-      onExit: reason => (reason === 'again' ? begin() : showIntro()),
-    });
+    teardown = attachRunning(mount, token, reason => (reason === 'again' ? begin() : showIntro()));
+  };
+
+  const begin = () => {
+    startSession(routine);
+    showRunning();
   };
 
   root.append(
@@ -476,5 +537,5 @@ export default async function stretch(root, { routine: routineId } = {}) {
         h('p.page-sub', 'Cool-down and mobility'))),
     mount);
 
-  showIntro();
+  if (session) showRunning(); else showIntro();
 }
