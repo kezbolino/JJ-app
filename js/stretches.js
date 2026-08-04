@@ -144,9 +144,58 @@ const POST_CLASS_ITEMS = [
 
 // ---------------------------------------------------------------------------
 // Routine 2 — rest day. Bodyweight end-range strength; floor, chair and bar.
+//
+// This is the one loading you at end-range cold — unlike the after-class
+// cool-down, there is no class beforehand to warm you up first. The `warmup`
+// flag on the four items below marks that, so the intro list can section
+// them and the running screen can badge them, but they run through the same
+// engine as everything else: same ready/work/rest phases, same segment math.
+// Giving warm-up movements their own shorter timing would be the thing that
+// turns the segment index back into a running total — see the note on
+// ROUTINES below for why that is worth resisting.
 // ---------------------------------------------------------------------------
 
+const WARMUP_ITEMS = [
+  {
+    id: 'warmup-march',
+    name: 'March in place',
+    targets: 'General blood flow',
+    dose: 'Steady pace',
+    cue: 'Lift the knees to hip height and swing the arms. Nothing fancy — just get warm before you load anything.',
+    bilateral: false,
+    warmup: true,
+  },
+  {
+    id: 'warmup-squat',
+    name: 'Bodyweight squat pulses',
+    targets: 'Hips · knees · ankles',
+    dose: 'Continuous reps',
+    cue: "Squat to a comfortable depth and stand, smooth and continuous — no pause at the bottom yet, that's the main session's job.",
+    bilateral: false,
+    warmup: true,
+  },
+  {
+    id: 'warmup-arm-circle',
+    name: 'Arm circles',
+    targets: 'Shoulders',
+    dose: 'Forward then back',
+    cue: 'Big slow circles, palms leading. Halfway through, reverse direction.',
+    bilateral: false,
+    warmup: true,
+  },
+  {
+    id: 'warmup-leg-swing',
+    name: 'Leg swings',
+    targets: 'Hips · hamstrings',
+    dose: 'Front-to-back',
+    cue: "Hold something for balance and swing one leg front to back within a comfortable range. Let the range grow as you go — don't force it.",
+    bilateral: true,
+    warmup: true,
+  },
+];
+
 const REST_DAY_ITEMS = [
+  ...WARMUP_ITEMS,
   {
     id: 'deep-squat-hold',
     name: 'Deep squat hold',

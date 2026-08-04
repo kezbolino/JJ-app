@@ -51,7 +51,7 @@
   --warm-line:   #f7dfae;
   --warm-tint:   #fff8ec;   /* zero-cell fill in the heatmap */
 
-  --good:        #1e8e68;   /* gi/no-gi stat only */
+  --good:        #1e8e68;   /* gi/no-gi stat, the rest-day rest phase, the warm-up badge */
   --good-soft:   #eaf9f3;
 
   --dash:        #cfd7e8;   /* dashed border on "not yet" affordances */
@@ -1228,7 +1228,7 @@ a.cal__day:active { transform: scale(.9); }
    drawing an empty box — see PENDING_ART in js/stretch-art.js. */
 .st-fig[hidden] + .st-badges { margin-top: 26px; }
 .st-badges { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.st-side, .st-dose {
+.st-side, .st-dose, .st-warmup {
   display: inline-block; margin-top: 2px;
   font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
   padding: 5px 11px; border-radius: var(--r-chip);
@@ -1236,6 +1236,9 @@ a.cal__day:active { transform: scale(.9); }
 .st-side { background: var(--accent-soft); color: var(--accent-edge); }
 /* Ink, not blue: the dose is data about the movement, not something to tap. */
 .st-dose { background: var(--surface-2); color: var(--sub); }
+/* Green, like the rest-day rest phase: a warm-up is a positive, unhurried
+   state, not a gap — amber stays reserved for that. */
+.st-warmup { background: var(--good-soft); color: var(--good); }
 .st-name { font-size: 1.4rem; font-weight: 600; margin: 10px 0 0; letter-spacing: -.01em; }
 .st-targets { color: var(--muted); font-size: .82rem; font-weight: 700; margin: 4px 0 0; }
 

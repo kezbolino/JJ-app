@@ -304,6 +304,7 @@ function attachRunning(mount, token, onExit) {
   // ---- the screen -------------------------------------------------------
   const figSlot = h('div.st-fig');
   const nameEl = h('h2.st-name');
+  const warmupEl = h('span.st-warmup', 'Warm-up');
   const sideEl = h('span.st-side');
   const doseEl = h('span.st-dose');
   const targetEl = h('p.st-targets');
@@ -332,7 +333,7 @@ function attachRunning(mount, token, onExit) {
   mount.replaceChildren(
     h('div.st-top', stepEl, leftEl),
     overallRail,
-    h('div.st-stage', figSlot, h('div.st-badges', sideEl, doseEl)),
+    h('div.st-stage', figSlot, h('div.st-badges', warmupEl, sideEl, doseEl)),
     nameEl,
     targetEl,
     h('div.st-clock', phaseEl, countEl),
@@ -352,6 +353,7 @@ function attachRunning(mount, token, onExit) {
     nameEl.textContent = item.name;
     targetEl.textContent = item.targets;
     cueEl.textContent = item.cue;
+    warmupEl.hidden = !item.warmup;
     sideEl.textContent = side ?? '';
     sideEl.hidden = !side;
     doseEl.textContent = item.dose ?? '';
@@ -449,9 +451,9 @@ function attachRunning(mount, token, onExit) {
   return () => { s.renderers.delete(paint); };
 }
 
-/** The list you see before starting: what is coming, in order. */
-function overview(routine) {
-  return h('ol.st-list', routine.items.map(item => {
+/** One `<ol>` of items, the shared rendering for the intro's list(s). */
+function itemList(items) {
+  return h('ol.st-list', items.map(item => {
     const fig = stretchFigure(item);
     return h('li.st-item',
       fig ? h('span.st-item-fig', fig) : null,
@@ -460,6 +462,23 @@ function overview(routine) {
         h('span.st-item-sub', item.targets)),
       h('span.st-item-side', item.dose ?? (item.bilateral ? 'Both sides' : '1 hold')));
   }));
+}
+
+/** The list you see before starting: what is coming, in order. A routine
+ * with warm-up movements (currently just rest day — see js/stretches.js)
+ * gets them split into their own section instead of blending into the main
+ * list, so it reads as "warm up, then the real session" rather than 17
+ * undifferentiated items. */
+function overview(routine) {
+  const warmups = routine.items.filter(i => i.warmup);
+  if (!warmups.length) return itemList(routine.items);
+
+  const main = routine.items.filter(i => !i.warmup);
+  return h('div',
+    h('div.section-head', h('h3', 'Warm-up')),
+    itemList(warmups),
+    h('div.section-head', h('h3', 'Main session')),
+    itemList(main));
 }
 
 export default async function stretch(root, { routine: routineId } = {}) {

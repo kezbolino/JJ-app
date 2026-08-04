@@ -1493,3 +1493,47 @@ data if forgotten:
 
   All eight suites green (known week-streak flake aside). sw `CACHE` → v33,
   `VERSION` → v33, no files added or removed.
+- 2026-08-04 — **v34: a warm-up section on the rest-day routine.** User asked
+  whether the rest-day movements need a warm-up first, was told yes (they
+  load you at end-range cold, unlike the after-class cool-down where a class
+  already warmed you up), and asked to add one rather than have to remember
+  it separately.
+
+  **Four items, prepended to `REST_DAY_ITEMS`** in `js/stretches.js`, marked
+  with a new `warmup: true` flag rather than being a separate list the engine
+  has to know about: march in place (general blood flow), bodyweight squat
+  pulses (hips/knees/ankles), arm circles (shoulders), leg swings (hips/
+  hamstrings, bilateral). They run through the exact same ready/work/rest
+  engine as every other movement — same 10s/35s/20s phases — deliberately;
+  giving warm-up items their own shorter timing is exactly the kind of
+  per-movement special-casing the engine's segment-index-as-division design
+  has resisted since v27, and doing it here would reopen that.
+
+  **Two places show the split.** The intro list (`overview()` in
+  `js/views/stretch.js`) now sections "Warm-up" from "Main session" using the
+  same `.section-head` pattern Home already uses for "Working on" / "Last
+  session," instead of blending 17 items into one undifferentiated list — but
+  only when a routine actually has warm-up items, so the cool-down keeps its
+  single flat list untouched. The running screen gets a green `.st-warmup`
+  badge next to the dose badge during those four sets; green because that is
+  already the rest-day rest phase's colour — a warm-up is a positive,
+  unhurried state, not a gap, and amber stays reserved for that job alone.
+
+  **Rest day is now 17 movements, 23 sets, ~25 minutes** (was 13/18/~19:30).
+  `tests/stretches.test.mjs`'s asserted window for the routine's length
+  widened from 15–22 to 15–26 minutes to match — a deliberate acceptance of
+  more total time as the cost of warming up, not a loosened test. Two
+  content ids needed art/audio bookkeeping even though neither exists yet:
+  added to `PENDING_ART` in `js/stretch-art.js` (same contract as every other
+  undrawn movement), and the test harness's response listener in
+  `tests/features.test.mjs` gained an exception for `audio/cues/*.webm` 404s
+  — a movement with no voice clip recorded yet 404s by design, same as
+  `createVoice()`'s own contract, and until now nothing had exercised that
+  path since all 26 existing clips exist. `deep-squat-hold.webm` was the
+  rest-day routine's first announced clip before this and is now second;
+  updated the two tests that hard-coded it, and the two step-count
+  assertions that hard-coded the old "18" total.
+
+  All eight suites green (known week-streak flake aside), screenshot-checked
+  the new section and badge in light and dark. sw `CACHE` → v34, `VERSION` →
+  v34, no files added or removed.

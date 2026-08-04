@@ -54,6 +54,10 @@ async function newPage() {
       // 8098/8097/8096 are the fake GitHub; only the app's own host matters here.
       if (!res.url().startsWith(BASE)) return;
     }
+    // A movement with no voice clip recorded yet 404s by design —
+    // js/views/stretch.js's createVoice() catches exactly that and stays
+    // silent, the same contract PENDING_ART has for artwork.
+    if (res.status() === 404 && res.url().includes('/audio/cues/')) return;
     errors.push(`${res.status()} ${res.url()}`);
   });
   await page.goto(BASE, { waitUntil: 'networkidle' });
@@ -885,6 +889,23 @@ await test('the picker swaps to the rest-day routine, which is a different sessi
   await page.context().close();
 });
 
+await test('the rest-day intro sections its warm-up apart from the main session', async () => {
+  const page = await newPage();
+  await go(page, '/stretch?r=rest-day');
+
+  const heads = await page.locator('.section-head h3').allTextContents();
+  assert.deepEqual(heads, ['Warm-up', 'Main session']);
+  assert.equal(await page.locator('.st-item-name', { hasText: 'March in place' }).count(), 1);
+  assert.equal(await page.locator('.st-item-name', { hasText: 'Cossack squat' }).count(), 1);
+
+  // The after-class cool-down has no warm-up of its own — you're already
+  // warm from training — so it keeps the single flat list.
+  await page.click('.st-pick button:nth-child(1)');
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.section-head').count(), 0, 'the cool-down should not section a warm-up it has none of');
+  await page.context().close();
+});
+
 await test('the rest-day routine runs a rest phase between sets', async () => {
   const page = await newPage();
   await go(page, '/stretch?r=rest-day');
@@ -893,13 +914,16 @@ await test('the rest-day routine runs a rest phase between sets', async () => {
   await page.click('.st-intro .btn.cta');
   await page.waitForSelector('.st-count');
   assert.match(await page.locator('.st-phase').innerText(), /get ready/i);
-  assert.match(await page.locator('.st-step').innerText(), /work 1 of 18/i);
+  assert.match(await page.locator('.st-step').innerText(), /work 1 of 23/i);
+  // The first four sets are the warm-up (see js/stretches.js) — badged, not
+  // silently blended into the main session.
+  assert.ok(await page.locator('.st-warmup').isVisible(), 'the first set is not badged as warm-up');
 
   // Skipping lands at the top of the next set, so the phase is "get ready"
   // again — proving rest belongs to the set it follows, not the one it precedes.
   await page.click('.st-skip');
   await page.waitForTimeout(200);
-  assert.match(await page.locator('.st-step').innerText(), /work 2 of 18/i);
+  assert.match(await page.locator('.st-step').innerText(), /work 2 of 23/i);
   await page.context().close();
 });
 
@@ -960,7 +984,7 @@ await test('the two routines announce their own first move, not each other\'s', 
   await go(page, '/stretch?r=rest-day');
   await page.click('.st-intro .btn.cta');
   await page.waitForSelector('.st-count');
-  assert.deepEqual(requests, ['deep-squat-hold.webm']);
+  assert.deepEqual(requests, ['warmup-march.webm'], 'rest day should open on its warm-up, not the main session');
   await page.context().close();
 });
 

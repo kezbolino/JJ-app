@@ -58,4 +58,9 @@ export const PENDING_ART = new Set([
   'neck-isometric',
   'bear-crawl',
   'side-plank',
+  // rest day warm-up, added v34
+  'warmup-march',
+  'warmup-squat',
+  'warmup-arm-circle',
+  'warmup-leg-swing',
 ]);
