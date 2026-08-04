@@ -1393,3 +1393,48 @@ data if forgotten:
   All eight suites green (known week-streak flake aside), screenshot-checked
   the new tab and the volume hint in light and dark. sw `CACHE` → v31,
   `VERSION` → v31, no files added or removed.
+- 2026-08-04 — **v32: found the real cause of the silent voice cues — it was
+  never a playback bug.** User: looked at the files on GitHub themselves and
+  noticed the "silent" ones were 1-2KB, "which tells me there's no audio in
+  them." Right, and it should have been checked this way from the start —
+  v30's `decodeAudioData` test only proved the container decodes to a buffer
+  of the correct *duration*, never that the buffer held actual sound. Ran
+  ffmpeg's `volumedetect` on the shipped files: 24 of the 26 clips measured
+  **-91dB, true digital silence**; only the two first-in-file segments
+  (`deep-squat-hold`, `neck-side` — the two that happened to start at 0:00)
+  had real signal. That is exactly the reported symptom, and it had nothing
+  to do with Web Audio, autoplay policy, or anything in `js/views/stretch.js`
+  — the v30 AudioContext rewrite was a real improvement (worth keeping,
+  beeps and voice should share that pattern) but it was never the fix for
+  this, because the *source files themselves* were silent.
+
+  **Root cause, isolated by bisecting the ffmpeg command:** the original cut
+  script did `-i src -ss $start -t $dur -af "afade=t=in:...,afade=t=out:st=$X:..."`
+  in one pass. Split apart, `-ss`/`-t` alone cut real audio correctly (checked
+  with `volumedetect`: -22dB, not silent) — the `afade=t=out:st=...` filter is
+  what zeroed the clip, and it did so at *every* tested `st` value including
+  0, so it is not a rounding-error-sized miscalculation, it is `afade`'s
+  `st=` (stream-relative start time) breaking against a segment whose PTS
+  hasn't been reset to zero by an output-side `-ss`. `deep-squat-hold` and
+  `neck-side` both start at `-ss 0.0`, which is the one case where "stream
+  time" and "segment time" already coincide — the two survivors were not
+  luck, they were the only inputs where the bug's precondition doesn't hold.
+  **Fix: cut in two passes.** Trim to an uncompressed intermediate WAV first
+  (`-ss/-t`, no filter) so the second pass's input genuinely starts at PTS 0,
+  *then* apply `afade` and encode to opus in a separate invocation. Verified
+  by re-running `volumedetect` on all 26 re-cut clips before touching the
+  repo: all 26 now read -20 to -23dB, none silent. Total clip footprint went
+  132KB → 344KB, which is itself consistent with "most of these used to be
+  empty."
+
+  **The lesson, worth keeping somewhere I'll see it again:** decoding
+  successfully and having correct duration are necessary, not sufficient,
+  checks for "this audio file has content." If you generate or cut audio
+  programmatically again, run `ffmpeg -af volumedetect` (or equivalent) on
+  the *output*, not just on decodability — a container can be perfectly
+  valid and completely silent at the same time, and nothing about a normal
+  decode call will tell you that.
+
+  Same 26 filenames, same ids, only the bytes changed. No code touched in
+  `js/`; sw `CACHE` → v32, `VERSION` → v32 so the new clips actually
+  invalidate the old cached (silent) ones on the phone.
