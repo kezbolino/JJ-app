@@ -58,16 +58,20 @@ function createBeeper() {
     return ctx;
   };
 
-  const tone = (freq, ms, peak = 0.18, delay = 0) => {
+  // Square, not sine: a square wave's extra harmonics read as sharper and
+  // cut through a TV or background noise far better than a pure tone at the
+  // same gain — the pitches and gains below were raised at the same time,
+  // for the same reason.
+  const tone = (freq, ms, peak = 0.3, delay = 0) => {
     if (muted) return;
     const c = ensure();
     if (!c) return;
     const osc = c.createOscillator();
     const gain = c.createGain();
-    osc.type = 'sine';
+    osc.type = 'square';
     osc.frequency.value = freq;
     const t0 = c.currentTime + delay;
-    // Ramp in and out: a square-edged gate on a sine clicks audibly.
+    // Ramp in and out: a square-edged gate on a tone clicks audibly.
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.linearRampToValueAtTime(peak, t0 + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + ms / 1000);
@@ -78,11 +82,11 @@ function createBeeper() {
 
   return {
     unlock: () => ensure(),
-    ready: () => tone(430, 180, 0.16),          // "get into the shape"
-    go: () => tone(880, 280, 0.20),             // "hold it" / "work"
-    rest: () => tone(330, 240, 0.14),           // "stop, breathe"
-    tick: () => tone(720, 90, 0.12),            // 3 · 2 · 1
-    finish: () => { tone(660, 200); tone(880, 200, 0.18, 0.21); tone(1170, 420, 0.18, 0.42); },
+    ready: () => tone(900, 180, 0.30),          // "get into the shape"
+    go: () => tone(1250, 280, 0.35),            // "hold it" / "work"
+    rest: () => tone(700, 240, 0.28),           // "stop, breathe"
+    tick: () => tone(1500, 90, 0.32),           // 3 · 2 · 1
+    finish: () => { tone(950, 200, 0.3); tone(1300, 200, 0.3, 0.21); tone(1750, 420, 0.3, 0.42); },
     setMuted: v => { muted = v; },
     isMuted: () => muted,
     close: () => { if (ctx) { ctx.close().catch(() => {}); ctx = null; } },
@@ -448,6 +452,7 @@ export default async function stretch(root, { routine: routineId } = {}) {
         routine.needs.length
           ? h('p.st-needs', `You'll need: ${routine.needs.join(' · ')}`)
           : null,
+        h('p.st-volume-hint', icon('sound'), 'Turn your volume up — cues and beeps can’t be heard on silent.'),
         h('button.btn.primary.wide.cta', { type: 'button', onclick: begin }, 'Start')),
       overview(routine),
       h('p.st-note', routine.note));

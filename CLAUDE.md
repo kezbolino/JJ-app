@@ -11,11 +11,13 @@ is a working title only — it came from ChatGPT and the user has explicitly
 declined to rename the repo to match it. Don't reintroduce it as the project
 name.
 
-**On-screen product name is `Ju Ji`, as of 2026-08-03** — the brand mark, page
-title, manifest name and footer all read "Ju Ji" now; see the session log
-entry for that date. This is separate from the repo/codebase name above: the
-GitHub repo, file paths and internal identifiers stay `JJ-app`/`jj-app-*`.
-Don't conflate the two or "fix" one to match the other.
+**On-screen product name is `JUJI`, all caps, no space, as of 2026-08-04** —
+the brand mark, page title, manifest name and footer all read "JUJI" now.
+It was briefly "Ju Ji" (2026-08-03, v23) before the user asked for the
+all-caps no-space form to match the wordmark/icon design from v24-25. This is
+separate from the repo/codebase name above: the GitHub repo, file paths and
+internal identifiers stay `JJ-app`/`jj-app-*`. Don't conflate the two or "fix"
+one to match the other.
 
 Part of the Project Hub → `github.com/kezbolino/project-hub`.
 
@@ -1330,3 +1332,64 @@ data if forgotten:
   existed, and the bilateral second side legitimately fires zero new
   requests now. All eight suites green (the known week-streak date flake
   aside). sw `CACHE` → v30, `VERSION` → v30, no files added or removed.
+- 2026-08-04 — **v31: rename to `JUJI`, Stretch gets its own tab, louder
+  beeps, a volume reminder.** Five separate asks in one go.
+
+  **`Ju Ji` → `JUJI`, everywhere it's still shown as text.** The brand-mark
+  *wordmark* has actually read "JUJI" since v25 (`WORDMARK_GLYPHS` in
+  `js/ui.js`) — what hadn't caught up were the surrounding text strings:
+  `<title>` in `index.html`, `name`/`short_name` in `manifest.webmanifest`,
+  the footer template literal in `js/app.js`, and the wordmark's own
+  `aria-label` (screen readers were hearing "Ju Ji" for a logo that visibly
+  read "JUJI"). All four now say `JUJI`. Updated the "on-screen product name"
+  note at the top of this file to match — it still said `Ju Ji` from v23,
+  which was itself already one step behind the actual rendered wordmark.
+
+  **Stretch is now a real tab**, not a screen borrowed under Home's
+  highlight. Added a fifth `<a>` to the `.tabbar` in `index.html` between Log
+  and Map — literally the middle position of five — with a small stick-figure
+  icon (arms out, legs apart; abstract, matching the other tab icons' level
+  of detail). `js/app.js`'s tab-mapping comment and logic dropped `stretch`
+  from the "borrows Home's tab" list; `head === 'stretch'` now falls through
+  to the default `'/' + head` branch, which already produces `/stretch` and
+  matches the new tab's `data-tab`. The Home shortcut button into the
+  cool-down was left in place — multiple entry points to the same screen is
+  already how Settings and the focus deck work here, so this isn't a new
+  pattern. `.tabbar a` is `flex: 1`, so a fifth item resized everything
+  automatically; no CSS changes needed, confirmed by screenshot.
+
+  **Beeps are square waves now, not sine, and louder.** User: they're timed
+  right but too soft to hear over a TV. A square wave's extra harmonic
+  content reads as sharper than a pure tone at the same gain, so the fix is
+  both the waveform (`sine` → `square` in `createBeeper()`'s `tone()`) and
+  raised gain (peaks roughly doubled) and raised pitch (each tone moved up
+  400-700Hz) together — pitch and harmonic content are what make something
+  sound "piercing," turning up gain alone would have just made the same soft
+  tone loud. All four cues and the finish chime were rebalanced the same way.
+
+  **A "turn your volume up" line on the stretch intro** — with an honest
+  limit stated up front rather than glossed over: there is no web API that
+  can read whether a phone is on silent or its media volume level. Nothing
+  in a browser tab can detect that and act on it; a real "your phone is
+  muted" notification is not buildable here. What's shipped instead is a
+  static reminder (`.st-volume-hint`, same icon+small-text pattern as the
+  existing `.mic-hint`) sitting right above the Start button, since that's
+  the last thing on screen before the routine actually needs sound.
+
+  **The voice-cue bug from v30 is still open.** User reports it's still only
+  the first move per routine after updating. I re-verified: all 26 clips
+  decode successfully in a real `AudioContext` (tested here in headless
+  Chromium), so the files themselves aren't corrupt, and the v30 code read
+  correctly on a second pass — I could not find a further bug in
+  `createVoice()`. The leading theory is still that the phone hadn't
+  actually picked up v30 before it was tested (the beeps — unrelated to that
+  fix — reportedly still worked throughout, exactly what you'd expect if the
+  *old*, pre-fix build was still what was running). Asked the user to confirm
+  the footer reads the new version before concluding the Web Audio fix
+  itself failed. User also offered to cut the 26 clips by hand — noted for
+  them that this addresses accuracy of the cut, not the silence-after-move-1
+  symptom, which is a playback bug independent of how the clips were cut.
+
+  All eight suites green (known week-streak flake aside), screenshot-checked
+  the new tab and the volume hint in light and dark. sw `CACHE` → v31,
+  `VERSION` → v31, no files added or removed.

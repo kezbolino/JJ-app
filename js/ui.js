@@ -247,7 +247,7 @@ export function brandMark(standing = null) {
   const pillW = (WORDMARK_FONT_SIZE * WORDMARK_WIDTH_EM - WORDMARK_PILL_GAP * (BELT_RANKS.length - 1)) / BELT_RANKS.length;
 
   return h('div.brand-mark',
-    h('h1.brand-jj', { 'aria-label': 'Ju Ji' }, wordmarkSvg()),
+    h('h1.brand-jj', { 'aria-label': 'JUJI' }, wordmarkSvg()),
     h('div.belt' + (reached >= 0 ? '.is-ranked' : ''), {
       role: 'img', 'aria-label': aria, style: `gap:${WORDMARK_PILL_GAP}px; margin-top:${WORDMARK_MARGIN_TOP}px`,
     },

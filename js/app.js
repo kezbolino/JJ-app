@@ -20,7 +20,7 @@ const view = document.getElementById('view');
 appearance.apply();
 
 const foot = document.getElementById('appfoot');
-if (foot) foot.textContent = `Ju Ji ${VERSION}`;
+if (foot) foot.textContent = `JUJI ${VERSION}`;
 
 function parseHash() {
   const raw = location.hash.slice(1) || '/';
@@ -38,9 +38,9 @@ function route() {
   window.scrollTo(0, 0);
 
   // Screens without a tab of their own borrow the one they're reached from:
-  // Settings hangs off Library, the deck and the stretch routine off Home.
+  // Settings hangs off Library, the deck off Home. Stretch has its own tab.
   const tab = head === 'settings' ? '/library'
-    : head === 'focus' || head === 'stretch' ? '/'
+    : head === 'focus' ? '/'
     : '/' + (head ?? '');
   for (const link of document.querySelectorAll('.tabbar a')) {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
