@@ -906,6 +906,43 @@ await test('a movement with no artwork yet leaves the frame out instead of drawi
   await page.context().close();
 });
 
+await test('each move announces itself by name, and muting stops it', async () => {
+  const page = await newPage();
+  const requests = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) requests.push(req.url().split('/audio/cues/')[1]);
+  });
+
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  assert.deepEqual(requests, ['neck-side.webm'], 'the first stretch did not announce itself');
+
+  await page.click('.st-skip');
+  await page.waitForTimeout(300);
+  assert.equal(requests.length, 2, 'skipping to the next stretch stayed silent');
+
+  await page.click('.st-sound');
+  await page.click('.st-skip');
+  await page.waitForTimeout(300);
+  assert.equal(requests.length, 2, 'muting the sound did not also mute the voice cue');
+  await page.context().close();
+});
+
+await test('the two routines announce their own first move, not each other\'s', async () => {
+  const page = await newPage();
+  const requests = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) requests.push(req.url().split('/audio/cues/')[1]);
+  });
+
+  await go(page, '/stretch?r=rest-day');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  assert.deepEqual(requests, ['deep-squat-hold.webm']);
+  await page.context().close();
+});
+
 await test('the manifest offers launcher shortcuts and matches the light default', async () => {
   const page = await newPage();
   const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());

@@ -21,7 +21,9 @@
 // 3. **Beeps are synthesised, not files.** An AudioContext oscillator costs no
 //    bytes in the shell and nothing to cache, which is the whole shape of this
 //    app. The context can only be created from a user gesture, so it is built
-//    when you tap Start.
+//    when you tap Start. The spoken move names are the one exception — real
+//    audio clips under audio/cues/<id>.webm — because there is no synthesising
+//    a name; muting the sound stops both.
 // 4. **A rest phase of 0 is not special-cased.** The cool-down simply has one,
 //    so it never fires. That keeps one code path for both routines.
 //
@@ -87,6 +89,24 @@ function createBeeper() {
   };
 }
 
+/**
+ * Spoken move names, recorded as short clips under audio/cues/<id>.webm —
+ * a lift on top of the beeps, never a replacement for them. One Audio
+ * element is reused rather than minting one per segment, and a move with no
+ * clip recorded yet just stays silent (`.play()` rejects, caught and
+ * dropped) instead of breaking the routine.
+ */
+function createVoice() {
+  const audio = new Audio();
+  return {
+    say: id => {
+      audio.src = `audio/cues/${id}.webm`;
+      audio.play().catch(() => {});
+    },
+    stop: () => { audio.pause(); },
+  };
+}
+
 /** Best-effort screen wake lock — the phone shouldn't sleep mid-hold. */
 function createWakeLock() {
   let lock = null;
@@ -110,7 +130,7 @@ function createWakeLock() {
  * anchor; skipping rewrites the bank. Nothing accumulates per tick, so nothing
  * drifts.
  */
-function runner(mount, routine, { beep, wake, onExit, token }) {
+function runner(mount, routine, { beep, voice, wake, onExit, token }) {
   const segs = segments(routine);
   const SEG = segmentMs(routine);
   const { ready: READY, work: WORK } = routine.phases;
@@ -148,7 +168,7 @@ function runner(mount, routine, { beep, wake, onExit, token }) {
   const skipBtn = h('button.btn.st-skip', { type: 'button' }, 'Skip ›');
   const backBtn = h('button.btn.st-back', { type: 'button' }, '‹ Back');
   const soundBtn = h('button.st-sound', {
-    type: 'button', 'aria-pressed': 'false', 'aria-label': 'Mute the beeps', title: 'Sound on',
+    type: 'button', 'aria-pressed': 'false', 'aria-label': 'Mute the sound', title: 'Sound on',
   }, icon('sound'));
   const endBtn = h('button.st-end', { type: 'button' }, 'End routine');
 
@@ -225,7 +245,7 @@ function runner(mount, routine, { beep, wake, onExit, token }) {
   // ---- the tick ---------------------------------------------------------
   const tick = () => {
     // The router emptied #view under us — this is the only teardown signal.
-    if (!isCurrent(token)) { stop(); wake.release(); beep.close(); return; }
+    if (!isCurrent(token)) { stop(); wake.release(); beep.close(); voice.stop(); return; }
 
     const e = elapsed();
     if (e >= totalMs) { finish(); return; }
@@ -241,7 +261,7 @@ function runner(mount, routine, { beep, wake, onExit, token }) {
       lastKey = key;
       lastCount = -1;
       const { item, side } = segs[i];
-      if (phase === 'ready') { paintSegment(i); beep.ready(); }
+      if (phase === 'ready') { paintSegment(i); beep.ready(); if (!beep.isMuted()) voice.say(item.id); }
       else if (phase === 'work') beep.go();
       else { paintRest(i); beep.rest(); }
       live.textContent = phase === 'rest'
@@ -297,10 +317,11 @@ function runner(mount, routine, { beep, wake, onExit, token }) {
   soundBtn.addEventListener('click', () => {
     const muted = !beep.isMuted();
     beep.setMuted(muted);
+    if (muted) voice.stop();
     soundBtn.replaceChildren(icon(muted ? 'soundOff' : 'sound'));
     soundBtn.classList.toggle('is-muted', muted);
     soundBtn.setAttribute('aria-pressed', String(muted));
-    soundBtn.setAttribute('aria-label', muted ? 'Unmute the beeps' : 'Mute the beeps');
+    soundBtn.setAttribute('aria-label', muted ? 'Unmute the sound' : 'Mute the sound');
     soundBtn.title = muted ? 'Sound off' : 'Sound on';
   });
 
@@ -314,6 +335,7 @@ function runner(mount, routine, { beep, wake, onExit, token }) {
 
   return () => {
     stop();
+    voice.stop();
     document.removeEventListener('visibilitychange', onVisible);
   };
 }
@@ -334,6 +356,7 @@ function overview(routine) {
 export default async function stretch(root, { routine: routineId } = {}) {
   const token = renderToken();
   const beep = createBeeper();
+  const voice = createVoice();
   const wake = createWakeLock();
 
   let routine = getRoutine(routineId ?? DEFAULT_ROUTINE);
@@ -391,7 +414,7 @@ export default async function stretch(root, { routine: routineId } = {}) {
     wake.request();
     mount.className = 'st is-running';
     teardown = runner(mount, routine, {
-      beep, wake, token,
+      beep, voice, wake, token,
       onExit: reason => (reason === 'again' ? begin() : showIntro()),
     });
   };

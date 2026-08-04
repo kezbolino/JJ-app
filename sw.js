@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v28';
+const CACHE = 'jj-app-v29';
 
 const SHELL = [
   './',
@@ -43,6 +43,35 @@ const SHELL = [
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable.png',
+  // Spoken move names for the stretch routines — see js/views/stretch.js.
+  // Small opus clips, one per item id in js/stretches.js; a routine run on
+  // gym wifi or offline still gets the voice cues, not just the beeps.
+  'audio/cues/ankle-rock.webm',
+  'audio/cues/bear-crawl.webm',
+  'audio/cues/childs-pose.webm',
+  'audio/cues/copenhagen.webm',
+  'audio/cues/cossack-squat.webm',
+  'audio/cues/dead-hang.webm',
+  'audio/cues/deep-squat-hold.webm',
+  'audio/cues/frog.webm',
+  'audio/cues/glute-bridge-single.webm',
+  'audio/cues/hip-flexor-lunge.webm',
+  'audio/cues/jefferson-curl.webm',
+  'audio/cues/neck-isometric.webm',
+  'audio/cues/neck-side.webm',
+  'audio/cues/ninety-ninety-liftoff.webm',
+  'audio/cues/ninety-ninety.webm',
+  'audio/cues/pigeon.webm',
+  'audio/cues/quad-kneel.webm',
+  'audio/cues/seated-fold.webm',
+  'audio/cues/side-plank.webm',
+  'audio/cues/single-leg-rdl.webm',
+  'audio/cues/sphinx.webm',
+  'audio/cues/supine-twist.webm',
+  'audio/cues/thoracic-press-up.webm',
+  'audio/cues/thread-needle.webm',
+  'audio/cues/wall-slide.webm',
+  'audio/cues/wrist-floor.webm',
 ];
 
 self.addEventListener('install', event => {

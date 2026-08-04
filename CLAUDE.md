@@ -1209,3 +1209,68 @@ data if forgotten:
   streak assertion that fails identically on unmodified `main` — not caused
   by this change, not fixed by it). sw `CACHE` → v28, `VERSION` → v28, no
   files added or removed.
+- 2026-08-04 — **v29: spoken move names on the stretch routines.** User
+  provided two AI-voiced ("Snoop Dogg voice") MP3s recorded as their own
+  content and asked to have them cut per-move and wired into the app. This
+  session has no way to listen to audio, so the whole thing had to be done by
+  measurement rather than by ear — worth reading before touching this again.
+
+  **The two files were swapped from what the user described.** They said
+  "stretch file, then rest-day file" in that order, but ffmpeg's `silencedetect`
+  plus a locally-run `pocketsphinx` transcription (rough, but good enough to
+  catch distinctive words phonetically) turned up "Copenhagen," "Jefferson
+  curls," and "shift your weight" in the file named first, and "thread the
+  needle," "child's pose," "sink into it" in the one named second. Anchored on
+  those unmistakable words rather than the stated order. Confirmed against
+  clip duration too: the rest-day script is the longer one line-for-line, and
+  the longer audio file (35.55s vs 32.57s) is the one with the rest-day words
+  in it. `openai-whisper` would have given real transcripts but its model
+  download is blocked by this session's egress policy (`openaipublic.
+  azureedge.net`, reported rather than routed around, per `/root/.ccr/README.md`)
+  — `pocketsphinx` was the fallback because its acoustic model ships inside the
+  pip wheel itself, no extra download needed.
+
+  **Cutting 13 lines out of one continuous take, without being able to hear
+  them, used two signals together because neither alone was reliable.** Raw
+  silence-gap detection couldn't tell a pause between two lines from a pause
+  after a mid-line period — both produced gaps of similar length, and picking
+  the 12 longest per file grabbed some of the wrong ones. What worked: treat
+  each line's known word count (from the script text already in this
+  conversation, not guessed) as a proportion of the file's total duration to
+  get an approximate cut point, then snap that point to the nearest real
+  silence gap (with a minimum-segment-length floor so two snap targets can't
+  collapse onto the same gap). Verified after cutting, not just assumed: the
+  app itself was driven in a real headless browser and the network requests it
+  fired were checked — starting the cool-down requested exactly
+  `neck-side.webm`, starting rest-day requested exactly `deep-squat-hold.webm`
+  — which confirms the file-swap fix and the first cut of each set landed
+  right, though it can't confirm cuts 2 through 13 individually. **A human
+  listen-through of the 26 clips in `audio/cues/` is still worth doing** —
+  flagged to the user rather than assumed away.
+
+  **What shipped.** 26 short opus clips (mono, ~32kbps, `audio/cues/<id>.webm`,
+  132KB total) named after the `id`s already in `js/stretches.js` — no new
+  naming scheme, same key both routines' items already use for `ART` in
+  `js/stretch-art.js`. `js/views/stretch.js` gained `createVoice()`: one
+  reused `Audio` element, `.play()` failures swallowed (a future move added
+  without a recorded clip stays silent instead of breaking the routine, same
+  contract as `PENDING_ART`). Wired into the existing `ready`-phase branch in
+  `tick()` alongside `beep.ready()` — a lift on top of the tone, not a
+  replacement. The mute button (`.st-sound`) now stops both; its label changed
+  from "Mute the beeps" to "Mute the sound" since it no longer only covers the
+  synthesised tones. Voice playback is stopped on every teardown path
+  (routine-switch, leaving the screen, muting mid-cue) for the same reason the
+  wake lock and `AudioContext` already were — an abandoned routine must not
+  keep making noise.
+
+  All 26 clips are precached: added to `SHELL` in `sw.js` so a routine run on
+  gym wifi or offline still gets the voice, not just the beeps. `CACHE`/
+  `VERSION` → v29.
+
+  Two new Playwright tests pin the wiring rather than just the cut content:
+  the cool-down's first requested clip is `neck-side.webm` and muting
+  suppresses the next one, and rest-day's first requested clip is
+  `deep-squat-hold.webm` — the second test is what would have caught the
+  file-swap if it had been missed. All eight suites still green end to end
+  (the pre-existing week-streak date flake noted in the v28 entry is
+  unrelated and unchanged).
