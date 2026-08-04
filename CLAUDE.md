@@ -1293,3 +1293,40 @@ data if forgotten:
   clips under `audio/cues/` to actually download into the service worker's
   cache, so the first open after updating may want a moment on wifi before
   trusting an offline stretch session to have the voice cues.
+- 2026-08-04 — **v30: fixed silent voice cues after the first move.** User
+  tested v29 on the phone: "I can hear the first move for stretch and then
+  first move for the rest day, and that's it." Wrong on my part in the v29
+  write-up: `createVoice()` played clips through a bare `Audio()` element,
+  not through Web Audio like the beeps. A plain `Audio().play()` called from
+  a `setInterval` tick — every segment after the very first, which alone
+  happens to fall inside the synchronous "Start" tap — is not running inside
+  a user gesture, and Chrome is free to silently reject it. The rejection was
+  being swallowed (`.catch(() => {})`, there to protect a not-yet-recorded
+  clip from breaking the routine), so it looked exactly like what was
+  reported: first move audible, everything after it silent, symmetrically in
+  both routines. This is precisely the class of problem `js/views/stretch.js`
+  already has a comment about for the beeps — "the context can only be
+  created from a user gesture, so it is built when you tap Start" — voice
+  cues just weren't built the same way.
+
+  Fixed by routing voice cues through their own `AudioContext`, unlocked
+  alongside the beep's in `begin()`, with each clip fetched once, decoded to
+  an `AudioBuffer`, cached by id, and played via `AudioBufferSourceNode` —
+  once a context is resumed from a gesture it stays usable from anywhere
+  afterward, ticks included, which is the whole reason the beeps never hit
+  this. A useful side effect: a bilateral move's second side (same id, e.g.
+  neck side stretch left then right) now replays the already-decoded buffer
+  instead of re-fetching the clip.
+
+  I could not reproduce the rejection in this session's headless Playwright —
+  Chromium's bundled test browser relaxes autoplay policy by default, so a
+  bare `Audio().play()` outside a gesture "worked" there while failing on the
+  user's real Android Chrome. Said so rather than claiming a repro I didn't
+  have; the fix is the one the file's own existing pattern for the beeps
+  already implied was necessary, not a guess.
+
+  Updated the one test that asserted on fetch count per segment
+  (`tests/features.test.mjs`) — it was written before the caching side effect
+  existed, and the bilateral second side legitimately fires zero new
+  requests now. All eight suites green (the known week-streak date flake
+  aside). sw `CACHE` → v30, `VERSION` → v30, no files added or removed.

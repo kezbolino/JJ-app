@@ -91,19 +91,63 @@ function createBeeper() {
 
 /**
  * Spoken move names, recorded as short clips under audio/cues/<id>.webm —
- * a lift on top of the beeps, never a replacement for them. One Audio
- * element is reused rather than minting one per segment, and a move with no
- * clip recorded yet just stays silent (`.play()` rejects, caught and
- * dropped) instead of breaking the routine.
+ * a lift on top of the beeps, never a replacement for them.
+ *
+ * This plays clips through Web Audio, the same as the beeps, rather than a
+ * plain `Audio` element — deliberately. A bare `Audio().play()` called from
+ * a `setInterval` tick (as every segment after the first is) is not running
+ * inside a user gesture, and Chrome is free to silently reject it; the promise
+ * rejection was being swallowed, so it looked like "the first move announces
+ * itself, then nothing." An `AudioContext` resumed once inside the Start tap
+ * stays usable from anywhere afterward — that is the whole reason the beeps
+ * never hit this — so voice clips are decoded once and played as buffers
+ * through that same kind of context instead.
  */
 function createVoice() {
-  const audio = new Audio();
+  let ctx = null;
+  let closed = false;
+  let current = null;
+  const buffers = new Map();
+
+  const ensure = () => {
+    if (closed) return null;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!ctx) { try { ctx = new AC(); } catch { return null; } }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  };
+
+  const load = async (c, id) => {
+    if (buffers.has(id)) return buffers.get(id);
+    try {
+      const res = await fetch(`audio/cues/${id}.webm`);
+      const buf = await c.decodeAudioData(await res.arrayBuffer());
+      buffers.set(id, buf);
+      return buf;
+    } catch { return null; } // no clip recorded yet — stay silent, don't break the routine
+  };
+
+  const stop = () => {
+    if (current) { try { current.stop(); } catch { /* already ended */ } current = null; }
+  };
+
   return {
-    say: id => {
-      audio.src = `audio/cues/${id}.webm`;
-      audio.play().catch(() => {});
+    unlock: () => ensure(),
+    say: async id => {
+      const c = ensure();
+      if (!c) return;
+      const buf = await load(c, id);
+      if (!buf || closed) return;   // torn down while the clip was still decoding
+      stop();
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.connect(c.destination);
+      src.start();
+      current = src;
     },
-    stop: () => { audio.pause(); },
+    stop,
+    close: () => { stop(); closed = true; if (ctx) { ctx.close().catch(() => {}); ctx = null; } },
   };
 }
 
@@ -245,7 +289,7 @@ function runner(mount, routine, { beep, voice, wake, onExit, token }) {
   // ---- the tick ---------------------------------------------------------
   const tick = () => {
     // The router emptied #view under us — this is the only teardown signal.
-    if (!isCurrent(token)) { stop(); wake.release(); beep.close(); voice.stop(); return; }
+    if (!isCurrent(token)) { stop(); wake.release(); beep.close(); voice.close(); return; }
 
     const e = elapsed();
     if (e >= totalMs) { finish(); return; }
@@ -411,6 +455,7 @@ export default async function stretch(root, { routine: routineId } = {}) {
 
   const begin = () => {
     beep.unlock();          // must happen inside the tap
+    voice.unlock();         // same reason — an AudioContext resumes from a gesture or not at all
     wake.request();
     mount.className = 'st is-running';
     teardown = runner(mount, routine, {

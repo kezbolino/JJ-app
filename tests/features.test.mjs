@@ -918,13 +918,21 @@ await test('each move announces itself by name, and muting stops it', async () =
   await page.waitForSelector('.st-count');
   assert.deepEqual(requests, ['neck-side.webm'], 'the first stretch did not announce itself');
 
+  // Neck side stretch is bilateral, so skipping once lands on its own right
+  // side — same clip, decoded once and replayed from the buffer, not
+  // re-fetched. Skipping again reaches a different move (wrist-floor), which
+  // has to be a fresh fetch.
   await page.click('.st-skip');
-  await page.waitForTimeout(300);
-  assert.equal(requests.length, 2, 'skipping to the next stretch stayed silent');
+  await page.waitForTimeout(200);
+  assert.deepEqual(requests, ['neck-side.webm'], 'the same side re-fetched a clip already decoded');
+
+  await page.click('.st-skip');
+  await page.waitForTimeout(200);
+  assert.deepEqual(requests, ['neck-side.webm', 'wrist-floor.webm'], 'the next move stayed silent');
 
   await page.click('.st-sound');
   await page.click('.st-skip');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(200);
   assert.equal(requests.length, 2, 'muting the sound did not also mute the voice cue');
   await page.context().close();
 });
