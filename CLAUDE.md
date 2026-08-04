@@ -53,7 +53,13 @@ js/stretch-art.js     ~47 KB of figure paths — data only, don't hand-edit
 js/views/*.js         home, log, map, position, library, search, settings, stretch
 sw.js                 offline cache — bump CACHE when files change
 tests/                markdown round-trip, app smoke test, sync test
+tools/mobility-library/  desktop-only clip builder; NOT part of the app
 ```
+
+`tools/` is outside the app entirely — nothing in it is loaded by `index.html`
+or listed in `sw.js`, and changing it never moves `CACHE`/`VERSION`. It needs a
+machine with `yt-dlp` and `ffmpeg`, which is exactly what the rest of this repo
+is built to avoid; that is why it is quarantined rather than mixed in.
 
 ## Running and testing
 
@@ -67,7 +73,14 @@ python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
 node tests/features.test.mjs    # Playwright; calendar, deck, trash, links, stretch
+
+node tests/mobility.test.mjs    # pure node — tools/mobility-library, NOT the app
 ```
+
+`tests/mobility.test.mjs` is the odd one out: it covers the desktop clip-builder
+in `tools/`, not the PWA. Run it when you touch `tools/`, and note it *does*
+read `js/stretches.js` — adding a movement to a routine fails it until that
+movement has a search query in `tools/mobility-library/lib/queries.mjs`.
 
 **Run all eight after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
@@ -1192,3 +1205,72 @@ data if forgotten:
   (tombstone hardening, silent sync failure, no time dimension, Library search
   labels), and the standing gap that **focuses and `likedMoves` are
   device-local and do not sync**.
+- 2026-08-04 — **`tools/mobility-library/` — a clip library for the routines.**
+  User handed over a plan ("BJJ Mobility Library Automation") and asked for it
+  built: search YouTube → pick the best demonstration → download → trim →
+  rename → a numbered folder. Its 13 exercises turned out to be **exactly the
+  rest-day routine from v27**, in the same order, so the tool derives its
+  contents from `js/stretches.js` rather than keeping a second list —
+  `lib/queries.mjs` maps each item id to a search query, and the test fails if a
+  routine gains a movement with no query or a query names an id no routine uses
+  (the `PENDING_ART` discipline again). `--routine post-class` builds the
+  cool-down's 13 instead.
+
+  **This is deliberately not part of the app.** It needs `yt-dlp` and `ffmpeg`
+  on a machine, which is the exact assumption the rest of the repo is built to
+  avoid — so it lives in `tools/`, is loaded by nothing, is listed in no
+  `SHELL`, and **`CACHE`/`VERSION` stay at v27**. No file under `js/`, `css/`,
+  `index.html`, `sw.js` or the manifest was touched.
+
+  **Three real bugs in the supplied plan, all silent.** (1) `while read ... <
+  clips.txt` with `yt-dlp` in the body: yt-dlp reads stdin, eats the rest of the
+  file, and you get one clip out of thirteen with no error. The loops read fd 3
+  now. (2) `ffmpeg -i in -ss S -to E -c copy` cuts at the nearest keyframe, not
+  where you asked — frozen frames or a missing first second on a 12-second clip.
+  It is `-ss` before `-i`, `-t` with a duration, and a re-encode. (3) `-o
+  temp.mp4` in a loop collides and leaves debris; downloads are cached by video
+  id, so two movements from one video download once and re-cutting a window
+  costs no bandwidth. All three are pinned by tests that run the real script
+  against **fake `yt-dlp`/`ffmpeg` binaries on `PATH`** — no network, and the
+  ffmpeg test asserts the argument *order*.
+
+  **The scoring is the substance.** The plan searched `"E3 Rehab <exercise>"`
+  and took result #1, which fails silently twice: if that channel never covered
+  the movement you get whatever ranked first for a query with their name in it,
+  and a better video from anyone else is invisible. So the channel preference
+  became a *ranking* signal over a plain search — title-term coverage (below
+  half the terms is rejected as a different exercise), channel tier, length (a
+  40s demo beats a 20min lesson; an hour is thrown out), title words
+  ("compilation", "top 10 mistakes", "podcast" penalised), and **views capped at
+  10 points on purpose** — popularity is a tiebreak, not quality. Every
+  candidate keeps its reasons and `candidates.tsv` prints them.
+
+  **The one thing it refuses to do is guess a trim window.** An end time of `?`
+  means "found but not watched"; those download whole into `review/` and nothing
+  reaches the library until a human picks the times. Same rule as
+  coverage-is-attention-not-skill: the tool doesn't get to imply it knows more
+  than it does. Re-running search never overwrites a window already filled in —
+  those times are the only part of the pipeline a person did.
+
+  **`clips.txt` is the artifact worth committing** and is the only thing in
+  there not gitignored: a few hundred bytes that fully describe the library, so
+  every mp4 can be deleted and one `./mobility build` rebuilds them. Output
+  location is `MOBILITY_HOME` (default: the tool's folder), which is also what
+  keeps a test run from touching a real library.
+
+  Option A from the plan is built too — `--api` swaps yt-dlp's search for the
+  YouTube Data API, same JSON out, so nothing downstream changes — but with
+  node's built-in `fetch` instead of `google-api-python-client`+`pandas`, and
+  **the key is read only from `$YT_API_KEY` or `~/.config/mobility/`**; nothing
+  writes one to disk. This repo is public.
+
+  One defect found by running it rather than by testing it: an already-
+  downloaded `review/` file was counted as "already done", so a second build
+  reported "12 already done" for twelve clips that did not exist. It counts as
+  *waiting* now, with a test.
+
+  New suite `tests/mobility.test.mjs` — 41 assertions, pure node, no network.
+  The five other pure-node suites re-run green (`schedule` under UTC,
+  `America/Los_Angeles`, `Australia/Sydney`); the three Playwright suites were
+  **not run** — Playwright isn't installed in this environment and nothing under
+  `js/` changed.

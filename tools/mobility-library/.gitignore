@@ -1,0 +1,26 @@
+# The media never goes in git. This repo is public and served by GitHub Pages;
+# it is also not where video belongs even if it were private.
+#
+# clips.txt is deliberately NOT ignored. It is the whole library in a few
+# hundred bytes of text -- delete every file below and one `./mobility build`
+# rebuilds them. That is the artifact worth keeping.
+
+BJJ Mobility Library/
+review/
+.cache/
+
+candidates.tsv
+exercise_urls.csv
+
+*.mp4
+*.mkv
+*.webm
+*.m4a
+*.part
+*.ytdl
+
+# Belt and braces: an API key must never land here. See lib/api-search.mjs --
+# the key is read from $YT_API_KEY or ~/.config/mobility/youtube-api-key, and
+# nothing in this tool writes one to disk.
+*key*
+*.env

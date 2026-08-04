@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+#
+# mobility -- build a folder of short reference clips for the app's routines.
+#
+#   ./mobility doctor            check yt-dlp, ffmpeg and node are here
+#   ./mobility list              what the library will hold
+#   ./mobility search [ID...]    search YouTube, score results, write clips.txt
+#   ./mobility build             download, trim, rename
+#   ./mobility all               search then build
+#   ./mobility urls              exercise_urls.csv from the last search
+#
+# Flags: --routine ID (rest-day | post-class), --results N, --top N, --force,
+#        --api (search with the YouTube Data API instead of yt-dlp)
+#
+# The parts that need a decision live in lib/*.mjs and are unit-tested; this
+# script is the part that talks to yt-dlp and ffmpeg.
+#
+# THREE THINGS IN HERE ARE DELIBERATE AND EASY TO UNDO BY ACCIDENT:
+#
+#   1. The loops read their work list on file descriptor 3, not stdin. yt-dlp
+#      reads stdin, so a plain `while read < clips.txt` loop hands it the rest
+#      of the file and you silently process one row and stop.
+#   2. ffmpeg seeks with -ss BEFORE -i and cuts with -t, and re-encodes. Putting
+#      -ss after -i with -c copy (the obvious way) cuts at the nearest keyframe
+#      instead of where you asked, so short clips start with frozen frames or
+#      miss their first second entirely.
+#   3. Downloads are cached by video id and trimming reads from the cache. Two
+#      movements demonstrated in the same video download once, and fixing a
+#      trim window costs no bandwidth.
+
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB="$HERE/lib/cli.mjs"
+
+ROUTINE="rest-day"
+RESULTS=15          # how many search results to score per movement
+TOP=5               # how many to keep on the shortlist
+FORCE=0
+USE_API=0
+
+# Everything the tool produces lands under $WORK. Defaults to this folder;
+# set MOBILITY_HOME to put the library on an external drive -- or, as the test
+# suite does, in a scratch directory so a test run cannot touch your library.
+WORK="${MOBILITY_HOME:-$HERE}"
+
+LIBRARY_DIR="$WORK/BJJ Mobility Library"
+REVIEW_DIR="$WORK/review"
+CACHE_DIR="$WORK/.cache"
+CLIPS="$WORK/clips.txt"
+CANDIDATES="$WORK/candidates.tsv"
+
+say()  { printf '%s\n' "$*"; }
+warn() { printf '! %s\n' "$*" >&2; }
+fail() { printf '! %s\n' "$*" >&2; exit 1; }
+
+need() {
+  command -v "$1" >/dev/null 2>&1 || fail "$1 is not installed -- run: ./mobility doctor"
+}
+
+usage() {
+  sed -n '3,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+}
+
+# --- argument parsing ------------------------------------------------------
+
+COMMAND=""
+ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --routine) ROUTINE="${2:-}"; shift 2 ;;
+    --results) RESULTS="${2:-}"; shift 2 ;;
+    --top)     TOP="${2:-}";     shift 2 ;;
+    --force)   FORCE=1;          shift ;;
+    --api)     USE_API=1;        shift ;;
+    -h|--help) usage; exit 0 ;;
+    -*)        fail "unknown flag $1" ;;
+    *)
+      if [ -z "$COMMAND" ]; then COMMAND="$1"; else ARGS+=("$1"); fi
+      shift ;;
+  esac
+done
+
+# --- commands --------------------------------------------------------------
+
+cmd_doctor() {
+  local missing=0
+  for tool in node yt-dlp ffmpeg; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      say "  ok    $tool  ($("$tool" --version 2>/dev/null | head -n1))"
+    else
+      say "  MISSING  $tool"
+      missing=1
+    fi
+  done
+  if [ "$missing" -eq 1 ]; then
+    say ""
+    say "  macOS:  brew install yt-dlp ffmpeg"
+    say "  Linux:  sudo apt install ffmpeg && pipx install yt-dlp"
+    return 1
+  fi
+  say ""
+  say "All three present. Next: ./mobility search"
+}
+
+cmd_list() {
+  need node
+  node "$LIB" list --routine "$ROUTINE"
+}
+
+# One search, from whichever backend is selected. Both print the same
+# one-JSON-object-per-line stream, which is the whole reason the rest of the
+# pipeline does not care which one ran.
+search_one() {
+  local query="$1"
+  if [ "$USE_API" -eq 1 ]; then
+    node "$HERE/lib/api-search.mjs" "$query" --results "$RESULTS" </dev/null
+  else
+    yt-dlp --flat-playlist --dump-json --no-warnings --ignore-errors \
+      "ytsearch${RESULTS}:${query}" </dev/null
+  fi
+}
+
+cmd_search() {
+  need node
+  if [ "$USE_API" -eq 0 ]; then need yt-dlp; fi
+
+  local work; work="$(mktemp)"
+  local raw;  raw="$(mktemp)"
+  local errs; errs="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$work' '$raw' '$errs'" RETURN
+
+  node "$LIB" queries --routine "$ROUTINE" > "$work"
+
+  # `mobility search cossack-squat side-plank` narrows it to those movements.
+  if [ "${#ARGS[@]}" -gt 0 ]; then
+    local filtered; filtered="$(mktemp)"
+    for want in "${ARGS[@]}"; do
+      # awk, not grep -P: BSD grep on macOS has no -P and would fail here.
+      if ! awk -F'\t' -v want="$want" '$1 == want' "$work" | tee -a "$filtered" | grep -q .; then
+        warn "no movement called \"$want\" in $ROUTINE"
+      fi
+    done
+    mv "$filtered" "$work"
+    if [ ! -s "$work" ]; then fail "nothing to search for"; fi
+  fi
+
+  # Candidates are rewritten whole. clips.txt is what holds the decisions, and
+  # `node cli.mjs clips` merges into it rather than overwriting it.
+  node "$LIB" header > "$CANDIDATES"
+
+  local found=0 empty=0
+  while IFS=$'\t' read -r id query <&3; do
+    [ -n "$id" ] || continue
+    printf '  %-24s %s\n' "$id" "$query"
+    if search_one "$query" > "$raw" 2>"$errs"; then
+      local picked; picked="$(mktemp)"
+      node "$LIB" pick --movement "$id" --top "$TOP" < "$raw" > "$picked" || true
+      if [ -s "$picked" ]; then
+        cat "$picked" >> "$CANDIDATES"
+        found=$((found + 1))
+      else
+        empty=$((empty + 1))
+      fi
+      rm -f "$picked"
+    else
+      warn "search failed for $id: $(tail -n1 "$errs")"
+      empty=$((empty + 1))
+    fi
+  done 3< "$work"
+
+  say ""
+  say "$found searched, $empty with nothing usable -> $(basename "$CANDIDATES")"
+  node "$LIB" clips --candidates "$CANDIDATES" --clips "$CLIPS" --routine "$ROUTINE"
+  say ""
+  say "Shortlists are in candidates.tsv; the top pick per movement is in clips.txt."
+  say "Next: ./mobility build  (downloads the unreviewed ones so you can scrub them)"
+}
+
+# Download one video into the cache, unless it is already there.
+# Echoes the cached path.
+fetch() {
+  local vid="$1" url="$2"
+  local hit
+  hit="$(find "$CACHE_DIR" -maxdepth 1 -name "$vid.*" -print -quit 2>/dev/null || true)"
+  if [ -n "$hit" ]; then
+    printf '%s' "$hit"
+    return 0
+  fi
+  yt-dlp \
+    --no-playlist \
+    --no-warnings \
+    --merge-output-format mp4 \
+    -f 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b' \
+    -o "$CACHE_DIR/$vid.%(ext)s" \
+    "$url" </dev/null >&2
+  hit="$(find "$CACHE_DIR" -maxdepth 1 -name "$vid.*" -print -quit 2>/dev/null || true)"
+  [ -n "$hit" ] || return 1
+  printf '%s' "$hit"
+}
+
+cmd_build() {
+  need node
+  need yt-dlp
+  need ffmpeg
+  [ -f "$CLIPS" ] || fail "no clips.txt yet -- run: ./mobility search"
+
+  mkdir -p "$WORK" "$LIBRARY_DIR" "$REVIEW_DIR" "$CACHE_DIR"
+
+  local plan; plan="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$plan'" RETURN
+  node "$LIB" plan --clips "$CLIPS" --out "$LIBRARY_DIR" --review "$REVIEW_DIR" > "$plan"
+
+  local trimmed=0 waiting=0 skipped=0 failed=0
+
+  while IFS=$'\t' read -r action vid url start dur dest name <&3; do
+    [ -n "$action" ] || continue
+
+    if [ -f "$dest" ] && [ "$FORCE" -eq 0 ]; then
+      # A review file that is already downloaded is not "done" -- it is still
+      # waiting on you to watch it and pick a window. Counting it as done is
+      # how you finish a build believing you have a library you do not have.
+      if [ "$action" = "review" ]; then
+        waiting=$((waiting + 1))
+      else
+        skipped=$((skipped + 1))
+      fi
+      continue
+    fi
+
+    local src
+    if ! src="$(fetch "$vid" "$url")"; then
+      warn "could not download $name ($url)"
+      failed=$((failed + 1))
+      continue
+    fi
+
+    if [ "$action" = "review" ]; then
+      # No trim window chosen yet. Put the whole video where it can be watched
+      # and say so; guessing a window would put a clip of the wrong thing in
+      # the library and look like it worked.
+      cp -f "$src" "$dest"
+      say "  review   $name  (open it, pick a window, put the times in clips.txt)"
+      waiting=$((waiting + 1))
+      continue
+    fi
+
+    # -ss before -i: seek first, then decode. -t not -to: a duration is
+    # unambiguous no matter how the seek was done. Re-encode, because a stream
+    # copy can only cut on keyframes.
+    if ffmpeg -nostdin -y -loglevel error \
+        -ss "$start" -i "$src" -t "$dur" \
+        -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p \
+        -c:a aac -movflags +faststart \
+        "$dest"; then
+      say "  trimmed  $name  (${dur}s)"
+      trimmed=$((trimmed + 1))
+    else
+      warn "ffmpeg failed on $name"
+      failed=$((failed + 1))
+    fi
+  done 3< "$plan"
+
+  say ""
+  say "$trimmed trimmed, $waiting waiting on a window, $skipped already done, $failed failed"
+  if [ "$waiting" -gt 0 ]; then
+    say "Watch the files in review/, then set the start and end times in clips.txt."
+  fi
+  say "Library: $LIBRARY_DIR"
+  [ "$failed" -eq 0 ]
+}
+
+cmd_clips() {
+  need node
+  [ -f "$CANDIDATES" ] || fail "no candidates.tsv yet -- run: ./mobility search"
+  node "$LIB" clips --candidates "$CANDIDATES" --clips "$CLIPS" --routine "$ROUTINE"
+}
+
+cmd_urls() {
+  need node
+  [ -f "$CANDIDATES" ] || fail "no candidates.tsv yet -- run: ./mobility search"
+  node "$LIB" urls --candidates "$CANDIDATES" --routine "$ROUTINE" > "$WORK/exercise_urls.csv"
+  say "exercise_urls.csv written"
+}
+
+cmd_check() {
+  need node
+  node "$LIB" check --clips "$CLIPS"
+}
+
+cmd_all() {
+  cmd_search
+  cmd_build
+}
+
+case "${COMMAND:-help}" in
+  doctor) cmd_doctor ;;
+  list)   cmd_list ;;
+  search) cmd_search ;;
+  clips)  cmd_clips ;;
+  check)  cmd_check ;;
+  build)  cmd_build ;;
+  all)    cmd_all ;;
+  urls)   cmd_urls ;;
+  help)   usage ;;
+  *)      warn "unknown command \"$COMMAND\""; usage; exit 1 ;;
+esac

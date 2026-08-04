@@ -70,7 +70,16 @@ node tests/markdown.test.mjs   # backup format round-trips
 node tests/tagger.test.mjs     # tagging, including your corrections
 node tests/smoke.mjs           # the whole app loop
 node tests/sync.test.mjs       # sync, against a fake GitHub
+node tests/mobility.test.mjs   # the clip-library tool in tools/
 ```
+
+## Tools
+
+[`tools/mobility-library/`](tools/mobility-library/) builds a folder of short
+reference clips for the movements in the stretch and rest-day routines —
+search YouTube, score the results, download, trim, rename. It's **desktop
+tooling, not part of the app**: nothing there is loaded by `index.html` or
+cached by the service worker, and it needs `yt-dlp` and `ffmpeg` on a machine.
 
 ## Docs
 
