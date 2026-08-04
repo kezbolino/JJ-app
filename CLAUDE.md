@@ -1192,3 +1192,20 @@ data if forgotten:
   (tombstone hardening, silent sync failure, no time dimension, Library search
   labels), and the standing gap that **focuses and `likedMoves` are
   device-local and do not sync**.
+- 2026-08-04 — **v28: stretch intro screen wording tweak.** User noticed the
+  cycle chips read "10S READY" / "30S HOLD" (CSS was uppercasing the whole
+  string, including the `s` unit) and that the big total, e.g. "14:00", could
+  be misread as a clock time (2pm) rather than a duration. Fixed both in
+  `js/views/stretch.js`: the cycle-chip strings are now built with the phase
+  words explicitly upper-cased in JS (`READY`, `HOLD`/`WORK`, `REST`) while the
+  `10s`/`30s` unit stays as typed, and `text-transform: uppercase` came off
+  `.st-intro-cycle` in `css/app.css` so JS controls the casing exactly — a
+  single CSS transform can't produce mixed case in one string. The total-time
+  display (`.st-intro-n` on the intro, and the finish screen's summary line)
+  now appends `mins`, e.g. "14:00 mins". Updated the one test that asserted
+  the old bare `mm:ss` shape (`tests/features.test.mjs`); no other suite
+  touched this text. All eight suites green except one pre-existing,
+  unrelated flake (`the strip shows a week streak...`, a date-dependent
+  streak assertion that fails identically on unmodified `main` — not caused
+  by this change, not fixed by it). sw `CACHE` → v28, `VERSION` → v28, no
+  files added or removed.

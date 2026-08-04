@@ -753,7 +753,7 @@ await test('the stretch routine lists every stretch before you start', async () 
   assert.equal(frames, drawn, 'an empty figure frame is in the list');
   assert.ok(drawn > 0, 'nothing in the list is illustrated at all');
 
-  assert.match(await page.locator('.st-intro-n').innerText(), /^\d+:\d\d$/);
+  assert.match(await page.locator('.st-intro-n').innerText(), /^\d+:\d\d mins$/);
   await page.context().close();
 });
 

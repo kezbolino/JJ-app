@@ -216,7 +216,7 @@ function runner(mount, routine, { beep, wake, onExit, token }) {
       h('div.st-done',
         h('div.st-done-ico', icon('flame')),
         h('h2', routine.id === 'post-class' ? 'Stretched off' : 'Session done'),
-        h('p', `${routine.items.length} ${routine.unit} · ${clock(totalMs)}. ${routine.doneNote}`),
+        h('p', `${routine.items.length} ${routine.unit} · ${clock(totalMs)} mins. ${routine.doneNote}`),
         h('div.btn-row',
           h('button.btn.primary', { type: 'button', onclick: () => onExit('again') }, 'Go again'),
           h('a.btn', { href: '#/log' }, 'Log a class'))));
@@ -371,13 +371,13 @@ export default async function stretch(root, { routine: routineId } = {}) {
       h('section.card.st-intro',
         h('div.st-intro-head',
           h('div',
-            h('div.st-intro-n', clock(routineMs(routine))),
+            h('div.st-intro-n', `${clock(routineMs(routine))} mins`),
             h('div.st-intro-l', `${routine.items.length} ${routine.unit} · ${segs.length} sets`)),
           h('div.st-intro-cycle',
-            h('span', `${ready / 1000}s ready`),
+            h('span', `${ready / 1000}s READY`),
             h('span.st-arrow', '→'),
-            h('span', `${work / 1000}s ${routine.workLabel.toLowerCase()}`),
-            ...(rest ? [h('span.st-arrow', '→'), h('span', `${rest / 1000}s rest`)] : []))),
+            h('span', `${work / 1000}s ${routine.workLabel.toUpperCase()}`),
+            ...(rest ? [h('span.st-arrow', '→'), h('span', `${rest / 1000}s REST`)] : []))),
         routine.needs.length
           ? h('p.st-needs', `You'll need: ${routine.needs.join(' · ')}`)
           : null,

@@ -1165,7 +1165,7 @@ a.cal__day:active { transform: scale(.9); }
 }
 .st-intro-cycle {
   display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end;
-  font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  font-size: .74rem; font-weight: 800; letter-spacing: .04em;
 }
 .st-intro-cycle span {
   background: var(--surface-2); color: var(--sub);
