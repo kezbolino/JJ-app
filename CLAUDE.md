@@ -1274,3 +1274,22 @@ data if forgotten:
   file-swap if it had been missed. All eight suites still green end to end
   (the pre-existing week-streak date flake noted in the v28 entry is
   unrelated and unchanged).
+- 2026-08-04 — **v28 + v29 deployed.** `main` was still serving v27; fast-
+  forwarded to `ae74638` (the head of `claude/whats-next-h1muoo`) and pushed,
+  so GitHub Pages now serves v29 at `https://kezbolino.github.io/JJ-app/`.
+  Ship gate before pushing: `CACHE` == `VERSION` (v29), clean tree, fast-
+  forward confirmed rather than a merge, all eight suites green except the
+  known pre-existing week-streak date flake (fails identically on unmodified
+  code, unrelated to anything in v28/v29).
+
+  Two versions in one push: v28's stretch-intro wording fix (lowercase
+  seconds, "mins" on the total so it can't be misread as a clock time), and
+  v29's spoken move names on both stretch routines. As with v23–v26, no
+  churn expected in `jj-app-data` — neither version touches `js/markdown.js`
+  or the entry model.
+
+  **Check the footer reads `Ju Ji v29` before judging anything on screen** —
+  same trap as every previous jump, and this one also needs the 26 new audio
+  clips under `audio/cues/` to actually download into the service worker's
+  cache, so the first open after updating may want a moment on wifi before
+  trusting an offline stretch session to have the voice cues.
