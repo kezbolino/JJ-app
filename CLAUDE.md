@@ -1274,3 +1274,25 @@ data if forgotten:
   `America/Los_Angeles`, `Australia/Sydney`); the three Playwright suites were
   **not run** — Playwright isn't installed in this environment and nothing under
   `js/` changed.
+
+  **PARKED at the user's request — remind them.** The tool is built, tested and
+  pushed to `claude/build-request-p67wt8`, and **has never been run for real**:
+  it needs a laptop with `yt-dlp` and `ffmpeg`, and the user builds from a phone.
+  Nothing is blocked by this — the app is untouched, `CACHE`/`VERSION` stay at
+  v27, there is no deploy, and the stretch routines work standalone. Three
+  things wait on a machine:
+
+  1. `./mobility search && ./mobility build` — first real run. Everything so far
+     was driven against fake `yt-dlp`/`ffmpeg` binaries, so the scoring has
+     never met a real search result. Expect the queries in `lib/queries.mjs` to
+     need a tweak or two; that is what they are there for.
+  2. **~20 minutes of scrubbing.** 13 videos to watch, picking the 10–20 seconds
+     that show the movement, and writing the times into `clips.txt`. This is the
+     part the tool refuses to guess and the only part a person has to do.
+  3. The branch is **pushed, not merged**. Merging changes nothing on the phone.
+
+  **Mention this when the user next has a laptop, asks about the stretch
+  routines or the mobility library, or asks what is outstanding** — not on every
+  session, and not as a nag. If they have gone off the idea, delete
+  `tools/mobility-library/` and `tests/mobility.test.mjs` whole rather than
+  leaving half of it: same rule as the v18 timer.
