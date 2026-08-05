@@ -735,6 +735,17 @@ await test('the round timer is gone — no route, no shortcut, no entry point', 
 // test above still has to pass alongside these.
 // ---------------------------------------------------------------------------
 
+await test('Home carries no stretch shortcut — the Off mat tab is the way in', async () => {
+  const page = await newPage();
+  await seed(page, [{ sections: { techniques: 'armbar' } }]);
+  await go(page, '/');
+  assert.equal(await page.locator('.view a[href="#/stretch"]').count(), 0,
+    'the "Stretch off" button is still on Home');
+  // Removed because the tab replaced it, so the tab had better still be there.
+  assert.equal(await page.locator('.tabbar a[href="#/stretch"]').count(), 1);
+  await page.context().close();
+});
+
 await test('the stretch routine lists every stretch before you start', async () => {
   const page = await newPage();
   await go(page, '/stretch');
@@ -1073,6 +1084,12 @@ await test('tapping a set logs it, and the draft survives leaving the screen', a
   // Completing a set starts the rest countdown for that movement.
   assert.ok(await page.locator('.sx-rest').isVisible(), 'no rest timer after a set');
   assert.match(await page.locator('.sx-rest-n').innerText(), /^[12]:\d\d$/);
+
+  // Skip rest shipped in v35 with no click handler at all — it looked like a
+  // button and did nothing. Assert the behaviour, not that the button exists.
+  await page.click('.sx-rest-skip');
+  await page.waitForTimeout(120);
+  assert.equal(await page.locator('.sx-rest:visible').count(), 0, 'Skip rest did not end the rest');
 
   // A lift runs over an hour and the phone will lock. Leaving must cost nothing.
   await go(page, '/log');

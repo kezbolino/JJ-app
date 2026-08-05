@@ -297,10 +297,16 @@ const SHAPES = {
              ['path', 'M17.5 7a7.4 7.4 0 0 1 0 10']],
   soundOff: [['path', 'M4 9.5h3.5L11 6v12L7.5 14.5H4Z'],
              ['line', 15, 10, 20, 15], ['line', 20, 10, 15, 15]],
-  // A cog: eight teeth around a hub. Drawn as one path so the stroke joins
-  // cleanly at this size — the primitives would leave gaps between the teeth.
-  gear:     [['circle', 12, 12, 3.1],
-             ['path', 'M12 2.4l1.5 2.2a7.6 7.6 0 0 1 2 .83l2.5-.7 1.06 1.84-1.8 1.9c.2.66.32 1.35.34 2.05l2.4 1.08v2.12l-2.4 1.08a7.6 7.6 0 0 1-.34 2.05l1.8 1.9-1.06 1.84-2.5-.7c-.62.36-1.3.64-2 .83L12 21.6l-1.5-2.2a7.6 7.6 0 0 1-2-.83l-2.5.7-1.06-1.84 1.8-1.9a7.6 7.6 0 0 1-.34-2.05L4 12.4v-2.12l2.4-1.08c.02-.7.14-1.39.34-2.05l-1.8-1.9L6 3.41l2.5.7c.62-.36 1.3-.64 2-.83L12 2.4Z']],
+  // Settings. This was a cog until v36, and the cog was the worst-drawn thing
+  // in the app: eight hand-placed teeth on a 24px grid came out uneven and
+  // soft-cornered, so at the 21px it actually renders at it read as a fuzzy
+  // blob rather than a gear. Sliders are the better answer twice over — they
+  // survive being small, because three straight rails and three round knobs is
+  // all there is to lose, and they match the rest of the set. Every other icon
+  // here is two or three strokes; the cog was the only one trying to be a
+  // picture of a machine part.
+  sliders:  [['path', 'M4 7h16M4 12h16M4 17h16'],
+             ['circle', 9, 7, 2.1], ['circle', 15.5, 12, 2.1], ['circle', 8, 17, 2.1]],
 };
 
 /** icon('search') → an <svg> node, sized by CSS (font/width). */

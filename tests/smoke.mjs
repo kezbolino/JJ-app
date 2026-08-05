@@ -89,12 +89,13 @@ await step('saves and returns home with the class counted', async () => {
 await page.screenshot({ path: `${SHOT}/03-home.png`, fullPage: true });
 
 // Settings has no tab of its own, and the cloud button stops linking to it once
-// sync is configured — so the gear on Home is the one route that always works.
-await step('the gear on Home opens Settings', async () => {
+// sync is configured — so the settings button on Home is the one route that
+// always works. (It was a cog until v36; the icon changed, the button did not.)
+await step('the settings button on Home opens Settings', async () => {
   await page.click('.settings-btn');
   await page.waitForSelector('.page-title');
   const title = await page.locator('.page-title').innerText();
-  if (title !== 'Settings') throw new Error(`gear landed on "${title}", not Settings`);
+  if (title !== 'Settings') throw new Error(`the settings button landed on "${title}", not Settings`);
   await page.click('a[data-tab="/"]');
   await page.waitForSelector('.sbit-total');
 });

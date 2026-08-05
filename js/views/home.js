@@ -18,7 +18,6 @@ import {
 } from '../ui.js';
 import { positionLabel, ROLE_LABEL } from '../ontology.js';
 import { monthOf, monthLabel, shiftMonth } from '../dates.js';
-import { routineMs, getRoutine, DEFAULT_ROUTINE } from '../stretches.js';
 import * as store from '../store.js';
 import * as sync from '../sync.js';
 import { renderToken, isCurrent } from '../render.js';
@@ -70,7 +69,7 @@ function brandRow(syncCtl, standing) {
   return h('div.brand-row', brandMark(standing),
     h('div.brand-actions',
       h('a.avatar-btn.settings-btn', { href: '#/settings', 'aria-label': 'Settings', title: 'Settings' },
-        icon('gear')),
+        icon('sliders')),
       syncCtl));
 }
 
@@ -378,12 +377,9 @@ export default async function home(root) {
     lastSession(entries),
     h('div.btn-row', { style: 'margin-top:16px' },
       h('a.btn.primary.wide.cta', { href: '#/log' }, icon('plus'), 'Log a class')),
-    // The cool-down sits under the log CTA because that is the same moment:
-    // you have just finished, you are about to write it up. The minutes come
-    // from the routine itself so the label can't drift from what it runs, and
-    // the rest-day session is one tap further in, behind the picker.
-    h('div.btn-row', { style: 'margin-top:10px' },
-      h('a.btn.wide.stretch-cta', { href: '#/stretch' },
-        `Stretch off · ${Math.round(routineMs(getRoutine(DEFAULT_ROUTINE)) / 60000)} min`)),
+    // The "Stretch off · 14 min" button that used to sit here is gone (v36, at
+    // the user's request). It predated the Off mat tab: when the cool-down was
+    // reachable only from Home it needed a door, and since v31 it has had one
+    // in the tab bar. Home is for the front door, not a second one.
   ].filter(Boolean));
 }

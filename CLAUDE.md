@@ -1660,6 +1660,43 @@ data if forgotten:
   visible tell that it landed is the tab bar — the middle tab should read
   **Off mat**, not Stretch.
 
+- 2026-08-05 — **v36: Skip rest fixed, Home's stretch shortcut removed, the cog
+  replaced.** Four small things off the back of the user testing v35 on the
+  phone.
+
+  **`Skip rest` did nothing, and that is on me.** The button was built,
+  appended and styled in v35 and never had a click handler attached — it looked
+  like a control and was inert. No test covered it, which is the actual lesson:
+  the v35 suite asserted the rest timer *appeared*, so a button that did nothing
+  passed every check. The fix is one line; the test that now pins it was
+  verified against the broken code first (it fails with "Skip rest did not end
+  the rest") rather than being written after the fact and assumed to work.
+  Skipping stops the beeps as well as the countdown — ending a rest early means
+  you are going again now, so the 3-2-1 would land mid-set.
+
+  **Home lost the "Stretch off · 14 min" button** at the user's request. It
+  predated the Off mat tab: when the cool-down was reachable only from Home it
+  needed a door, and it has had one in the tab bar since v31. `routineMs` /
+  `getRoutine` / `DEFAULT_ROUTINE` dropped out of `home.js`'s imports with it —
+  a removal that leaves an unused import behind is how a file slowly stops
+  telling the truth about what it depends on. Test pins both halves: no
+  `#/stretch` link in `.view`, and the tab that replaced it is still there.
+
+  **The cog is gone; Settings is `sliders` now.** The user said it "looks shit"
+  and they were right — rendered at 4× it is a soft, lumpy blob with eight
+  uneven teeth, and at the 21px it actually ships at it reads as a smudge. It
+  was the only icon in `SHAPES` trying to be a picture of a machine part; every
+  other one is two or three strokes. Three rails and three knobs survive being
+  small because there is nothing in them to lose. Compared against a properly
+  computed 8-tooth gear before choosing (contact sheet at 21px and 3×) — the
+  clean gear is a real improvement on the old one and still lost to the
+  sliders on legibility at size. `gear` is **removed** from `SHAPES`, not left
+  orphaned; `.settings-btn` is unchanged, so the smoke test's route assertion
+  needed only a wording fix.
+
+  Nine suites green (the known week-streak date flake aside). sw `CACHE` → v36,
+  `VERSION` → v36, no files added or removed.
+
 ## Parked — pick this up next session
 
 **The user is re-recording the voice cues, and the script is written and

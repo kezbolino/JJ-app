@@ -64,7 +64,10 @@ function createRestTimer(beep, wake, token) {
   const count = h('span.sx-rest-n');
   const label = h('span.sx-rest-l');
   const bar = h('i');
-  const skip = h('button.sx-rest-skip', { type: 'button' }, 'Skip rest');
+  // Skip has to stop the timer *and* the beeps. Ending the rest early means
+  // you are going again now, so the 3-2-1 and the "go" tone would land in the
+  // middle of your next set.
+  const skip = h('button.sx-rest-skip', { type: 'button', onclick: () => stop() }, 'Skip rest');
   const el = h('div.sx-rest', { hidden: true },
     h('div.sx-rest-head', label, count),
     h('div.sx-rest-rail', bar),
