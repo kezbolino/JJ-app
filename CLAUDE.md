@@ -1643,6 +1643,23 @@ data if forgotten:
   `js/strength.js`, `js/beeps.js`, `js/wakelock.js` and `js/views/strength.js`
   added to `SHELL`.
 
+- 2026-08-05 — **v35 deployed.** `main` fast-forwarded from v34 (`ab9fa6a`) to
+  `5afa9b3` and pushed, so GitHub Pages is serving v35 at
+  `https://kezbolino.github.io/JJ-app/`. Ship gate before pushing: nine suites
+  green (the known week-streak date flake aside; `schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`), `CACHE` == `VERSION` == v35,
+  clean tree, fast-forward confirmed rather than a merge.
+
+  **No churn expected in `jj-app-data`.** Nothing in v35 touches
+  `js/markdown.js` or the entry model — strength sessions are settings rows, not
+  entries, and settings have never been part of the notes-repo mirror.
+
+  **Check the footer reads `JUJI v35` before judging anything on screen.** Same
+  trap as every previous deploy: the installed PWA serves the old shell until
+  the service worker takes the new `CACHE`, so close it fully and reopen. The
+  visible tell that it landed is the tab bar — the middle tab should read
+  **Off mat**, not Stretch.
+
 ## Parked — pick this up next session
 
 **The user is re-recording the voice cues, and the script is written and
