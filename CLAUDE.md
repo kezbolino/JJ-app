@@ -1697,6 +1697,32 @@ data if forgotten:
   Nine suites green (the known week-streak date flake aside). sw `CACHE` → v36,
   `VERSION` → v36, no files added or removed.
 
+- 2026-08-05 — **v37: the Off mat tab icon is a dumbbell.** The stick figure
+  added in v31 was the only *pictorial* icon in a nav bar of two- and
+  three-stroke glyphs (house, plus-circle, chart line, books), and it packed a V
+  of arms and a V of legs within a few pixels of each other — at the 21px it
+  renders at, the two Vs merged and the head detached, so it read as a scribbled
+  asterisk.
+
+  Drew fourteen candidates across two rounds and rendered every one **inside the
+  real nav bar at real size**, which is the only test that means anything —
+  judged as isolated 24px artwork, several of the rejects looked fine. What that
+  caught: a kettlebell reads as a handbag (the handle arc merges with the bell),
+  a rolled mat reads as a toggle switch, and a "flex arc" reads as a trending-up
+  arrow. The user picked the dumbbell over a properly redrawn figure and over a
+  minimal lengthen-arrow.
+
+  **Worth knowing, because it is a real tension and not an oversight:** the tab
+  holds three things and two of them are stretching, so a dumbbell leans on the
+  strength third — and the programme is bodyweight, so it also implies weights
+  that are not in it. Chosen anyway, with that stated: it is the one candidate
+  legible at a glance, and five straight strokes is a shape with nothing to lose
+  at small size. If it ever reads as over-claiming, option 4 from that round (a
+  redrawn figure, arms up) is the swap.
+
+  The tab bar's icons are **inline SVG in `index.html`**, not entries in
+  `SHAPES` — nothing in `js/ui.js` changed. sw `CACHE` → v37, `VERSION` → v37.
+
 ## Parked — pick this up next session
 
 **The user is re-recording the voice cues, and the script is written and
