@@ -1725,10 +1725,16 @@ data if forgotten:
 
 ## Parked — pick this up next session
 
+**Everything through v37 is shipped and deployed.** `main` and
+`claude/stretch-section-addition-3j1lvr` both sit at `3065cb1`, `CACHE` ==
+`VERSION` == v37, tree clean. v35 (the strength module + the Off mat rename),
+v36 (Skip rest, Home's stretch shortcut, the cog) and v37 (the dumbbell tab
+icon) all went out in the same session, each as its own fast-forward.
+
 **The user is re-recording the voice cues, and the script is written and
-waiting below.** Nothing is half-built in the repo: v34 is shipped, the tree
-is clean, and the currently-deployed clips still work. This is a "when the
-new MP3s arrive" job, not an unfinished one.
+waiting below.** Nothing is half-built in the repo: the currently-deployed
+clips still work. This is a "when the new MP3s arrive" job, not an unfinished
+one.
 
 **Why they're being re-recorded.** The 26 clips in `audio/cues/` were cut from
 two continuous takes with no reliable gaps between lines, so the cut points
