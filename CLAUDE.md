@@ -1723,18 +1723,63 @@ data if forgotten:
   The tab bar's icons are **inline SVG in `index.html`**, not entries in
   `SHAPES` — nothing in `js/ui.js` changed. sw `CACHE` → v37, `VERSION` → v37.
 
+- 2026-08-05 — **v38: "now the other side" cues.** The user recorded the file-3
+  script parked last session and asked for it cut up and played during the 10s
+  get-ready phase of a two-sided movement, picked at random. Six lines in the
+  take, not the eight the script listed.
+
+  **The cut was ordinary this time, and that is the whole story.** The take has
+  a deliberate pause after every line — gaps of 1.16–1.89s — so
+  `silencedetect=noise=-35dB:d=0.28` found six speech runs directly and there
+  was none of the v29 word-count-proportion guesswork. Padded 90ms in / 140ms
+  out, which cannot reach a neighbour across a 1.16s gap. Checked the arithmetic
+  rather than trusting it: speech in the source is 8.33s and speech in the six
+  cuts is 8.33s, so nothing was dropped.
+
+  **Both v32 traps were paid attention to.** Cut in **two passes** — trim to an
+  intermediate mono WAV with no filter, then fade and encode to opus in a
+  separate invocation, because combining `-ss`/`-t` with `afade` in one command
+  is what silently produced 24 empty files. And verified with `volumedetect`:
+  all six read -19 to -24 dB mean, in line with the existing clips. **There is
+  no ffmpeg in this session's image** — `pip install imageio-ffmpeg` provides a
+  static 7.0.2 build with libopus, which is the way to get one.
+
+  **`pickOtherSide(last, rand)` is pure and lives in `js/stretches.js`, not in
+  the view.** That is not tidiness: the browser caches a decoded clip, so a
+  repeat play fires **no network request**, and a Playwright test watching
+  requests silently undercounts — the first version of that test failed
+  claiming "only 4 cues fired" when eight had. The choice is the only part of
+  the audio path checkable without ears, so it has to be reachable from node.
+  Four unit tests cover it: never repeats back to back, every take reachable
+  from every previous take, uniform over the five it may pick, and every number
+  it can return has a file in `SHELL`. The first draft had a fencepost that made
+  take 1 unreachable on the opening draw — the reachability test is there
+  because of it.
+
+  **The "is this the second side?" test is `segs[i-1].item.id === segs[i].item.id`,
+  not `side === 'Right side'`.** The label is display copy; keying audio to it
+  means a copy edit silently changes what you hear.
+
+  The browser test that remains checks the clips rather than the picker: all six
+  load, decode, run 0.5–4s, and have a **peak above 0.05** — measured off the
+  decoded samples, because a valid container of the right duration with silence
+  in it is exactly what shipped twice in v29.
+
+  Nine suites green (the known week-streak date flake aside). sw `CACHE` → v38,
+  `VERSION` → v38; the six clips added to `SHELL`.
+
 ## Parked — pick this up next session
 
-**Everything through v37 is shipped and deployed.** `main` and
-`claude/stretch-section-addition-3j1lvr` both sit at `3065cb1`, `CACHE` ==
-`VERSION` == v37, tree clean. v35 (the strength module + the Off mat rename),
-v36 (Skip rest, Home's stretch shortcut, the cog) and v37 (the dumbbell tab
-icon) all went out in the same session, each as its own fast-forward.
+**Everything through v38 is shipped and deployed.** v35 (the strength module +
+the Off mat rename), v36 (Skip rest, Home's stretch shortcut, the cog), v37
+(the dumbbell tab icon) and v38 (the "other side" cues) all went out in the
+same session, each as its own fast-forward.
 
-**The user is re-recording the voice cues, and the script is written and
-waiting below.** Nothing is half-built in the repo: the currently-deployed
-clips still work. This is a "when the new MP3s arrive" job, not an unfinished
-one.
+**The user is re-recording the voice cues. File 3 of 3 is done (v38); files 1
+and 2 are still outstanding**, and their scripts are below. Nothing is
+half-built in the repo: the currently-deployed per-move clips still work — they
+are just cut less accurately than the new ones. This is a "when the MP3s
+arrive" job, not an unfinished one.
 
 **Why they're being re-recorded.** The 26 clips in `audio/cues/` were cut from
 two continuous takes with no reliable gaps between lines, so the cut points
@@ -1803,17 +1848,8 @@ Other side, and don't slack, bitch. [LONG PAUSE]
 Switch sides, big homie. Same energy. [LONG PAUSE]
 ```
 
-**What file 3 changes.** Today `attachRunning`'s tick calls
-`voice.say(item.id)` on every `ready` phase, so a two-sided move announces its
-own name twice — which is what the user got bored of. **14 of the 30 movements
-are bilateral** (8 in the cool-down, 6 in rest day), so this fires constantly.
-Plan agreed with them: cut file 3 to `audio/cues/other-side-1.webm` …
-`other-side-8.webm`, and when the segment being entered is the *second* side of
-a bilateral item, play one of those in rotation instead of the move name. The
-segment already carries `side` (`'Left side'` / `'Right side'`) from
-`segments()` in `js/stretches.js`, so the condition is available without
-touching the data model. Deliberately generic lines, 8 of them, so any one can
-follow any move and none needs to be re-recorded if the routines change.
+**File 3 is DONE — shipped in v38, six takes not eight.** The rest of this
+section (files 1 and 2, the per-move names) is still outstanding.
 
 **When cutting these, read the v32 entry first.** Two traps, both already paid
 for: cut in **two passes** (trim to an intermediate WAV, *then* fade and

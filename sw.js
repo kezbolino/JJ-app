@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v37';
+const CACHE = 'jj-app-v38';
 
 const SHELL = [
   './',
@@ -65,6 +65,15 @@ const SHELL = [
   'audio/cues/neck-side.webm',
   'audio/cues/ninety-ninety-liftoff.webm',
   'audio/cues/ninety-ninety.webm',
+  // The six "now the other side" takes, played instead of the move's own
+  // name on the second half of a two-sided movement (see cueFor in
+  // js/views/stretch.js). Picked at random, so all six have to be here.
+  'audio/cues/other-side-1.webm',
+  'audio/cues/other-side-2.webm',
+  'audio/cues/other-side-3.webm',
+  'audio/cues/other-side-4.webm',
+  'audio/cues/other-side-5.webm',
+  'audio/cues/other-side-6.webm',
   'audio/cues/pigeon.webm',
   'audio/cues/quad-kneel.webm',
   'audio/cues/seated-fold.webm',

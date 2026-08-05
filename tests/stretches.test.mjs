@@ -3,9 +3,10 @@
 //   node tests/stretches.test.mjs
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
-  READY_MS, HOLD_MS, SEGMENT_MS,
+  READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, pickOtherSide,
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
 
@@ -146,6 +147,51 @@ test('both routines land in the window they were asked for', () => {
   assert.ok(rest >= 15 && rest <= 26, `rest day is ${rest} min, nowhere near the ~25 the warm-up brings it to`);
   for (const r of ROUTINES) {
     assert.equal(routineMs(r), segments(r).length * segmentMs(r), `${r.id} total`);
+  }
+});
+
+test('the "other side" picker never repeats itself back to back', () => {
+  // This is the property that matters: you hear this line 14 times a session,
+  // and a take following itself is what makes a random line sound broken.
+  let last = 0;
+  for (let i = 0; i < 3000; i++) {
+    const n = pickOtherSide(last);
+    assert.ok(Number.isInteger(n) && n >= 1 && n <= OTHER_SIDE_CUES, `picked ${n}, out of range`);
+    assert.notEqual(n, last, 'the same take played twice running');
+    last = n;
+  }
+});
+
+test('every "other side" take is reachable, including the first and last', () => {
+  // A fencepost in the skip-over would silently strand one take forever, and
+  // nothing on screen would ever show it.
+  for (let start = 0; start <= OTHER_SIDE_CUES; start++) {
+    const seen = new Set();
+    for (let i = 0; i < 2000; i++) seen.add(pickOtherSide(start));
+    const expected = start >= 1 && start <= OTHER_SIDE_CUES ? OTHER_SIDE_CUES - 1 : OTHER_SIDE_CUES;
+    assert.equal(seen.size, expected, `from ${start}, only reached ${[...seen].sort().join()}`);
+  }
+});
+
+test('the picker is uniform over the takes it is allowed to choose', () => {
+  // rand is injectable precisely so this is checkable: the browser caches a
+  // decoded clip, so a repeat play fires no request and no network-watching
+  // test could ever see these choices.
+  const at = v => () => v;                        // a stubbed Math.random
+  assert.deepEqual([0, 0.2, 0.4, 0.6, 0.8].map(v => pickOtherSide(3, at(v))), [1, 2, 4, 5, 6]);
+  assert.deepEqual([0, 0.2, 0.4, 0.6, 0.8].map(v => pickOtherSide(1, at(v))), [2, 3, 4, 5, 6]);
+  assert.deepEqual([0, 0.2, 0.4, 0.6, 0.8].map(v => pickOtherSide(6, at(v))), [1, 2, 3, 4, 5]);
+  // No previous take: all six, so take 1 can open a session.
+  assert.deepEqual([0, 0.99].map(v => pickOtherSide(0, at(v))), [1, 6]);
+});
+
+test('there is a recorded take behind every number the picker can return', () => {
+  // The clips are precached in sw.js by name; a picker that can return a
+  // number with no file behind it is a silent cue offline.
+  const shell = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  for (let i = 1; i <= OTHER_SIDE_CUES; i++) {
+    assert.ok(shell.includes(`audio/cues/other-side-${i}.webm`),
+      `other-side-${i}.webm is not in the service worker's SHELL`);
   }
 });
 

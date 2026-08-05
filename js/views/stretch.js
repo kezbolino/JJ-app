@@ -45,7 +45,7 @@ import { createBeeper } from '../beeps.js';
 import { createWakeLock } from '../wakelock.js';
 import {
   DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs,
-  clock, stretchFigure,
+  clock, stretchFigure, pickOtherSide,
 } from '../stretches.js';
 
 /**
@@ -118,6 +118,25 @@ function createVoice() {
 
 let session = null;
 
+/**
+ * Which clip to announce as a segment starts: the movement's own name, or —
+ * on the second half of a two-sided movement — one of the generic "now the
+ * other side" takes. `pickOtherSide` lives in js/stretches.js so it can be
+ * unit-tested; the choice is the only part of the audio path checkable
+ * without ears.
+ *
+ * **The test for "second side" is that the previous segment is the same
+ * movement**, not that the side is labelled "Right side". `segments()` happens
+ * to word it that way today; keying audio to a display string means a copy edit
+ * silently changes what you hear.
+ */
+function cueFor(s, i) {
+  const isSecondSide = i > 0 && s.segs[i - 1].item.id === s.segs[i].item.id;
+  if (!isSecondSide) return s.segs[i].item.id;
+  s.lastOtherSide = pickOtherSide(s.lastOtherSide);
+  return `other-side-${s.lastOtherSide}`;
+}
+
 const sessionElapsed = s => s.baseElapsed + (s.anchor === null ? 0 : performance.now() - s.anchor);
 const sessionRunning = s => s.anchor !== null;
 
@@ -143,8 +162,7 @@ function engineTick() {
   if (key !== s.lastKey) {
     s.lastKey = key;
     s.lastCount = -1;
-    const { item } = s.segs[st.i];
-    if (st.phase === 'ready') { s.beep.ready(); if (!s.beep.isMuted()) s.voice.say(item.id); }
+    if (st.phase === 'ready') { s.beep.ready(); if (!s.beep.isMuted()) s.voice.say(cueFor(s, st.i)); }
     else if (st.phase === 'work') s.beep.go();
     else s.beep.rest();
   }
@@ -171,7 +189,7 @@ function startSession(routine) {
     READY: routine.phases.ready, WORK: routine.phases.work,
     totalMs: segs.length * segmentMs(routine),
     baseElapsed: 0, anchor: performance.now(),
-    lastKey: '', lastCount: -1, finished: false,
+    lastKey: '', lastCount: -1, lastOtherSide: 0, finished: false,
     beep, voice, wake, timer: null, renderers: new Set(),
   };
   s.onVisible = () => { if (sessionRunning(s)) s.wake.reacquire(); };

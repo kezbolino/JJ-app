@@ -380,6 +380,38 @@ export function clock(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * "Now the other side" — how many takes are recorded in audio/cues/.
+ *
+ * 14 of the 30 movements are two-sided, so announcing the move's name on both
+ * halves means hearing the same line twice, 14 times a session. The second half
+ * plays one of these instead. They are deliberately generic, so any one can
+ * follow any movement and none needs re-recording if a routine changes.
+ */
+export const OTHER_SIDE_CUES = 6;
+
+/**
+ * Pick a take, never the one that just played.
+ *
+ * Pure, and `rand` is injectable, because this is the only part of the audio
+ * path that can be checked without ears: the browser caches a decoded clip, so
+ * a second play of the same take fires no network request and a test watching
+ * requests silently undercounts. Test the choice, not the fetch.
+ *
+ * Uniform over the other five rather than re-rolling until it differs — a
+ * re-roll loop is unbounded in principle, and this runs mid-routine.
+ */
+export function pickOtherSide(last, rand = Math.random) {
+  // No previous take (start of a session): every one is fair game. Without
+  // this branch the skip-over below shifts every result up by one and take 1
+  // can never play first.
+  if (!(last >= 1 && last <= OTHER_SIDE_CUES)) {
+    return 1 + Math.floor(rand() * OTHER_SIDE_CUES);
+  }
+  const n = 1 + Math.floor(rand() * (OTHER_SIDE_CUES - 1));   // 1..5
+  return n >= last ? n + 1 : n;                               // skip over `last`
+}
+
 /** Does this item have a drawing yet? See PENDING_ART in stretch-art.js. */
 export function hasArt(item) {
   return Boolean(ART[item?.id]);

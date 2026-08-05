@@ -966,22 +966,55 @@ await test('each move announces itself by name, and muting stops it', async () =
   await page.waitForSelector('.st-count');
   assert.deepEqual(requests, ['neck-side.webm'], 'the first stretch did not announce itself');
 
-  // Neck side stretch is bilateral, so skipping once lands on its own right
-  // side — same clip, decoded once and replayed from the buffer, not
-  // re-fetched. Skipping again reaches a different move (wrist-floor), which
-  // has to be a fresh fetch.
+  // Neck side stretch is bilateral, so skipping once lands on its second side.
+  // That does NOT repeat the move's name — it plays one of the six generic
+  // "now the other side" takes, which is the whole point of them.
   await page.click('.st-skip');
-  await page.waitForTimeout(200);
-  assert.deepEqual(requests, ['neck-side.webm'], 'the same side re-fetched a clip already decoded');
+  await page.waitForTimeout(250);
+  assert.equal(requests.length, 2, 'the second side announced nothing');
+  assert.match(requests[1], /^other-side-[1-6]\.webm$/,
+    `the second side repeated the move name instead of "other side" (got ${requests[1]})`);
 
+  // Skipping again reaches a different move (wrist-floor), by name.
   await page.click('.st-skip');
-  await page.waitForTimeout(200);
-  assert.deepEqual(requests, ['neck-side.webm', 'wrist-floor.webm'], 'the next move stayed silent');
+  await page.waitForTimeout(250);
+  assert.equal(requests[2], 'wrist-floor.webm', 'the next move stayed silent or said the wrong thing');
 
   await page.click('.st-sound');
   await page.click('.st-skip');
-  await page.waitForTimeout(200);
-  assert.equal(requests.length, 2, 'muting the sound did not also mute the voice cue');
+  await page.waitForTimeout(250);
+  assert.equal(requests.length, 3, 'muting the sound did not also mute the voice cue');
+  await page.context().close();
+});
+
+await test('every "other side" take is a real clip with sound in it', async () => {
+  // The clips themselves, not the picker — that is unit-tested in
+  // tests/stretches.test.mjs, where the choice can be seen. What a browser can
+  // check is that all six exist, decode, and are not silent: a webm can be a
+  // perfectly valid container with nothing in it, which is exactly what shipped
+  // twice in v29. Duration alone proved nothing then and proves nothing now.
+  const page = await newPage();
+  const report = await page.evaluate(async n => {
+    const ctx = new AudioContext();
+    const out = [];
+    for (let i = 1; i <= n; i++) {
+      const res = await fetch(`audio/cues/other-side-${i}.webm`);
+      const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+      const data = buf.getChannelData(0);
+      let peak = 0;
+      for (let j = 0; j < data.length; j++) peak = Math.max(peak, Math.abs(data[j]));
+      out.push({ i, ok: res.ok, seconds: buf.duration, peak });
+    }
+    return out;
+  }, 6);
+
+  for (const clip of report) {
+    assert.ok(clip.ok, `other-side-${clip.i}.webm did not load`);
+    assert.ok(clip.seconds > 0.5 && clip.seconds < 4,
+      `other-side-${clip.i} is ${clip.seconds.toFixed(2)}s, which is not a short spoken line`);
+    assert.ok(clip.peak > 0.05,
+      `other-side-${clip.i} decodes but is silent (peak ${clip.peak.toFixed(4)})`);
+  }
   await page.context().close();
 });
 
