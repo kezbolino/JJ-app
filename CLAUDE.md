@@ -1537,3 +1537,102 @@ data if forgotten:
   All eight suites green (known week-streak flake aside), screenshot-checked
   the new section and badge in light and dark. sw `CACHE` → v34, `VERSION` →
   v34, no files added or removed.
+
+## Parked — pick this up next session
+
+**The user is re-recording the voice cues, and the script is written and
+waiting below.** Nothing is half-built in the repo: v34 is shipped, the tree
+is clean, and the currently-deployed clips still work. This is a "when the
+new MP3s arrive" job, not an unfinished one.
+
+**Why they're being re-recorded.** The 26 clips in `audio/cues/` were cut from
+two continuous takes with no reliable gaps between lines, so the cut points
+had to be estimated from word-count proportions and snapped to whatever
+silence could be detected (see the v29 entry). The user judged the result not
+good enough and is re-recording with a deliberate pause after every line.
+**That pause is the whole point** — with real gaps, cutting becomes ordinary
+silence-splitting instead of guesswork.
+
+**Three files are being recorded**, and the script below is exactly what was
+handed over. `[LONG PAUSE]` marks each cut point. Move names are verbatim from
+`js/stretches.js` and must not drift — everything around them is flavour, and
+the voice is a deliberate Snoop Dogg impression the user chose and has been
+using since v29.
+
+*File 1 — cool-down (`post-class`), 13 lines, in routine order:*
+
+```
+Next up is the neck side stretch, ease into it nephew. [LONG PAUSE]
+Kneeling wrist stretch, fo shizzle — your grip been through it, bitch. [LONG PAUSE]
+Child's pose next. Drop down and breathe, laid back. [LONG PAUSE]
+Now we threadin' the needle, cuz. Twist it out. [LONG PAUSE]
+Half-kneeling ankle rock. Rock it slow, yadadamean. [LONG PAUSE]
+Kneeling hip flexor lunge — open them hips up, bitch. [LONG PAUSE]
+Kneeling quad stretch next, young'n. Don't rush it. [LONG PAUSE]
+Pigeon stretch. This one's gon' hurt, hold it down anyway. [LONG PAUSE]
+Frog stretch, big homie. Knees out, breathe through it, bitch. [LONG PAUSE]
+Ninety ninety hip stretch. Sit in it, no stress. [LONG PAUSE]
+Seated forward fold. Reach for them toes, fo shizzle. [LONG PAUSE]
+Sphinx pose next. Chest up, nice and smooth. [LONG PAUSE]
+Last one — supine spinal twist. Let the floor hold you down, bitch. [LONG PAUSE]
+```
+
+*File 2 — rest day (`rest-day`), 17 lines; the first four are the v34 warm-up:*
+
+```
+March in place, let's get it warmed up nephew. [LONG PAUSE]
+Bodyweight squat pulses. Keep it movin', bitch. [LONG PAUSE]
+Arm circles next. Big and slow, then flip it. [LONG PAUSE]
+Leg swings, cuz. Let it swing, don't force it. [LONG PAUSE]
+Deep squat hold. Sit all the way down in it, fo shizzle. [LONG PAUSE]
+Cossack squat next. Shift that weight over, bitch. [LONG PAUSE]
+Ninety ninety lift-off. Small range, all control, yadadamean. [LONG PAUSE]
+Single-leg glute bridge. Drive through that heel, nephew. [LONG PAUSE]
+Copenhagen plank. This the groin killer — hold it down. [LONG PAUSE]
+Single-leg RDL, young'n. Balance or fall, bitch. [LONG PAUSE]
+Jefferson curl. Roll it down slow, one bone at a time. [LONG PAUSE]
+Prone thoracic press-up. Chest up, hips stay down, laid back. [LONG PAUSE]
+Scapular wall slide. Elbows on that wall, keep 'em there. [LONG PAUSE]
+Dead hang next. Just hang there and chill, fo shizzle. [LONG PAUSE]
+Neck isometrics. Light pressure, don't be a hero, bitch. [LONG PAUSE]
+Bear crawl, cuz. Hips low, crawl it out. [LONG PAUSE]
+Last move — side plank. Hold that line, big homie. [LONG PAUSE]
+```
+
+*File 3 — "other side" variations, 8 lines. **This one is new and needs code.***
+
+```
+Now the other side, bitch. [LONG PAUSE]
+Flip it over, nephew. [LONG PAUSE]
+Other side now, fo shizzle. [LONG PAUSE]
+Switch it up, cuz. [LONG PAUSE]
+Same thing, other side — let's go bitch. [LONG PAUSE]
+Roll it over to the other side, young'n. [LONG PAUSE]
+Other side, and don't slack, bitch. [LONG PAUSE]
+Switch sides, big homie. Same energy. [LONG PAUSE]
+```
+
+**What file 3 changes.** Today `attachRunning`'s tick calls
+`voice.say(item.id)` on every `ready` phase, so a two-sided move announces its
+own name twice — which is what the user got bored of. **14 of the 30 movements
+are bilateral** (8 in the cool-down, 6 in rest day), so this fires constantly.
+Plan agreed with them: cut file 3 to `audio/cues/other-side-1.webm` …
+`other-side-8.webm`, and when the segment being entered is the *second* side of
+a bilateral item, play one of those in rotation instead of the move name. The
+segment already carries `side` (`'Left side'` / `'Right side'`) from
+`segments()` in `js/stretches.js`, so the condition is available without
+touching the data model. Deliberately generic lines, 8 of them, so any one can
+follow any move and none needs to be re-recorded if the routines change.
+
+**When cutting these, read the v32 entry first.** Two traps, both already paid
+for: cut in **two passes** (trim to an intermediate WAV, *then* fade and
+encode — combining `-ss`/`-t` with `afade` in one command silently produced 24
+completely silent files), and verify the output with
+`ffmpeg -af volumedetect`, never just that it decodes. A valid container with
+the right duration and no sound in it is exactly the failure that shipped
+twice.
+
+**Also still open**, unchanged and unrelated to the audio: 19 movements have no
+artwork (`PENDING_ART` in `js/stretch-art.js` — the 15 from v27 plus the four
+v34 warm-up items); `docs/AUDIT.md` §4–§9; and focuses/`likedMoves` are still
+device-local and do not sync.
