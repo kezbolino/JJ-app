@@ -243,6 +243,75 @@ export async function toggleLikedMove(move) {
   return next;
 }
 
+// ---- strength sessions ----------------------------------------------------
+// The once-a-week bodyweight lift (js/strength.js). Kept as settings rows, not
+// as `entries`, and that is a deliberate call worth knowing about:
+//
+//   - An entry's backup format is a **fixed tiny grammar** of front-matter
+//     scalars and inline lists (js/markdown.js). A session is an array of
+//     exercises each holding an array of sets — there is no honest way to write
+//     that in that grammar, and adding YAML to do it is exactly what
+//     CLAUDE.md says not to do.
+//   - Settings ride along in Library → Export/Import for free, and are not on
+//     the DEVICE_LOCAL_SETTINGS skip list, so a restored phone gets the log
+//     back.
+//
+// The cost, stated plainly: like focuses and likedMoves, **strength sessions do
+// not sync to the notes repo yet.** Export is the backup until they do.
+
+/** Every completed session, oldest first. */
+export async function getStrengthSessions() {
+  const list = await getSetting('strengthSessions', []);
+  return Array.isArray(list) ? [...list].sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id)) : [];
+}
+
+export const setStrengthSessions = list => setSetting('strengthSessions', list);
+
+/**
+ * The session currently being worked through, or null.
+ *
+ * A lift runs over an hour and gets logged set by set, so it has to survive the
+ * app being closed, the phone locking, and the router clearing the screen. It
+ * is written back on every tap rather than held in memory.
+ */
+export const getStrengthDraft = () => getSetting('strengthDraft', null);
+export const setStrengthDraft = draft => setSetting('strengthDraft', draft);
+export const clearStrengthDraft = () => setSetting('strengthDraft', null);
+
+/** File a finished session and clear the draft. Returns the new list. */
+export async function saveStrengthSession(session) {
+  const sessions = await getStrengthSessions();
+  const next = [...sessions.filter(s => s.id !== session.id), session];
+  await setStrengthSessions(next);
+  await clearStrengthDraft();
+  return next;
+}
+
+/** Exercises muted while something is sore — skipped, without skipping the lot. */
+export const getMutedExercises = () => getSetting('strengthMuted', []);
+export async function toggleMutedExercise(id) {
+  const muted = await getMutedExercises();
+  const next = muted.includes(id) ? muted.filter(m => m !== id) : [...muted, id];
+  await setSetting('strengthMuted', next);
+  return next;
+}
+
+/**
+ * Classes and lifts in one week's count.
+ *
+ * The honest version of a load metric: it counts sessions, which is a fact, and
+ * says nothing about intensity, which it cannot know. Same rule as coverage —
+ * the app reports what was written down, never how hard you worked.
+ */
+export function weekLoad(entries, strengthSessions, today = todayISO()) {
+  const since = addDays(today, -6);
+  const inWeek = d => d >= since && d <= today;
+  return {
+    classes: entries.filter(e => e.type === 'class' && inWeek(e.date)).length,
+    lifts: (strengthSessions ?? []).filter(s => inWeek(s.date)).length,
+  };
+}
+
 // ---- queries -------------------------------------------------------------
 
 const daysAgo = n => addDays(todayISO(), -n);
@@ -383,18 +452,31 @@ export function activePositions(entries) {
 // unlike coverage it says something real in week one. That is the point: it is
 // the part of the app that works before there is any history to read.
 
-/** date → what happened that day. The calendar grid reads this. */
-export function trainingIndex(entries) {
+/**
+ * date → what happened that day. The calendar grid reads this.
+ *
+ * Strength sessions land in the same index as classes, marked separately, so
+ * the one calendar shows everything you did rather than making the lift a
+ * second calendar somewhere else. A day can hold both, and often should: the
+ * rule the programme is built on is lift *after* jiu jitsu, never before.
+ */
+export function trainingIndex(entries, strengthSessions = []) {
   const index = new Map();
+  const dayFor = date => {
+    const day = index.get(date) ?? { count: 0, gi: 0, nogi: 0, lifts: 0, ids: [] };
+    index.set(date, day);
+    return day;
+  };
+
   for (const entry of entries) {
     if (entry.type !== 'class') continue;
-    const day = index.get(entry.date) ?? { count: 0, gi: 0, nogi: 0, ids: [] };
+    const day = dayFor(entry.date);
     day.count++;
     if (entry.gi === 'gi') day.gi++;
     if (entry.gi === 'nogi') day.nogi++;
     day.ids.push(entry.id);
-    index.set(entry.date, day);
   }
+  for (const session of strengthSessions) dayFor(session.date).lifts++;
   return index;
 }
 

@@ -87,7 +87,7 @@ function brandRow(syncCtl, standing) {
  * height and the strip does not — both faces are absolutely positioned, so the
  * height animates alongside the rotation rather than jumping at the end.
  */
-function statsCard(counts, gi, streak, entries, today) {
+function statsCard(counts, gi, streak, entries, strengthSessions, today) {
   const cell = (cls, n, l) => h('div.sbit.' + cls,
     h('div.sbit-n', n), h('div.sbit-l', l));
 
@@ -115,7 +115,7 @@ function statsCard(counts, gi, streak, entries, today) {
 
   const inner = h('div.flip-inner');
   const wrap = h('div.flipcard', inner);
-  const back = calendarFace(entries, today, () => setFlipped(false));
+  const back = calendarFace(entries, strengthSessions, today, () => setFlipped(false));
 
   const setFlipped = on => {
     wrap.classList.toggle('is-flipped', on);
@@ -145,10 +145,15 @@ function statsCard(counts, gi, streak, entries, today) {
  * last session shows training whenever you look, and is the same thing as this
  * month whenever you have trained in it.
  */
-function calendarFace(entries, today, onClose) {
-  const index = store.trainingIndex(entries);
+function calendarFace(entries, strengthSessions, today, onClose) {
+  const index = store.trainingIndex(entries, strengthSessions);
   const thisMonth = monthOf(today);
-  const dates = entries.filter(e => e.type === 'class').map(e => e.date).sort();
+  // Lifts count towards the range as well as the grid, or a month holding only
+  // strength work would sit outside the arrows and be unreachable.
+  const dates = [
+    ...entries.filter(e => e.type === 'class').map(e => e.date),
+    ...strengthSessions.map(s => s.date),
+  ].sort();
   const firstMonth = dates.length ? monthOf(dates[0]) : thisMonth;
 
   let ym = dates.length ? monthOf(dates[dates.length - 1]) : thisMonth;
@@ -181,6 +186,7 @@ function calendarFace(entries, today, onClose) {
     h('div.hcal-foot',
       h('span.hcal-key', h('i.k-gi'), 'Gi'),
       h('span.hcal-key', h('i.k-nogi'), 'No-gi'),
+      h('span.hcal-key', h('i.k-lift'), 'Lift'),
       h('button.hcal-close', { type: 'button', 'aria-label': 'Back to your totals' }, 'Done')));
 
   face.querySelector('.hcal-close').addEventListener('click', onClose);
@@ -335,6 +341,7 @@ export default async function home(root) {
   const today = store.todayISO();
 
   const entries = await store.allEntries();
+  const strengthSessions = await store.getStrengthSessions();
   const focuses = await store.getFocuses();
   const promotions = await store.getPromotions();
   const dismissedOn = await store.getSetting('nudgeDismissedOn', '');
@@ -363,7 +370,7 @@ export default async function home(root) {
     // change, and the one panel worth looking at every single time.
     workingOn(focuses),
     statsCard(store.countClasses(entries), store.giRatio(entries),
-      store.weekStreak(entries, today), entries, today),
+      store.weekStreak(entries, today), entries, strengthSessions, today),
     nudgePanel(store.logNudge(entries, today), dismissedOn, today),
     beltPanel(standing),
     gapPanel(store.findGaps(entries)),

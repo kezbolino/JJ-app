@@ -28,7 +28,8 @@
 // 3. **Beeps are synthesised, not files.** An AudioContext oscillator costs no
 //    bytes in the shell and nothing to cache, which is the whole shape of this
 //    app. The context can only be created from a user gesture, so it is built
-//    when you tap Start. The spoken move names are the one exception — real
+//    when you tap Start — see js/beeps.js, shared with the strength session's
+//    rest timer. The spoken move names are the one exception — real
 //    audio clips under audio/cues/<id>.webm — because there is no synthesising
 //    a name; muting the sound stops both.
 // 4. **A rest phase of 0 is not special-cased.** The cool-down simply has one,
@@ -38,67 +39,14 @@
 // have a phone at the edge of the mat during training. Both of these run when
 // you are off it.
 
-import { h, icon } from '../ui.js';
+import { h, icon, offMatTabs } from '../ui.js';
 import { renderToken, isCurrent } from '../render.js';
+import { createBeeper } from '../beeps.js';
+import { createWakeLock } from '../wakelock.js';
 import {
-  ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs,
-  clock, stretchFigure, hasArt,
+  DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs,
+  clock, stretchFigure,
 } from '../stretches.js';
-
-/**
- * Synthesised beeps. No asset, no fetch, nothing to cache.
- *
- * The context is created on the first call and that call has to come from a
- * tap, or the browser starts it suspended and every tone is silent.
- */
-function createBeeper() {
-  let ctx = null;
-  let muted = false;
-
-  const ensure = () => {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return null;
-    if (!ctx) {
-      try { ctx = new AC(); } catch { return null; }
-    }
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-    return ctx;
-  };
-
-  // Square, not sine: a square wave's extra harmonics read as sharper and
-  // cut through a TV or background noise far better than a pure tone at the
-  // same gain — the pitches and gains below were raised at the same time,
-  // for the same reason.
-  const tone = (freq, ms, peak = 0.3, delay = 0) => {
-    if (muted) return;
-    const c = ensure();
-    if (!c) return;
-    const osc = c.createOscillator();
-    const gain = c.createGain();
-    osc.type = 'square';
-    osc.frequency.value = freq;
-    const t0 = c.currentTime + delay;
-    // Ramp in and out: a square-edged gate on a tone clicks audibly.
-    gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.linearRampToValueAtTime(peak, t0 + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + ms / 1000);
-    osc.connect(gain).connect(c.destination);
-    osc.start(t0);
-    osc.stop(t0 + ms / 1000 + 0.02);
-  };
-
-  return {
-    unlock: () => ensure(),
-    ready: () => tone(900, 180, 0.30),          // "get into the shape"
-    go: () => tone(1250, 280, 0.35),            // "hold it" / "work"
-    rest: () => tone(700, 240, 0.28),           // "stop, breathe"
-    tick: () => tone(1500, 90, 0.32),           // 3 · 2 · 1
-    finish: () => { tone(950, 200, 0.3); tone(1300, 200, 0.3, 0.21); tone(1750, 420, 0.3, 0.42); },
-    setMuted: v => { muted = v; },
-    isMuted: () => muted,
-    close: () => { if (ctx) { ctx.close().catch(() => {}); ctx = null; } },
-  };
-}
 
 /**
  * Spoken move names, recorded as short clips under audio/cues/<id>.webm —
@@ -159,21 +107,6 @@ function createVoice() {
     },
     stop,
     close: () => { stop(); closed = true; if (ctx) { ctx.close().catch(() => {}); ctx = null; } },
-  };
-}
-
-/** Best-effort screen wake lock — the phone shouldn't sleep mid-hold. */
-function createWakeLock() {
-  let lock = null;
-  const request = async () => {
-    if (!('wakeLock' in navigator)) return;
-    try { lock = await navigator.wakeLock.request('screen'); } catch { /* not critical */ }
-  };
-  return {
-    request,
-    // Android drops the lock whenever the tab is hidden; take it again on return.
-    reacquire: () => { if (document.visibilityState === 'visible') request(); },
-    release: () => { try { lock?.release(); } catch { /* already gone */ } lock = null; },
   };
 }
 
@@ -491,22 +424,16 @@ export default async function stretch(root, { routine: routineId } = {}) {
   const mount = h('div.st');
   let teardown = null;
 
-  // Segmented picker. Choosing swaps the intro in place and rewrites the hash
-  // with replaceState — no hashchange, so the router doesn't rebuild the view
-  // under us, but a reload still lands on the routine you picked.
-  const picker = () => h('div.st-pick', { role: 'tablist' },
-    ROUTINES.map(r => {
-      const on = r.id === routine.id;
-      return h('button' + (on ? '.is-on' : ''), {
-        type: 'button', role: 'tab', 'aria-selected': String(on),
-        onclick: () => {
-          if (r.id === routine.id) return;
-          routine = r;
-          history.replaceState(null, '', `#/stretch?r=${r.id}`);
-          showIntro();
-        },
-      }, r.name);
-    }));
+  // Segmented picker, shared with the strength view (js/ui.js). Choosing a
+  // routine swaps the intro in place and rewrites the hash with replaceState —
+  // no hashchange, so the router doesn't rebuild the view under us, but a
+  // reload still lands on the routine you picked. The Strength tab is a real
+  // link, because that is a different screen entirely.
+  const picker = () => offMatTabs(routine.id, id => {
+    routine = getRoutine(id);
+    history.replaceState(null, '', `#/stretch?r=${id}`);
+    showIntro();
+  });
 
   const showIntro = () => {
     teardown?.();
@@ -552,8 +479,8 @@ export default async function stretch(root, { routine: routineId } = {}) {
   root.append(
     h('div.page-head',
       h('div',
-        h('h1.page-title', 'Stretch'),
-        h('p.page-sub', 'Cool-down and mobility'))),
+        h('h1.page-title', 'Off mat'),
+        h('p.page-sub', 'Stretch, mobility and strength'))),
     mount);
 
   if (session) showRunning(); else showIntro();

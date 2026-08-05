@@ -988,6 +988,174 @@ await test('the two routines announce their own first move, not each other\'s', 
   await page.context().close();
 });
 
+// ---------------------------------------------------------------------------
+// The strength session (v35). The progression maths is unit-tested in
+// tests/strength.test.mjs; what is worth driving in a browser is the wiring —
+// that a tap logs a set, that the draft survives leaving the screen, and that
+// finishing actually moves next week's target.
+// ---------------------------------------------------------------------------
+
+await test('the Off mat section has three tabs and Strength is one of them', async () => {
+  const page = await newPage();
+  await go(page, '/stretch');
+
+  assert.equal(await page.locator('.st-pick button, .st-pick a').count(), 3);
+  assert.match(await page.locator('.page-title').innerText(), /off mat/i);
+  assert.match(await page.locator('.tabbar a[data-tab="/stretch"] span').innerText(), /off mat/i);
+
+  // The strength tab is a link, not an in-place swap: it is a different screen.
+  await page.click('.st-pick a:has-text("Strength")');
+  await page.waitForTimeout(260);
+  assert.match(await page.evaluate(() => location.hash), /#\/strength/);
+  assert.equal(await page.locator('.st-pick a.is-on').innerText(), 'Strength');
+
+  // And the Off mat tab stays lit on both screens — one section, not two.
+  assert.equal(await page.locator('.tabbar a[data-tab="/stretch"][aria-current]').count(), 1);
+  await page.context().close();
+});
+
+await test('the first strength session opens with the programme already prescribed', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+
+  const targets = await page.locator('.sx-plan-target').allTextContents();
+  assert.equal(targets.length, 8, 'the programme is not eight movements');
+  assert.equal(targets[0], '5 × 6 · 3s down', 'pull-ups do not start where the programme says');
+  const names = await page.locator('.sx-plan-name').allTextContents();
+  assert.equal(names[0], 'Pull-ups', 'the hardest movement is not first');
+  assert.ok(names.includes('Hollow body hold'));
+
+  // Acceptance criterion 1: cold, with no thinking required.
+  assert.match(await page.locator('.sx-intro-l').innerText(), /no sessions logged yet/i);
+  assert.match(await page.locator('.sx-warmup').innerText(), /dead hang/i);
+  await page.context().close();
+});
+
+await test('a lift on a day with jiu jitsu already logged says lift after, never before', async () => {
+  const page = await newPage();
+  await seed(page, [{ sections: { techniques: 'armbar from guard' } }]);   // dated today
+  await go(page, '/strength');
+  assert.match(await page.locator('.sx-warn').innerText(), /lift after class, never before/i);
+
+  // And the calendar shows both kinds of session in one place.
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+  await page.click('.sx-ex:first-of-type .sx-set:first-of-type');
+  await page.click('.btn:has-text("Finish session")');
+  await page.click('.btn:has-text("finish anyway")');
+  await page.waitForSelector('.sx-done');
+
+  await go(page, '/');
+  await page.click('.sbit-total');
+  await page.waitForTimeout(400);
+  assert.equal(await page.locator('.cal__day.is-on.is-lift').count(), 1,
+    'the calendar does not show the class and the lift on the same day');
+  assert.match(await page.locator('.hcal-foot').innerText(), /lift/i);
+  await page.context().close();
+});
+
+await test('tapping a set logs it, and the draft survives leaving the screen', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  assert.equal(await page.locator('.sx-set').count(), 30, 'not every set is on screen');
+  assert.match(await page.locator('.sx-progress').innerText(), /0 of 30 sets/);
+
+  const first = page.locator('.sx-ex:first-of-type .sx-set').first();
+  assert.equal(await first.innerText(), '6');
+  await first.click();
+  await page.waitForTimeout(120);
+  assert.equal(await first.getAttribute('aria-pressed'), 'true');
+  assert.match(await page.locator('.sx-progress').innerText(), /1 of 30 sets/);
+  // Completing a set starts the rest countdown for that movement.
+  assert.ok(await page.locator('.sx-rest').isVisible(), 'no rest timer after a set');
+  assert.match(await page.locator('.sx-rest-n').innerText(), /^[12]:\d\d$/);
+
+  // A lift runs over an hour and the phone will lock. Leaving must cost nothing.
+  await go(page, '/log');
+  await go(page, '/strength');
+  assert.match(await page.locator('.sx-progress').innerText(), /1 of 30 sets/,
+    'the logged set was lost by navigating away');
+  // The rest countdown is deliberately not restored — only the log is.
+  assert.equal(await page.locator('.sx-rest:visible').count(), 0);
+  await page.context().close();
+});
+
+await test('a logged set can be corrected without typing', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  const first = page.locator('.sx-ex:first-of-type .sx-set').first();
+  await first.click();                       // log it at target
+  await first.click();                       // tap again: corrections open
+  await page.waitForSelector('.sx-edit-n');
+  assert.equal(await page.locator('.sx-edit-n').first().innerText(), '6');
+
+  await page.locator('.sx-step:has-text("−")').first().click();
+  assert.equal(await first.innerText(), '5', 'the stepper did not change the set');
+
+  await page.locator('.sx-tempo').first().click();
+  assert.equal(await page.locator('.sx-tempo').first().innerText(), 'Tempo broke');
+  assert.ok((await first.getAttribute('class')).includes('is-soft'),
+    'a set logged with the tempo broken looks the same as one that held');
+
+  await page.locator('.sx-undo').first().click();
+  assert.equal(await first.getAttribute('aria-pressed'), 'false');
+  await page.context().close();
+});
+
+await test('finishing a clean session sets next session\'s targets and says what moved', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  // Log every set at its target — the whole session, the honest way.
+  const sets = await page.locator('.sx-set').all();
+  for (const set of sets) await set.click();
+  assert.match(await page.locator('.sx-progress').innerText(), /30 of 30 sets/);
+
+  await page.click('.btn:has-text("Finish session")');
+  await page.waitForSelector('.sx-done');
+  const changes = await page.locator('.sx-changes li').allTextContents();
+  assert.equal(changes.length, 8, 'a clean session should move all eight movements');
+  assert.ok(changes.some(c => /Pull-ups goes to 7 reps/.test(c)), changes.join(' | '));
+  assert.match(await page.locator('.sx-done-note').innerText(), /not a class/i);
+
+  // Acceptance criterion 3: next session's targets are already set. "Back to
+  // the plan" has to be a real action — this screen sits at the hash it would
+  // otherwise link to, so a link here fires no hashchange and does nothing.
+  await page.click('.sx-done .btn.primary');
+  await page.waitForSelector('.sx-plan-target');
+  assert.equal(await page.locator('.sx-plan-target').first().innerText(), '5 × 7 · 3s down');
+  assert.match(await page.locator('.sx-intro-l').innerText(), /last lifted/i);
+
+  // And it is in the history, per movement.
+  await go(page, '/strength?view=history');
+  assert.equal(await page.locator('.sx-hist-n').first().innerText(), '6, 6, 6, 6, 6');
+  await page.context().close();
+});
+
+await test('a movement can be muted mid-session without skipping the lot', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  await page.locator('.sx-mute').first().click();
+  await page.waitForTimeout(200);
+  assert.match(await page.locator('.sx-progress').innerText(), /0 of 25 sets/,
+    'a muted movement still counts towards the session');
+  assert.match(await page.locator('.sx-ex:first-of-type').innerText(), /muted for this session/i);
+  assert.equal(await page.locator('.sx-ex:first-of-type .sx-set').count(), 0);
+  await page.context().close();
+});
+
 await test('the manifest offers launcher shortcuts and matches the light default', async () => {
   const page = await newPage();
   const manifest = await page.evaluate(async () => (await fetch('manifest.webmanifest')).json());

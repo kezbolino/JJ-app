@@ -880,6 +880,7 @@ a.banner .b-txt.muted { color: var(--muted); }
 }
 .cal__pad { aspect-ratio: 1; }
 .cal__day {
+  position: relative;   /* the lift corner mark below hangs off this */
   aspect-ratio: 1; display: grid; place-items: center;
   border-radius: 6px; background: var(--track);
   font-size: .6rem; font-weight: 700; color: var(--muted);
@@ -893,6 +894,14 @@ a.banner .b-txt.muted { color: var(--muted); }
   background: linear-gradient(135deg, var(--text) 0 50%, var(--muted) 50% 100%);
 }
 .cal__day.is-today { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* A strength session, marked in the corner rather than by filling the cell —
+   a day can hold both a class and a lift, and the fill is already spoken for
+   by gi vs no-gi. Accent, not amber: this is a thing you did, not a gap. */
+.cal__day.is-lift::after {
+  content: ''; position: absolute; top: 2px; right: 2px;
+  width: 6px; height: 6px; border-radius: 2px; background: var(--accent);
+}
+.cal__day.is-on.is-lift::after { background: var(--bg); }
 a.cal__day:active { transform: scale(.9); }
 
 /* --- the stats strip, and the calendar on its back --------------------- */
@@ -1014,6 +1023,7 @@ a.cal__day:active { transform: scale(.9); }
 .hcal-key i { width: 10px; height: 10px; border-radius: 3px; display: block; }
 .hcal-key .k-gi { background: var(--text); }
 .hcal-key .k-nogi { background: var(--surface); box-shadow: inset 0 0 0 2px var(--text); }
+.hcal-key .k-lift { background: var(--accent); width: 7px; height: 7px; }
 .hcal-close {
   margin-left: auto; border: 0; background: none; cursor: pointer;
   font: inherit; font-size: .72rem; font-weight: 800; color: var(--accent);
@@ -1138,18 +1148,22 @@ a.cal__day:active { transform: scale(.9); }
    take the text colour and flip with the theme. See js/stretch-art.js. */
 .stretch-fig { color: var(--text); display: block; width: 100%; height: 100%; }
 
-/* --- routine picker ----------------------------------------------------- */
+/* --- Off mat section picker ---------------------------------------------
+   Three tabs: the two timed routines, then the strength session. A routine tab
+   is a <button> (it swaps in place, so a running routine survives); the
+   strength tab is an <a> (a different screen). Both are styled here, because
+   which element a tab is says nothing about how it should look. */
 .st-pick {
   display: flex; gap: 4px; padding: 4px; margin-bottom: var(--gap);
   background: var(--surface-2); border-radius: var(--r-tile);
 }
-.st-pick button {
-  flex: 1; border: 0; cursor: pointer; font-family: inherit;
-  padding: 9px 8px; border-radius: 10px; background: none; color: var(--muted);
-  font-size: .86rem; font-weight: 800;
+.st-pick button, .st-pick a {
+  flex: 1; border: 0; cursor: pointer; font-family: inherit; text-align: center;
+  padding: 9px 6px; border-radius: 10px; background: none; color: var(--muted);
+  font-size: .82rem; font-weight: 800; text-decoration: none; white-space: nowrap;
   transition: background .16s var(--spring), color .16s var(--spring);
 }
-.st-pick button.is-on {
+.st-pick button.is-on, .st-pick a.is-on {
   background: var(--surface); color: var(--text);
   box-shadow: 0 2px 0 var(--edge);
 }
@@ -1290,6 +1304,247 @@ a.cal__day:active { transform: scale(.9); }
 .st-done p { color: var(--muted); font-size: .88rem; font-weight: 600; margin: 8px auto 0; max-width: 330px; line-height: 1.5; }
 .st-done .btn-row { justify-content: center; }
 
+/* ==========================================================================
+   STRENGTH — the third Off mat tab (js/views/strength.js)
+   ==========================================================================
+   Same shape language as everything else; the only new idea is the set button,
+   which is a big square tap target because it is pressed with one sweaty thumb
+   between sets. Ink for logged data, accent only for the live rest timer,
+   amber only for the lift-after-class warning. */
+
+/* --- before you start --------------------------------------------------- */
+.sx-intro-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px;
+}
+.sx-intro-n { font-size: 1.3rem; font-weight: 600; letter-spacing: -.015em; }
+.sx-intro-l { color: var(--muted); font-size: .82rem; font-weight: 700; margin-top: 3px; }
+.sx-hist-link {
+  color: var(--accent); font-size: .82rem; font-weight: 800;
+  text-decoration: none; white-space: nowrap;
+}
+.sx-week, .sx-warmup {
+  margin: 0 0 10px; font-size: .84rem; font-weight: 600;
+  color: var(--sub); line-height: 1.5;
+}
+.sx-warmup strong { font-weight: 800; color: var(--text); }
+
+.sx-plans { list-style: none; margin: var(--gap) 0 0; padding: 0; }
+.sx-plan {
+  padding: 12px 2px; border-bottom: 2px solid var(--line);
+}
+.sx-plan:last-child { border-bottom: 0; }
+.sx-plan.is-muted { opacity: .5; }
+.sx-plan-top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.sx-plan-name { font-weight: 700; font-size: .94rem; }
+.sx-plan-target { font-weight: 800; font-size: .86rem; white-space: nowrap; }
+.sx-plan-sub {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 3px;
+  color: var(--muted); font-size: .78rem; font-weight: 700;
+}
+.sx-plan-last { color: var(--sub); }
+.sx-muted-flag { color: var(--warm-ink); }
+
+/* Amber, and only ever for this: a movement that has run out of bodyweight
+   progression is genuinely waiting on a decision from you. */
+.sx-load {
+  display: flex; align-items: flex-start; gap: 7px; margin: 8px 0 0;
+  padding: 9px 11px; border-radius: var(--r-chip);
+  background: var(--warm-soft); color: var(--warm-ink);
+  font-size: .8rem; font-weight: 700; line-height: 1.45;
+}
+.sx-load svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+.banner.sx-warn { background: var(--warm-soft); box-shadow: 0 5px 0 var(--warm-line); }
+.banner.sx-warn .b-ico { color: var(--warm-ink); }
+/* Wraps, unlike every other banner. The rule it states is the whole point of
+   the warning, so truncating it to "Jiu jitsu is already logged today. Lift
+   after…" would cut off the half that matters. */
+.banner.sx-warn .b-txt {
+  color: var(--text); font-size: .84rem; line-height: 1.45;
+  white-space: normal; overflow: visible; text-overflow: clip;
+}
+
+/* A deload is rest, and rest is green here — the same colour the rest-day
+   routine's rest phase uses. Amber would say "you are behind", which is the
+   opposite of what a deload week means. */
+.sx-deload { box-shadow: 0 5px 0 var(--good); }
+.sx-deload p { color: var(--sub); font-size: .86rem; font-weight: 600; line-height: 1.5; margin: 0 0 12px; }
+.sx-deload .card-title { color: var(--good); }
+
+.sx-note {
+  color: var(--muted); font-size: .78rem; font-weight: 600;
+  text-align: center; line-height: 1.5; margin: 14px auto 0; max-width: 340px;
+}
+
+/* --- during the session -------------------------------------------------- */
+.sx-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.sx-when { font-weight: 800; font-size: .9rem; }
+.sx-progress { color: var(--muted); font-size: .8rem; font-weight: 800; }
+.sx-rail {
+  height: 8px; border-radius: 999px; background: var(--track);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .08); overflow: hidden;
+  margin-bottom: var(--gap);
+}
+.sx-rail i {
+  display: block; height: 100%; width: 0; background: var(--text);
+  border-radius: 999px; transition: width .35s var(--spring);
+}
+
+.sx-ex { margin-bottom: var(--gap); }
+.sx-ex.is-muted { opacity: .55; }
+.sx-ex-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+}
+.sx-ex-name { font-size: 1.05rem; font-weight: 600; margin: 0; }
+.sx-ex-var { color: var(--muted); font-size: .78rem; font-weight: 700; margin: 2px 0 0; }
+.sx-mute {
+  border: 2px solid var(--btn-line); background: none; cursor: pointer;
+  font-family: inherit; font-size: .72rem; font-weight: 800; color: var(--muted);
+  padding: 5px 10px; border-radius: var(--r-chip); white-space: nowrap;
+}
+.sx-ex-target {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 10px;
+}
+.sx-target { font-size: .95rem; font-weight: 800; }
+.sx-last { color: var(--muted); font-size: .78rem; font-weight: 700; }
+.sx-cue { color: var(--sub); font-size: .82rem; font-weight: 600; line-height: 1.5; margin: 6px 0 0; }
+.sx-skipped { color: var(--muted); font-size: .8rem; font-weight: 600; margin: 10px 0 0; }
+
+.sx-sets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+/* The buttons share the row rather than being a fixed width: five of them at a
+   fixed 58px wrap onto two lines at a 360px Android width, which puts one lone
+   set under the other four and reads as a different thing. `flex: 1 1 0` keeps
+   the row intact and makes the targets *bigger* on a wider phone. */
+.sx-set {
+  flex: 1 1 0; min-width: 48px; max-width: 76px;
+  height: 52px; border-radius: var(--r-tile);
+  border: 2px solid var(--btn-line); background: var(--surface);
+  color: var(--text); font-family: inherit; font-size: 1.05rem; font-weight: 800;
+  cursor: pointer; box-shadow: 0 3px 0 var(--edge);
+  transition: transform .12s var(--spring), box-shadow .12s var(--spring);
+}
+.sx-set:active { transform: translateY(3px); box-shadow: 0 0 0 var(--edge); }
+.sx-set.is-done {
+  background: var(--text); color: var(--bg); border-color: var(--text);
+  box-shadow: 0 3px 0 var(--muted);
+}
+/* Logged, but the tempo broke — it counts as done and does not count as hit,
+   and the button has to show both at once. */
+.sx-set.is-soft {
+  background: var(--surface-2); color: var(--text);
+  border-color: var(--dash); border-style: dashed; box-shadow: 0 3px 0 var(--edge);
+}
+
+/* Sits under the whole row of sets, in flow — not floating over the set below
+   it. See the note in js/views/strength.js: five buttons wrap onto two lines on
+   a phone, so a popover would land on a set you were not aiming at. */
+.sx-edit {
+  margin-top: 12px; padding: 12px; border-radius: var(--r-panel);
+  background: var(--surface-2);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sx-edit-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: .78rem; font-weight: 800; color: var(--muted);
+}
+.sx-edit-x {
+  border: 0; background: none; cursor: pointer; font-family: inherit;
+  color: var(--accent); font-size: .78rem; font-weight: 800; padding: 2px 0;
+}
+.sx-edit-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sx-edit-row .sx-tempo, .sx-edit-row .sx-undo { flex: 1; }
+.sx-edit-n { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sx-step {
+  width: 40px; height: 40px; border-radius: var(--r-chip);
+  border: 2px solid var(--btn-line); background: var(--surface-2);
+  font-family: inherit; font-size: 1.2rem; font-weight: 800; color: var(--text); cursor: pointer;
+}
+.sx-tempo, .sx-undo {
+  border: 2px solid var(--btn-line); background: var(--surface); cursor: pointer;
+  font-family: inherit; font-size: .76rem; font-weight: 800; color: var(--muted);
+  padding: 8px; border-radius: var(--r-chip);
+}
+.sx-tempo.is-on { background: var(--good-soft); color: var(--good); border-color: var(--good-soft); }
+
+/* --- rest timer ----------------------------------------------------------
+   Sticky, so the countdown is still readable once you have scrolled down to
+   read the next movement's cue. Kept to one compact line for the same reason
+   it is sticky at all: a tall bar pinned to the top of a phone screen is a bar
+   that sits on top of the thing you are trying to tap. */
+.sx-rest {
+  position: sticky; top: 6px; z-index: 6; margin-bottom: var(--gap);
+  padding: 9px 14px; border-radius: var(--r-panel);
+  background: var(--accent-soft); box-shadow: 0 4px 0 var(--accent-edge);
+}
+.sx-rest-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sx-rest-l {
+  color: var(--accent-edge); font-size: .78rem; font-weight: 800;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sx-rest-n {
+  color: var(--accent-edge); font-size: 1.25rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.sx-rest-rail {
+  height: 5px; border-radius: 999px; background: rgba(var(--accent-rgb), .22);
+  overflow: hidden; margin: 7px 0 0;
+}
+.sx-rest-rail i { display: block; height: 100%; width: 100%; background: var(--accent); border-radius: 999px; }
+.sx-rest-skip {
+  border: 0; background: none; cursor: pointer; font-family: inherit;
+  padding: 4px 0 0; color: var(--accent-edge); font-size: .74rem; font-weight: 800;
+}
+/* Anything scrolled to lands below the sticky bar, not tucked under it. */
+.sx-ex { scroll-margin-top: 96px; }
+
+.sx-confirm { background: var(--warm); box-shadow: 0 5px 0 var(--warm-ink); }
+.sx-abandon {
+  display: block; margin: 14px auto 0; border: 0; background: none; cursor: pointer;
+  font-family: inherit; color: var(--muted); font-size: .8rem; font-weight: 700;
+  text-decoration: underline;
+}
+
+/* --- after --------------------------------------------------------------- */
+.sx-done { text-align: center; }
+.sx-done-ico { color: var(--accent); }
+.sx-done-ico svg { width: 38px; height: 38px; }
+.sx-done h2 { font-size: 1.4rem; font-weight: 600; margin: 4px 0 0; }
+.sx-done-sub { color: var(--muted); font-size: .85rem; font-weight: 700; margin: 10px 0 6px; }
+.sx-changes {
+  list-style: none; margin: 0 auto; padding: 0; max-width: 330px; text-align: left;
+}
+.sx-changes li {
+  padding: 8px 0; border-bottom: 2px solid var(--line);
+  font-size: .86rem; font-weight: 600; color: var(--sub); line-height: 1.45;
+}
+.sx-changes li:last-child { border-bottom: 0; }
+.sx-changes strong { color: var(--text); font-weight: 800; }
+.sx-done-note {
+  color: var(--muted); font-size: .78rem; font-weight: 600;
+  margin: 14px 0 0; line-height: 1.5;
+}
+.sx-done .btn-row { justify-content: center; margin-top: 14px; }
+
+/* --- history ------------------------------------------------------------- */
+.sx-hist { list-style: none; margin: 12px 0 0; padding: 0; }
+.sx-hist li {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 7px 0; border-bottom: 2px solid var(--line);
+}
+.sx-hist li:last-child { border-bottom: 0; }
+.sx-hist-d { color: var(--muted); font-size: .78rem; font-weight: 700; min-width: 96px; }
+.sx-hist-n { font-size: .86rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sx-hist-tag {
+  margin-left: auto; color: var(--good); background: var(--good-soft);
+  padding: 2px 7px; border-radius: 999px; font-size: .68rem; font-weight: 800;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .view > *, .btn.cta, .tally__c,
   .tag.suggest:active, .tag.add:active { animation: none; }
@@ -1299,6 +1554,7 @@ a.cal__day:active { transform: scale(.9); }
   .seg button, .fc-inner, .flip-inner, .flipcard, .deck-rail i,
   .tabbar a::before, .tabbar a svg, .tabbar a:active svg,
   .cov-fill, .st-rail i, .st-phaserail i,
+  .sx-rail i, .sx-set, .sx-set:active, .st-pick a,
   input, textarea, select,
   .note-card:active, .vidref:active, a.card:active, .exp-row:active {
     transition: none;

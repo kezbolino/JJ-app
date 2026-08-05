@@ -3,6 +3,7 @@
 
 import { POSITION_BY_ID, ROLE_LABEL } from './ontology.js';
 import { monthGrid, monthLabel, DAY_NAMES } from './dates.js';
+import { ROUTINES } from './stretches.js';
 
 /**
  * h('div.card', {onclick}, 'text', childNode)
@@ -136,21 +137,30 @@ export function monthCalendar(ym, index, { today = '', onPick = null, showMonth 
     const day = index.get(date);
     const n = Number(date.slice(8));
     const classes = ['cal__day'];
-    if (day) {
+    if (day?.count) {
       classes.push('is-on');
       if (day.gi && day.nogi) classes.push('is-both');
       else if (day.nogi) classes.push('is-nogi');
     }
+    // A lift is marked with a corner tick rather than by filling the cell, so
+    // it never competes with the gi/no-gi fill and a day that held both still
+    // reads as both.
+    if (day?.lifts) classes.push('is-lift');
     if (date === today) classes.push('is-today');
 
-    const label = day
-      ? `${date}: ${day.count} ${day.count === 1 ? 'class' : 'classes'}`
-      : `${date}: nothing logged`;
+    const parts = [];
+    if (day?.count) parts.push(`${day.count} ${day.count === 1 ? 'class' : 'classes'}`);
+    if (day?.lifts) parts.push(day.lifts === 1 ? 'a lift' : `${day.lifts} lifts`);
+    const label = parts.length ? `${date}: ${parts.join(' + ')}` : `${date}: nothing logged`;
 
     // A day with something in it is a link into that entry; an empty day is
-    // inert, not an invitation to backfill a class that never happened.
-    if (day && onPick) {
+    // inert, not an invitation to backfill a class that never happened. A
+    // lift-only day has no entry to open, so it goes to the strength screen.
+    if (day?.count && onPick) {
       return h('a.' + classes.join('.'), { href: onPick(day), title: label, 'aria-label': label }, String(n));
+    }
+    if (day?.lifts && onPick) {
+      return h('a.' + classes.join('.'), { href: '#/strength', title: label, 'aria-label': label }, String(n));
     }
     return h('span.' + classes.join('.'), { title: label, 'aria-label': label }, String(n));
   });
@@ -326,6 +336,35 @@ export function icon(name) {
     }
   }
   return el;
+}
+
+/**
+ * The Off mat section's three tabs: the two timed routines, then the strength
+ * session. They live in one section because they are all the work you do when
+ * you are *not* on the mat — and they are three different kinds of thing, which
+ * is why the strength side has its own view and its own engine rather than
+ * being bolted onto the routine timer.
+ *
+ * `onRoutine` is how the stretch view swaps routines in place without a route
+ * change (which would rebuild the screen and lose a running session). Leave it
+ * out and every tab is a plain link, which is what the strength view wants.
+ */
+export function offMatTabs(activeId, onRoutine = null) {
+  const tabs = [
+    ...ROUTINES.map(r => ({ id: r.id, name: r.name, href: `#/stretch?r=${r.id}` })),
+    { id: 'strength', name: 'Strength', href: '#/strength' },
+  ];
+
+  return h('div.st-pick', { role: 'tablist' }, tabs.map(tab => {
+    const on = tab.id === activeId;
+    const attrs = { role: 'tab', 'aria-selected': String(on) };
+    if (onRoutine && tab.id !== 'strength') {
+      return h('button' + (on ? '.is-on' : ''), {
+        ...attrs, type: 'button', onclick: () => { if (!on) onRoutine(tab.id); },
+      }, tab.name);
+    }
+    return h('a' + (on ? '.is-on' : ''), { ...attrs, href: tab.href }, tab.name);
+  }));
 }
 
 /** A "Title            action ›" row used above lists. */

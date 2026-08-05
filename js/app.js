@@ -8,6 +8,7 @@ import * as appearance from './appearance.js';
 import home from './views/home.js';
 import focus from './views/focus.js';
 import stretch from './views/stretch.js';
+import strength from './views/strength.js';
 import log from './views/log.js';
 import map from './views/map.js';
 import position from './views/position.js';
@@ -38,9 +39,12 @@ function route() {
   window.scrollTo(0, 0);
 
   // Screens without a tab of their own borrow the one they're reached from:
-  // Settings hangs off Library, the deck off Home. Stretch has its own tab.
+  // Settings hangs off Library, the deck off Home. The Off mat tab covers both
+  // its screens — the timed routines and the strength session are one section
+  // with three sub-tabs, not two places in the nav.
   const tab = head === 'settings' ? '/library'
     : head === 'focus' ? '/'
+    : head === 'strength' ? '/stretch'
     : '/' + (head ?? '');
   for (const link of document.querySelectorAll('.tabbar a')) {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
@@ -52,6 +56,7 @@ function route() {
       case undefined:  return home(view);
       case 'focus':    return focus(view, { card: query.card });
       case 'stretch':  return stretch(view, { routine: query.r });
+      case 'strength': return strength(view, { view: query.view });
       case 'log':      return log(view, { id: a, date: query.date });
       case 'map':      return a ? position(view, { positionId: a, role: b ?? null }) : map(view);
       case 'library':  return library(view);

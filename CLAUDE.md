@@ -52,10 +52,20 @@ js/youtube.js         link parsing and title lookup
 js/ui.js              h() element builder and shared bits
 js/stretches.js       two routines (cool-down, rest day): items, phases, segments
 js/stretch-art.js     ~47 KB of figure paths — data only, don't hand-edit
-js/views/*.js         home, log, map, position, library, search, settings, stretch
+js/strength.js        the once-a-week lift: programme + progression engine (pure)
+js/beeps.js           synthesised tones, shared by the routines and the rest timer
+js/wakelock.js        best-effort screen wake lock, same two callers
+js/views/*.js         home, log, map, position, library, search, settings,
+                      stretch, strength
 sw.js                 offline cache — bump CACHE when files change
 tests/                markdown round-trip, app smoke test, sync test
 ```
+
+**The Stretch tab is called `Off mat` as of v35** and holds three things: the
+after-class cool-down, the rest-day mobility routine and the strength session.
+Two routes live under it (`#/stretch`, `#/strength`) and the one tab lights up
+for both. Don't split them into two tabs — they are one section, which is the
+work you do when you are *not* on the mat.
 
 ## Running and testing
 
@@ -65,17 +75,23 @@ node tests/tagger.test.mjs      # pure node, fast
 node tests/moves.test.mjs       # pure node, fast
 node tests/stretches.test.mjs   # pure node, fast — routine data + timing maths
 node tests/schedule.test.mjs    # pure node, fast — dates, SRS, attendance
+node tests/strength.test.mjs   # pure node, fast — the progression engine
 python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
-node tests/features.test.mjs    # Playwright; calendar, deck, trash, links, stretch
+node tests/features.test.mjs    # Playwright; calendar, deck, trash, links,
+                                # stretch, strength
 ```
 
-**Run all eight after touching anything in `js/`.** Between them they cover the
+**Run all nine after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
 including user corrections, backup format fidelity, multi-device sync including
-deletions, the move-suggestion engine, the stretch routine, and everything
-added in v17.
+deletions, the move-suggestion engine, the stretch routines, the strength
+progression ladder, and everything added in v17.
+
+**One known flake, unrelated to anything:** `the strip shows a week streak…` in
+`tests/features.test.mjs` is date-dependent and fails identically on unmodified
+code. It has been failing since v28. Don't chase it as a regression.
 
 `tests/schedule.test.mjs` is worth running under a couple of timezones —
 `TZ=America/Los_Angeles` and `TZ=Australia/Sydney` — because the date bugs it
@@ -1538,6 +1554,95 @@ data if forgotten:
   the new section and badge in light and dark. sw `CACHE` → v34, `VERSION` →
   v34, no files added or removed.
 
+- 2026-08-05 — **v35: the strength module, and the Stretch tab became `Off mat`.**
+  User handed over a written spec (a Claude-chat brief, now kept verbatim as
+  `docs/STRENGTH.md`) for a once-a-week bodyweight strength programme, and asked
+  for it inside the stretch section — *"might mean we need to rename the
+  section."* It did. **Read `docs/STRENGTH.md`'s "As built" section before
+  touching any of this**; only the short version is here.
+
+  **The rename.** Offered four names and the user picked **Off mat** — precise,
+  and it dodges a collision: "training" already means BJJ everywhere else in
+  this app (training calendar, weeks trained). Tab label, page title and page
+  sub all changed; the route `#/stretch` did **not**, because nothing is gained
+  by breaking a bookmark or an installed shortcut over a word. `#/strength` is
+  a second route under the same tab, and `app.js` maps it to `/stretch` so one
+  tab lights for both. The segmented picker moved into `js/ui.js` as
+  `offMatTabs()` and is now three tabs shared by both views — routine tabs stay
+  `<button>`s (they swap in place, so a running routine survives), the strength
+  tab is an `<a>` because it is a different screen. Both are styled.
+
+  **Why it is not built on the stretch engine.** The two routines are
+  *timelines*: every segment is the same length, the current one is a division
+  over elapsed milliseconds, and nothing is written down. A lift is the
+  opposite — self-paced, and the numbers are the entire point. Sharing an engine
+  would have bent one of the two out of shape. They share the section, `beeps.js`
+  and `wakelock.js` (both lifted out of `js/views/stretch.js` this version), and
+  nothing else.
+
+  **The engine is pure and is the only part worth testing.** `js/strength.js`
+  has no DOM, no storage and no clock; `tests/strength.test.mjs` is 26
+  assertions against it, and the suite count is now **nine**. The four-step
+  ladder — reps to a ceiling, then a 3s then 5s eccentric, then a 2s pause, then
+  a harder variation — is the whole product: this app has no weight to add, so
+  that ladder is the only way the numbers move. Two rules in it are easy to get
+  wrong and are pinned by tests: **a set counts as hit only if the reps *and* the
+  tempo held**, and **one bad session holds, two in a row regress** (regressing
+  off every bad week means never going anywhere). `needsLoad` is what stops the
+  programme stalling *silently* — the engine will never move you onto a
+  variation marked as needing weight, because "put on a vest" is a decision, not
+  a rep.
+
+  **`ExerciseState` is derived, not stored.** `programmeState()` replays the
+  whole log every time. A stored counter drifts the moment a session is edited or
+  deleted, and drift in this particular number is invisible: you would simply be
+  told to do the wrong thing forever, once a week, with nothing to notice. Fifty
+  sessions replay in no time.
+
+  **Storage, and the cost of it.** Sessions are **settings rows**
+  (`strengthSessions`), not journal `entries`. An entry's backup format is a
+  fixed tiny grammar of front-matter scalars, and a session is an array of
+  exercises each holding an array of sets — there is no honest way to write that
+  in it, and adding YAML to try is the thing this file forbids. Settings ride
+  along in Export/Import for free. **The cost, stated plainly: strength sessions
+  do not sync to the notes repo**, exactly like focuses and `likedMoves`. Same
+  standing gap, now one item bigger.
+
+  **Three deliberate departures from the spec**, all recorded in the doc: **no
+  RPE** (the spec marks it optional, and the BJJ side had a 1–5 "how it went"
+  that the user asked to remove in v21 — putting a 1–10 version of the same
+  question on an adjacent screen is reintroducing something they rejected; the
+  `note` field exists in the model with no UI, for the same reason — nothing on
+  this screen wants a keyboard); **no multi-week climbing-load flag** (the cheap
+  half shipped, `This week: 3 classes · 1 lift` from `store.weekLoad()`; flagging
+  a climbing total is a claim about injury risk, and this app reports what was
+  written down and never diagnoses); and **muting is a plain toggle**, since the
+  app tracks no injuries.
+
+  **Integration.** `trainingIndex()` now takes strength sessions as a second
+  argument and marks a lift with a corner tick rather than a fill, so a day that
+  held both a class and a lift still reads as both — one calendar, not two. A
+  lift started on a day with BJJ already logged gets an amber banner saying lift
+  after class, never before. That banner is the one place in the app where
+  `.b-txt` wraps instead of truncating: the rule it states is the whole point,
+  and "Lift after…" is worse than nothing.
+
+  **Two bugs found by looking at the thing rather than by testing.** (1) The
+  summary screen's "Back to the plan" was an `<a href="#/strength">` — on a
+  screen that already sits at `#/strength`. No `hashchange`, no re-render, a
+  button that does nothing. It is a `<button>` calling back into the view now,
+  and there is a test on it. (2) The set corrections were a popover anchored
+  under the button; five 58px set buttons wrap onto two lines at 360px, so set
+  one's popover landed squarely on set five. It renders under the whole row now,
+  in flow, and the buttons are `flex: 1 1 0` so five of them fit one row at 360px
+  and get *bigger* on a wider phone.
+
+  Nine suites green (the known week-streak date flake aside), screenshot-checked
+  every screen in light and dark at 390px and 360px, no horizontal overflow, 0
+  animations under `prefers-reduced-motion`. sw `CACHE` → v35, `VERSION` → v35;
+  `js/strength.js`, `js/beeps.js`, `js/wakelock.js` and `js/views/strength.js`
+  added to `SHELL`.
+
 ## Parked — pick this up next session
 
 **The user is re-recording the voice cues, and the script is written and
@@ -1634,5 +1739,8 @@ twice.
 
 **Also still open**, unchanged and unrelated to the audio: 19 movements have no
 artwork (`PENDING_ART` in `js/stretch-art.js` — the 15 from v27 plus the four
-v34 warm-up items); `docs/AUDIT.md` §4–§9; and focuses/`likedMoves` are still
-device-local and do not sync.
+v34 warm-up items); `docs/AUDIT.md` §4–§9; and focuses, `likedMoves` and now
+**strength sessions** are all device-local and do not sync. The strength module
+ships no artwork and no voice cues at all — it is a form, not a routine, so it
+needs neither, but if the two stretch routines ever get their missing figures
+the eight lifts are the obvious next ask.
