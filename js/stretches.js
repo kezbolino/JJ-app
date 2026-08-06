@@ -18,11 +18,17 @@
 // to the joint angle you keep loading, so rotating the list each session
 // resets the stimulus — the boring sameness is the feature.
 //
-// TIMING. Every segment inside one routine is the same length, which keeps the
-// whole timeline a single expression over elapsed milliseconds (see
-// js/views/stretch.js). The cool-down is 10s ready + 30s hold. The rest-day
-// session adds a rest phase, because strength work needs one and stretching
-// does not: 10s ready + 35s work + 20s rest.
+// TIMING. The cool-down is 10s ready + 30s hold. The rest-day session adds a
+// rest phase, because strength work needs one and stretching does not: 10s
+// ready + 35s work + 20s rest — except its warm-up, which is 35s of work and
+// nothing else, so those four movements flow straight into one another.
+//
+// Segments are therefore *not* all the same length, and `segments()` below
+// precomputes each one's start and end. The current segment is a lookup into
+// that fixed table, which is still a pure function of elapsed milliseconds.
+// The rule that matters has never been "all segments are equal" — it is that
+// **nothing accumulates per tick**, because an accumulator drifts and a
+// lookup cannot.
 //
 // Figures live in js/stretch-art.js, keyed by item id. Anything listed in
 // PENDING_ART there has no drawing yet and renders without one rather than
@@ -147,12 +153,10 @@ const POST_CLASS_ITEMS = [
 //
 // This is the one loading you at end-range cold — unlike the after-class
 // cool-down, there is no class beforehand to warm you up first. The `warmup`
-// flag on the four items below marks that, so the intro list can section
-// them and the running screen can badge them, but they run through the same
-// engine as everything else: same ready/work/rest phases, same segment math.
-// Giving warm-up movements their own shorter timing would be the thing that
-// turns the segment index back into a running total — see the note on
-// ROUTINES below for why that is worth resisting.
+// flag on the four items below marks that: the intro list sections them, the
+// running screen badges them, and `phasesFor()` gives them **work only** — no
+// countdown into a movement that needs no setup, and no rest between movements
+// whose whole job is to get you warm. They flow one into the next.
 // ---------------------------------------------------------------------------
 
 const WARMUP_ITEMS = [
@@ -320,7 +324,7 @@ export const ROUTINES = [
     phases: { ready: READY_MS, work: HOLD_MS, rest: 0 },
     needs: [],
     note: 'General guidance, not physio. Ease into each one and back off anything that pinches.',
-    doneNote: 'Nothing was logged — this is just the cool-down.',
+    doneNote: 'Marked on your calendar. Still a cool-down, not a class.',
     items: POST_CLASS_ITEMS,
   },
   {
@@ -332,7 +336,7 @@ export const ROUTINES = [
     phases: { ready: 10_000, work: 35_000, rest: 20_000 },
     needs: ['Floor', 'Chair', 'Pull-up bar'],
     note: 'General guidance, not physio. This is the session that actually builds range — go slow, stop at anything sharp.',
-    doneNote: 'Nothing was logged — this is just mobility work.',
+    doneNote: 'Marked on your calendar as off-mat work.',
     items: REST_DAY_ITEMS,
   },
 ];
@@ -344,32 +348,71 @@ export function getRoutine(id) {
   return ROUTINES.find(r => r.id === id) ?? ROUTINES.find(r => r.id === DEFAULT_ROUTINE);
 }
 
-/** How long one segment of this routine runs, in ms. */
+/** A routine's normal segment length — every movement except the warm-up. */
 export function segmentMs(routine) {
   const { ready, work, rest } = routine.phases;
   return ready + work + rest;
 }
 
 /**
+ * The phases one movement runs through.
+ *
+ * **Warm-up movements are work only** — no countdown into them and no rest
+ * after. You are marching on the spot to get warm; stopping for 20 seconds
+ * between each one is the opposite of that, and a "get ready" before a movement
+ * that needs no setup is just dead air. They flow one into the next, and the
+ * spoken name lands as the movement starts rather than before it.
+ */
+export function phasesFor(routine, item) {
+  if (item.warmup) return { ready: 0, work: routine.phases.work, rest: 0 };
+  return routine.phases;
+}
+
+/**
  * The routine flattened into segments, which is what the timer walks.
  * A two-sided item becomes two; everything else becomes one.
+ *
+ * Each segment carries its own phases and its absolute `start`/`end` on the
+ * routine's timeline. **This is a precomputed table, not a running total** —
+ * the distinction is the whole ballgame. Up to v39 the current segment was
+ * `floor(elapsed / SEGMENT)`, which only worked because every segment was the
+ * same length; the warm-up broke that. What replaced it is a lookup into these
+ * fixed offsets, so the current segment is still a pure function of elapsed
+ * milliseconds and a phone that sleeps for a minute still resumes in exactly
+ * the right place. If you ever find yourself *adding* a duration to a counter
+ * on each tick, stop: that is the drift this has always been designed out of.
  */
 export function segments(routine) {
   const out = [];
+  let at = 0;
+  const push = (item, side) => {
+    const phases = phasesFor(routine, item);
+    const length = phases.ready + phases.work + phases.rest;
+    out.push({ item, side, phases, length, start: at, end: at + length });
+    at += length;
+  };
   for (const item of routine.items) {
-    if (item.bilateral) {
-      out.push({ item, side: 'Left side' });
-      out.push({ item, side: 'Right side' });
-    } else {
-      out.push({ item, side: null });
-    }
+    if (item.bilateral) { push(item, 'Left side'); push(item, 'Right side'); }
+    else push(item, null);
   }
   return out;
 }
 
 /** Total length in ms. */
 export function routineMs(routine) {
-  return segments(routine).length * segmentMs(routine);
+  const segs = segments(routine);
+  return segs.length ? segs[segs.length - 1].end : 0;
+}
+
+/** Which segment is running at `ms`, or -1 past the end. Binary search. */
+export function segmentAt(segs, ms) {
+  let lo = 0, hi = segs.length - 1;
+  if (!segs.length || ms < 0 || ms >= segs[hi].end) return -1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ms < segs[mid].end) hi = mid; else lo = mid + 1;
+  }
+  return lo;
 }
 
 /** "12:00" — mm:ss, never negative. */

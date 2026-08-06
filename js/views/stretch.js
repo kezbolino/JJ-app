@@ -8,11 +8,14 @@
 // Four things here are deliberate, and two of them are bugs this app has
 // already paid for once:
 //
-// 1. **Time comes from the clock, never from counting ticks.** Every segment
-//    inside a routine is the same length, so the current segment is one
-//    division over elapsed milliseconds. A phone that throttles timers in the
-//    background, or sleeps for a minute, resumes on the correct movement
-//    instead of drifting further behind the longer you run.
+// 1. **Time comes from the clock, never from counting ticks.** Each segment's
+//    start and end are precomputed once (see `segments()` in js/stretches.js),
+//    and the current one is a lookup into that table — so a phone that
+//    throttles timers in the background, or sleeps for a minute, resumes on the
+//    correct movement instead of drifting further behind the longer you run.
+//    Segments used to be uniform and the lookup used to be a division; the
+//    warm-up, which is work only, ended that. What has *not* changed, and must
+//    not, is that nothing accumulates per tick.
 // 2. **The routine lives at module scope, not inside the screen.** A single
 //    `session` object below survives navigating to another tab — the engine
 //    (the `setInterval`, the beeps, the voice cues) keeps running regardless
@@ -32,8 +35,9 @@
 //    rest timer. The spoken move names are the one exception — real
 //    audio clips under audio/cues/<id>.webm — because there is no synthesising
 //    a name; muting the sound stops both.
-// 4. **A rest phase of 0 is not special-cased.** The cool-down simply has one,
-//    so it never fires. That keeps one code path for both routines.
+// 4. **A phase of length 0 is not special-cased.** The cool-down simply has a
+//    rest of 0, and a warm-up movement a get-ready of 0, so those phases never
+//    fire. One code path covers every routine.
 //
 // This is not the round timer that was removed in v18 — that one asked you to
 // have a phone at the edge of the mat during training. Both of these run when
@@ -43,9 +47,10 @@ import { h, icon, offMatTabs } from '../ui.js';
 import { renderToken, isCurrent } from '../render.js';
 import { createBeeper } from '../beeps.js';
 import { createWakeLock } from '../wakelock.js';
+import { logMobilitySession } from '../store.js';
 import {
-  DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs,
-  clock, stretchFigure, pickOtherSide, pickHype,
+  DEFAULT_ROUTINE, getRoutine, segments, routineMs,
+  clock, stretchFigure, pickOtherSide, pickHype, segmentAt,
 } from '../stretches.js';
 
 /**
@@ -153,16 +158,26 @@ const HYPE_CHANCE = 0.45;
 const sessionElapsed = s => s.baseElapsed + (s.anchor === null ? 0 : performance.now() - s.anchor);
 const sessionRunning = s => s.anchor !== null;
 
-/** Everything about the current instant, purely a function of elapsed time. */
+/**
+ * Everything about the current instant, purely a function of elapsed time.
+ *
+ * Segments are no longer all the same length — a warm-up movement is work only
+ * — so the index comes from a binary search over precomputed offsets rather
+ * than a division. Still a pure lookup, still no accumulation, so sleeping
+ * through half a routine still resumes in the right place.
+ */
 function computeState(s) {
   const e = sessionElapsed(s);
   if (e >= s.totalMs) return { e, done: true };
-  const i = Math.floor(e / s.SEG);
-  const within = e - i * s.SEG;
-  const phase = within < s.READY ? 'ready' : within < s.READY + s.WORK ? 'work' : 'rest';
-  const boundary = phase === 'ready' ? s.READY : phase === 'work' ? s.READY + s.WORK : s.SEG;
+  const i = segmentAt(s.segs, e);
+  if (i < 0) return { e, done: true };
+  const seg = s.segs[i];
+  const { ready, work, rest } = seg.phases;
+  const within = e - seg.start;
+  const phase = within < ready ? 'ready' : within < ready + work ? 'work' : 'rest';
+  const boundary = phase === 'ready' ? ready : phase === 'work' ? ready + work : ready + work + rest;
   const secs = Math.max(1, Math.ceil((boundary - within) / 1000));
-  return { e, done: false, i, within, phase, secs };
+  return { e, done: false, i, seg, within, phase, secs };
 }
 
 function engineTick() {
@@ -175,16 +190,26 @@ function engineTick() {
   if (key !== s.lastKey) {
     s.lastKey = key;
     s.lastCount = -1;
-    if (st.phase === 'ready') {
-      s.beep.ready();
+    const muted = s.beep.isMuted();
+    // A warm-up movement has no get-ready, so *work* is where it opens and
+    // where its name belongs. Keying off the phases rather than the `warmup`
+    // flag means this stays right for anything else that skips a phase.
+    const opensHere = st.phase === (st.seg.phases.ready > 0 ? 'ready' : 'work');
+
+    if (opensHere) {
       // Decide this set's flourishes once, on entry, so the countdown and the
       // hype line can't both land — the countdown already ends on "let's go".
-      s.countdownDue = Math.random() < COUNTDOWN_CHANCE;
-      s.hypeDue = !s.countdownDue && Math.random() < HYPE_CHANCE;
-      if (!s.beep.isMuted()) s.voice.say(cueFor(s, st.i));
-    } else if (st.phase === 'work') {
+      // A movement that flows straight in gets neither: there is no countdown
+      // without a get-ready, and its own name is already playing.
+      s.countdownDue = st.seg.phases.ready > 0 && Math.random() < COUNTDOWN_CHANCE;
+      s.hypeDue = st.seg.phases.ready > 0 && !s.countdownDue && Math.random() < HYPE_CHANCE;
+      if (!muted) s.voice.say(cueFor(s, st.i));
+    }
+
+    if (st.phase === 'ready') s.beep.ready();
+    else if (st.phase === 'work') {
       s.beep.go();
-      if (s.hypeDue && !s.beep.isMuted()) {
+      if (s.hypeDue && !muted) {
         s.lastHype = pickHype(s.lastHype);
         s.voice.say(`hype-${s.lastHype}`);
       }
@@ -216,9 +241,10 @@ function startSession(routine) {
 
   const segs = segments(routine);
   const s = {
-    routine, segs, SEG: segmentMs(routine),
-    READY: routine.phases.ready, WORK: routine.phases.work,
-    totalMs: segs.length * segmentMs(routine),
+    routine, segs,
+    // The timeline's own end, not a segment count × a length — warm-up
+    // movements are shorter than the rest, so there is no single length.
+    totalMs: routineMs(routine),
     baseElapsed: 0, anchor: performance.now(),
     lastKey: '', lastCount: -1, lastOtherSide: 0, lastHype: 0,
     countdownDue: false, hypeDue: false, finished: false,
@@ -236,6 +262,10 @@ function finishSession() {
   const s = session;
   if (!s || s.finished) return;
   s.finished = true;
+  // Mark it on the calendar. Only a routine run to the end counts — ending
+  // early is not a session you did, and the calendar is a record of facts.
+  // This is never a class: see the note on logMobilitySession in store.js.
+  logMobilitySession(s.routine.id).catch(() => { /* the calendar can wait */ });
   clearInterval(s.timer);
   s.timer = null;
   s.beep.finish();
@@ -288,6 +318,7 @@ function attachRunning(mount, token, onExit) {
   const figSlot = h('div.st-fig');
   const nameEl = h('h2.st-name');
   const warmupEl = h('span.st-warmup', 'Warm-up');
+  const nextEl = h('span.st-next', 'Next up');
   const sideEl = h('span.st-side');
   const doseEl = h('span.st-dose');
   const targetEl = h('p.st-targets');
@@ -311,12 +342,12 @@ function attachRunning(mount, token, onExit) {
     type: 'button', 'aria-pressed': String(muted), 'aria-label': muted ? 'Unmute the sound' : 'Mute the sound',
     title: muted ? 'Sound off' : 'Sound on',
   }, icon(muted ? 'soundOff' : 'sound'));
-  const endBtn = h('button.st-end', { type: 'button' }, 'End routine');
+  const endBtn = h('button.btn.danger.st-end', { type: 'button' }, 'End routine');
 
   mount.replaceChildren(
     h('div.st-top', stepEl, leftEl),
     overallRail,
-    h('div.st-stage', figSlot, h('div.st-badges', warmupEl, sideEl, doseEl)),
+    h('div.st-stage', figSlot, h('div.st-badges', nextEl, warmupEl, sideEl, doseEl)),
     nameEl,
     targetEl,
     h('div.st-clock', phaseEl, countEl),
@@ -327,8 +358,13 @@ function attachRunning(mount, token, onExit) {
     live);
 
   // ---- painting ---------------------------------------------------------
-  const paintSegment = i => {
-    const { item, side } = s.segs[i];
+  // `stepIdx` is which segment the counter reads; `showIdx` is which movement
+  // is drawn. They are the same except during rest, when the counter still
+  // belongs to the set you just finished but the picture is already the next
+  // one — that is the whole point of a rest, and you cannot set up for a
+  // movement you cannot see.
+  const paintSegment = (showIdx, stepIdx, ahead) => {
+    const { item, side } = s.segs[showIdx];
     // No artwork yet → leave the space out rather than draw an empty frame.
     const fig = stretchFigure(item, `${item.name} illustration`);
     figSlot.replaceChildren(...(fig ? [fig] : []));
@@ -336,36 +372,45 @@ function attachRunning(mount, token, onExit) {
     nameEl.textContent = item.name;
     targetEl.textContent = item.targets;
     cueEl.textContent = item.cue;
-    warmupEl.hidden = !item.warmup;
+    warmupEl.hidden = !item.warmup || ahead;
+    nextEl.hidden = !ahead;
     sideEl.textContent = side ?? '';
     sideEl.hidden = !side;
     doseEl.textContent = item.dose ?? '';
     doseEl.hidden = !item.dose;
-    stepEl.textContent = `${routine.workLabel} ${i + 1} of ${s.segs.length}`;
+    stepEl.textContent = `${routine.workLabel} ${stepIdx + 1} of ${s.segs.length}`;
   };
 
-  // During rest the screen keeps the movement you just did but says what is
-  // coming, so you can set up for it before the next "get ready" starts.
+  // Rest: show what is coming, not what is done.
   const paintRest = i => {
-    const next = s.segs[i + 1];
-    cueEl.textContent = next
-      ? `Next: ${next.item.name}${next.side ? ` — ${next.side.toLowerCase()}` : ''}`
-      : 'Last one — nearly there.';
+    if (s.segs[i + 1]) { paintSegment(i + 1, i, true); return; }
+    // Nothing after this one — don't invite a set-up that isn't coming.
+    figSlot.replaceChildren();
+    figSlot.hidden = true;
+    nextEl.hidden = true;
+    warmupEl.hidden = true;
+    sideEl.hidden = true;
+    doseEl.hidden = true;
+    nameEl.textContent = 'Last one done';
+    targetEl.textContent = '';
+    cueEl.textContent = 'Breathe. That is the session.';
+    stepEl.textContent = `${routine.workLabel} ${i + 1} of ${s.segs.length}`;
   };
 
   const PHASE_LABEL = { ready: 'Get ready', work: routine.workLabel, rest: 'Rest' };
 
-  const paintClock = (phase, secs, within) => {
+  const paintClock = (seg, phase, secs, within) => {
+    const { ready, work, rest } = seg.phases;
     phaseEl.textContent = PHASE_LABEL[phase];
     countEl.textContent = `0:${String(secs).padStart(2, '0')}`;
     mount.classList.toggle('is-ready', phase === 'ready');
     mount.classList.toggle('is-hold', phase === 'work');
     mount.classList.toggle('is-rest', phase === 'rest');
-    const span = phase === 'ready' ? s.READY : phase === 'work' ? s.WORK : s.SEG - s.READY - s.WORK;
+    const span = phase === 'ready' ? ready : phase === 'work' ? work : rest;
     const done = phase === 'ready' ? within
-      : phase === 'work' ? within - s.READY
-      : within - s.READY - s.WORK;
-    phaseBar.style.width = `${Math.min(100, (done / span) * 100)}%`;
+      : phase === 'work' ? within - ready
+      : within - ready - work;
+    phaseBar.style.width = `${span ? Math.min(100, (done / span) * 100) : 0}%`;
   };
 
   const finishScreen = () => {
@@ -376,8 +421,7 @@ function attachRunning(mount, token, onExit) {
         h('h2', routine.id === 'post-class' ? 'Stretched off' : 'Session done'),
         h('p', `${routine.items.length} ${routine.unit} · ${clock(s.totalMs)} mins. ${routine.doneNote}`),
         h('div.btn-row',
-          h('button.btn.primary', { type: 'button', onclick: () => onExit('again') }, 'Go again'),
-          h('a.btn', { href: '#/log' }, 'Log a class'))));
+          h('button.btn.primary', { type: 'button', onclick: () => onExit('again') }, 'Go again'))));
   };
 
   let lastAnnounceKey = '';
@@ -388,7 +432,7 @@ function attachRunning(mount, token, onExit) {
     if (st.done) { finishScreen(); return; }
 
     const { item, side } = s.segs[st.i];
-    if (st.phase === 'rest') paintRest(st.i); else paintSegment(st.i);
+    if (st.phase === 'rest') paintRest(st.i); else paintSegment(st.i, st.i, false);
 
     const key = `${st.i}:${st.phase}`;
     if (key !== lastAnnounceKey) {
@@ -398,7 +442,7 @@ function attachRunning(mount, token, onExit) {
         : `${PHASE_LABEL[st.phase]}. ${item.name}${side ? `, ${side}` : ''}.`;
     }
 
-    paintClock(st.phase, st.secs, st.within);
+    paintClock(st.seg, st.phase, st.secs, st.within);
     overallBar.style.width = `${(st.e / s.totalMs) * 100}%`;
     leftEl.textContent = `${clock(s.totalMs - st.e)} left`;
     pauseBtn.textContent = sessionRunning(s) ? 'Pause' : 'Resume';
@@ -407,12 +451,18 @@ function attachRunning(mount, token, onExit) {
 
   // ---- controls ---------------------------------------------------------
   pauseBtn.addEventListener('click', () => { setPaused(s, sessionRunning(s)); paint(computeState(s)); });
-  skipBtn.addEventListener('click', () => jumpTo(s, (Math.floor(sessionElapsed(s) / s.SEG) + 1) * s.SEG));
+  skipBtn.addEventListener('click', () => {
+    const i = segmentAt(s.segs, sessionElapsed(s));
+    jumpTo(s, i < 0 ? s.totalMs : s.segs[i].end);
+  });
   backBtn.addEventListener('click', () => {
     const e = sessionElapsed(s);
-    const i = Math.floor(e / s.SEG);
-    const atTop = e - i * s.SEG < 1500;
-    jumpTo(s, Math.max(0, (atTop ? i - 1 : i) * s.SEG));
+    const i = segmentAt(s.segs, e);
+    if (i < 0) { jumpTo(s, s.segs[s.segs.length - 1].start); return; }
+    // Already at the top of this one → go to the previous one instead, which
+    // is what "back" means when you have only just arrived.
+    const atTop = e - s.segs[i].start < 1500;
+    jumpTo(s, s.segs[atTop ? Math.max(0, i - 1) : i].start);
   });
 
   soundBtn.addEventListener('click', () => {

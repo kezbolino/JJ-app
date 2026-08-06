@@ -917,24 +917,131 @@ await test('the rest-day intro sections its warm-up apart from the main session'
   await page.context().close();
 });
 
-await test('the rest-day routine runs a rest phase between sets', async () => {
+await test('the rest-day warm-up flows straight through — no get-ready, no rest', async () => {
   const page = await newPage();
   await go(page, '/stretch?r=rest-day');
   assert.equal(await page.locator('.st-pick button.is-on').innerText(), 'Rest day');
 
   await page.click('.st-intro .btn.cta');
   await page.waitForSelector('.st-count');
-  assert.match(await page.locator('.st-phase').innerText(), /get ready/i);
+  // A warm-up movement opens straight into WORK. Counting you into a movement
+  // that needs no setup is dead air, and it is the first thing you see.
+  assert.match(await page.locator('.st-phase').innerText(), /work/i);
+  assert.doesNotMatch(await page.locator('.st-phase').innerText(), /get ready/i);
   assert.match(await page.locator('.st-step').innerText(), /work 1 of 23/i);
-  // The first four sets are the warm-up (see js/stretches.js) — badged, not
-  // silently blended into the main session.
   assert.ok(await page.locator('.st-warmup').isVisible(), 'the first set is not badged as warm-up');
+  assert.equal(await page.locator('.st-count').innerText(), '0:35', 'the warm-up is not a full work phase');
 
-  // Skipping lands at the top of the next set, so the phase is "get ready"
-  // again — proving rest belongs to the set it follows, not the one it precedes.
+  // Every warm-up segment behaves the same way — they run one into the next.
+  for (let i = 2; i <= 5; i++) {
+    await page.click('.st-skip');
+    await page.waitForTimeout(200);
+    assert.match(await page.locator('.st-step').innerText(), new RegExp(`work ${i} of 23`, 'i'));
+    assert.match(await page.locator('.st-phase').innerText(), /work/i, `set ${i} counts you in`);
+  }
+
+  // The main session is untouched: it still counts you in.
   await page.click('.st-skip');
   await page.waitForTimeout(200);
-  assert.match(await page.locator('.st-step').innerText(), /work 2 of 23/i);
+  assert.match(await page.locator('.st-step').innerText(), /work 6 of 23/i);
+  assert.match(await page.locator('.st-phase').innerText(), /get ready/i,
+    'the main session lost its get-ready');
+  assert.equal(await page.locator('.st-warmup').isVisible(), false);
+  await page.context().close();
+});
+
+/**
+ * A page whose clock runs `factor` times faster.
+ *
+ * The engine derives everything from `performance.now()`, so speeding that up
+ * speeds up the routine and nothing else — `setInterval` still fires on real
+ * time, so the ticks just land further apart on the routine's timeline. It is
+ * the only way to reach a 20-second rest phase, 45 seconds into a set, without
+ * a 45-second test.
+ */
+async function fastPage(factor) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  context.setDefaultTimeout(8000);
+  await context.addInitScript(f => {
+    const orig = performance.now.bind(performance);
+    const t0 = orig();
+    performance.now = () => t0 + (orig() - t0) * f;
+  }, factor);
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: 'networkidle' });
+  return page;
+}
+
+await test('during rest the screen shows what is next, not what you just did', async () => {
+  const page = await fastPage(25);
+  await go(page, '/stretch?r=rest-day');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+
+  // Skip past the warm-up to a main movement, which is the one with a rest.
+  for (let i = 0; i < 5; i++) { await page.click('.st-skip'); await page.waitForTimeout(120); }
+  const during = await page.locator('.st-name').innerText();
+  assert.match(await page.locator('.st-step').innerText(), /work 6 of 23/i);
+
+  await page.waitForSelector('.st.is-rest', { timeout: 8000 });
+  const shown = await page.locator('.st-name').innerText();
+  assert.notEqual(shown, during, 'rest still shows the movement you just finished');
+  assert.ok(await page.locator('.st-next').isVisible(), 'nothing marks the movement as the next one');
+  // The counter still belongs to the set that is resting; the picture does not.
+  assert.match(await page.locator('.st-step').innerText(), /work 6 of 23/i);
+  assert.match(await page.locator('.st-phase').innerText(), /rest/i);
+  await page.context().close();
+});
+
+await test('finishing a routine marks the calendar and offers no class to log', async () => {
+  const page = await fastPage(400);        // the whole cool-down in a few seconds
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-done', { timeout: 20000 });
+
+  assert.equal(await page.locator('.st-done a[href="#/log"]').count(), 0,
+    'the finish screen still offers to log a class');
+  assert.match(await page.locator('.st-done p').innerText(), /calendar/i);
+
+  const logged = await page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    return store.getMobilitySessions();
+  });
+  assert.equal(logged.length, 1, 'the finished routine was not recorded');
+  assert.equal(logged[0].routine, 'post-class');
+
+  // It is on the calendar, and it is not a class — the class count stays zero.
+  await go(page, '/');
+  assert.equal(await page.locator('.sbit-total .sbit-n').innerText(), '0',
+    'a cool-down was counted as a class');
+  await page.click('.sbit-total');
+  await page.waitForTimeout(500);
+  assert.equal(await page.locator('.cal__day.is-mobility').count(), 1,
+    'the cool-down is not marked on the calendar');
+  assert.equal(await page.locator('.cal__day.is-on').count(), 0, 'it filled the day like a class');
+  await page.context().close();
+});
+
+await test('the running screen has a red End button and hides the version footer', async () => {
+  const page = await newPage();
+  await go(page, '/stretch');
+  assert.ok(await page.locator('.appfoot').isVisible(), 'the footer is hidden before starting');
+
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  const end = page.locator('.st-end');
+  assert.ok(await end.isVisible());
+  assert.ok((await end.getAttribute('class')).includes('danger'),
+    'End routine is not styled as the destructive action it is');
+  const bg = await end.evaluate(el => getComputedStyle(el).backgroundColor);
+  assert.notEqual(bg, 'rgba(0, 0, 0, 0)', 'the End button has no fill');
+  assert.equal(await page.locator('.appfoot').isVisible(), false,
+    'the version footer is still on screen mid-routine');
+
+  // And it comes back once the routine is done with the screen.
+  await page.click('.st-end');
+  await page.waitForSelector('.st-intro');
+  assert.ok(await page.locator('.appfoot').isVisible(), 'the footer never came back');
   await page.context().close();
 });
 

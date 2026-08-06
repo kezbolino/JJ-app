@@ -1831,9 +1831,72 @@ data if forgotten:
   Nine suites green, 50 browser assertions. sw `CACHE` → v39, `VERSION` → v39;
   `countdown.webm` and `hype-1..7.webm` added to `SHELL`.
 
+- 2026-08-06 — **v40: five amends to the Off mat routines, and the timing engine
+  stopped assuming uniform segments.**
+
+  **The warm-up now flows.** User: it does not need a get-ready or a rest, it
+  should lead into the next one and be announced during the work phase. Right on
+  all three counts — counting you into a march on the spot is dead air, and
+  resting 20s between movements whose job is to warm you up defeats them.
+  `phasesFor(routine, item)` gives a `warmup` item `{ready: 0, work, rest: 0}`.
+  Rest day drops 24.9 → 22.4 minutes.
+
+  **That broke the invariant this file has defended since v27**, and the fix is
+  worth understanding rather than reverting. Segments used to be uniform so the
+  current one was `floor(elapsed / SEGMENT)`. `segments()` now precomputes each
+  segment's `start`/`end` and `segmentAt()` binary-searches them. **A
+  precomputed table is not a running total.** The rule that mattered was never
+  "all segments are equal" — it is that *nothing accumulates per tick*, because
+  an accumulator drifts and a lookup cannot. A phone that sleeps through half a
+  routine still resumes in exactly the right place, which is the whole point,
+  and there are tests pinning that the timeline is contiguous and that
+  `segmentAt` is exact at every boundary.
+
+  The spoken name follows the phases rather than the `warmup` flag: it lands on
+  whichever phase the segment *opens* with. A movement that flows straight in
+  also gets no countdown and no hype line — there is no get-ready to count down,
+  and its own name is already playing.
+
+  **Rest now shows what is coming.** It used to keep the movement you had just
+  finished on screen and put "Next: …" in the cue line. You cannot set up for a
+  movement you cannot see, so the whole card — figure, name, targets, dose, cue
+  — is now the next one, badged `NEXT UP`. The *counter* still reads the set you
+  just did, because the rest belongs to that set; `paintSegment(showIdx,
+  stepIdx, ahead)` carries both indices for exactly that reason.
+
+  **Finishing a routine marks the calendar.** New `mobilitySessions` settings
+  row, same storage call and same not-yet-syncing trade-off as strength.
+  `trainingIndex()` takes a third argument and the calendar marks mobility in
+  the **bottom-left** corner in green, opposite the lift's top-right blue, so a
+  day can carry a class, a lift and a stretch and read as all three. **Only a
+  routine run to the end counts** — ending early is not a session you did. It is
+  never a class and nothing counts it as one: there is a test asserting the
+  class total stays at zero after a cool-down. "Log a class" is gone from the
+  finish screen, which is what prompted this.
+
+  **Two chrome fixes.** `End routine` was an underlined text link and is now a
+  filled red button — the first and only use of `--danger` in the app, which
+  gets a note in the tokens saying red means "this throws work away" and is not
+  amber's job. And the `JUJI vNN` footer is hidden while a routine runs
+  (`body:has(.st.is-running) .appfoot`) — checking a deploy landed is not
+  something you do mid-hold, and it stays everywhere else because that is how
+  you check a deploy landed.
+
+  **A test technique worth reusing:** `fastPage(factor)` in
+  `tests/features.test.mjs` overrides `performance.now()` via `addInitScript`
+  so the routine's clock runs 25× (or 400×) faster. The engine derives
+  everything from that clock, so the routine speeds up and nothing else does —
+  `setInterval` still fires on real time and the ticks just land further apart
+  on the timeline. It is the only way to reach a rest phase 45 seconds into a
+  set, or a finish screen 14 minutes in, without a test that takes that long.
+
+  Nine suites green (53 browser assertions), screenshot-checked warm-up, main,
+  rest, finish and calendar in light and dark, no overflow at 390px. sw `CACHE`
+  → v40, `VERSION` → v40, no files added or removed.
+
 ## Parked — pick this up next session
 
-**Everything through v39 is shipped and deployed.** The voice-cue re-recording
+**Everything through v40 is shipped and deployed.** The voice-cue re-recording
 job that sat parked here is **finished** — all 30 per-move names, the six "other
 side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
 wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.

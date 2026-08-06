@@ -54,6 +54,13 @@
   --good:        #1e8e68;   /* gi/no-gi stat, the rest-day rest phase, the warm-up badge */
   --good-soft:   #eaf9f3;
 
+  /* red = STOP. One job, one caller: ending a routine early. It is not a
+     warning colour (amber owns "waiting on you") and never decoration — a red
+     that shows up anywhere else stops meaning "this throws work away". */
+  --danger:      #d4483b;
+  --danger-edge: #a5342a;
+  --on-danger:   #ffffff;
+
   --dash:        #cfd7e8;   /* dashed border on "not yet" affordances */
   --btn-line:    #dde2ee;   /* outline on a neutral button, so it reads as one
                                on a white card as well as on the page */
@@ -116,6 +123,9 @@
 
     --good:        #57caa0;
     --good-soft:   rgba(87, 202, 160, .12);
+    --danger:      #f2685a;
+    --danger-edge: #b8412f;
+    --on-danger:   #17181c;
     --dash:        #394054;
     --btn-line:    #232838;
 
@@ -154,6 +164,9 @@
 
   --good:        #57caa0;
   --good-soft:   rgba(87, 202, 160, .12);
+  --danger:      #f2685a;
+  --danger-edge: #b8412f;
+  --on-danger:   #17181c;
   --dash:        #394054;
   --btn-line:    #232838;
 
@@ -902,6 +915,13 @@ a.banner .b-txt.muted { color: var(--muted); }
   width: 6px; height: 6px; border-radius: 2px; background: var(--accent);
 }
 .cal__day.is-on.is-lift::after { background: var(--bg); }
+/* Mobility takes the other corner, in the same green the rest phase and the
+   warm-up badge use, so a day can carry a class, a lift and a stretch at once. */
+.cal__day.is-mobility::before {
+  content: ''; position: absolute; bottom: 2px; left: 2px;
+  width: 6px; height: 6px; border-radius: 2px; background: var(--good);
+}
+.cal__day.is-on.is-mobility::before { background: var(--bg); opacity: .8; }
 a.cal__day:active { transform: scale(.9); }
 
 /* --- the stats strip, and the calendar on its back --------------------- */
@@ -1024,6 +1044,7 @@ a.cal__day:active { transform: scale(.9); }
 .hcal-key .k-gi { background: var(--text); }
 .hcal-key .k-nogi { background: var(--surface); box-shadow: inset 0 0 0 2px var(--text); }
 .hcal-key .k-lift { background: var(--accent); width: 7px; height: 7px; }
+.hcal-key .k-mob { background: var(--good); width: 7px; height: 7px; }
 .hcal-close {
   margin-left: auto; border: 0; background: none; cursor: pointer;
   font: inherit; font-size: .72rem; font-weight: 800; color: var(--accent);
@@ -1242,7 +1263,7 @@ a.cal__day:active { transform: scale(.9); }
    drawing an empty box — see PENDING_ART in js/stretch-art.js. */
 .st-fig[hidden] + .st-badges { margin-top: 26px; }
 .st-badges { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.st-side, .st-dose, .st-warmup {
+.st-side, .st-dose, .st-warmup, .st-next {
   display: inline-block; margin-top: 2px;
   font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
   padding: 5px 11px; border-radius: var(--r-chip);
@@ -1253,6 +1274,7 @@ a.cal__day:active { transform: scale(.9); }
 /* Green, like the rest-day rest phase: a warm-up is a positive, unhurried
    state, not a gap — amber stays reserved for that. */
 .st-warmup { background: var(--good-soft); color: var(--good); }
+.st-next { background: var(--surface-2); color: var(--muted); }
 .st-name { font-size: 1.4rem; font-weight: 600; margin: 10px 0 0; letter-spacing: -.01em; }
 .st-targets { color: var(--muted); font-size: .82rem; font-weight: 700; margin: 4px 0 0; }
 
@@ -1280,8 +1302,8 @@ a.cal__day:active { transform: scale(.9); }
 .st-ctl .st-pause { flex: 1.4; }
 
 .st-foot {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; margin-top: 14px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; margin-top: 16px;
 }
 .st-sound {
   width: 38px; height: 38px; border-radius: var(--r-tile);
@@ -1290,11 +1312,18 @@ a.cal__day:active { transform: scale(.9); }
 }
 .st-sound svg { width: 17px; height: 17px; }
 .st-sound.is-muted { color: var(--muted); opacity: .55; }
-.st-end {
-  background: none; border: 0; cursor: pointer;
-  color: var(--muted); font-family: inherit; font-size: .84rem; font-weight: 700;
-  padding: 8px 4px; text-decoration: underline; text-underline-offset: 3px;
+/* Ending a routine throws the session away, so it looks like a control you
+   mean to press rather than a link you might brush past. */
+.btn.danger {
+  background: var(--danger); color: var(--on-danger);
+  border-color: var(--danger); box-shadow: 0 4px 0 var(--danger-edge);
 }
+.btn.danger:active { box-shadow: 0 0 0 var(--danger-edge); }
+.st-end { flex: 1; max-width: 190px; }
+
+/* The version footer is for checking a deploy landed, which is not a thing you
+   are doing mid-hold. Hidden while a routine runs, present everywhere else. */
+body:has(.st.is-running) .appfoot { display: none; }
 
 /* --- finished ----------------------------------------------------------- */
 .st-done { text-align: center; padding: 24px 8px; }
@@ -1554,7 +1583,7 @@ a.cal__day:active { transform: scale(.9); }
   .seg button, .fc-inner, .flip-inner, .flipcard, .deck-rail i,
   .tabbar a::before, .tabbar a svg, .tabbar a:active svg,
   .cov-fill, .st-rail i, .st-phaserail i,
-  .sx-rail i, .sx-set, .sx-set:active, .st-pick a,
+  .sx-rail i, .sx-set, .sx-set:active, .st-pick a, .btn.danger, .btn.danger:active,
   input, textarea, select,
   .note-card:active, .vidref:active, a.card:active, .exp-row:active {
     transition: none;

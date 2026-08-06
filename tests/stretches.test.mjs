@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import {
   ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
   READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, HYPE_CUES, pickOtherSide, pickHype,
+  phasesFor, segmentAt,
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
 
@@ -141,12 +142,63 @@ test('every side of every item gets a set', () => {
 test('both routines land in the window they were asked for', () => {
   const cool = routineMs(postClass) / 60_000;
   assert.ok(cool >= 10 && cool <= 15, `cool-down is ${cool} min, outside 10–15`);
-  // Widened from 22 when the warm-up section was added — four extra sets is
-  // the deliberate cost of warming up cold before the end-range work below.
   const rest = routineMs(restDay) / 60_000;
-  assert.ok(rest >= 15 && rest <= 26, `rest day is ${rest} min, nowhere near the ~25 the warm-up brings it to`);
+  assert.ok(rest >= 15 && rest <= 26, `rest day is ${rest} min, outside 15–26`);
+  // The total is the sum of the segments, which is no longer count × length:
+  // the warm-up runs work only. Assert the timeline, not the old shortcut.
   for (const r of ROUTINES) {
-    assert.equal(routineMs(r), segments(r).length * segmentMs(r), `${r.id} total`);
+    const segs = segments(r);
+    assert.equal(routineMs(r), segs.reduce((n, s) => n + s.length, 0), `${r.id} total`);
+  }
+});
+
+test('the timeline is contiguous, starts at zero and has no gaps', () => {
+  // Everything downstream is a lookup into these offsets. A gap or an overlap
+  // would put the routine on the wrong movement, silently.
+  for (const r of ROUTINES) {
+    const segs = segments(r);
+    assert.equal(segs[0].start, 0, `${r.id} does not start at zero`);
+    for (let i = 0; i < segs.length; i++) {
+      assert.equal(segs[i].end - segs[i].start, segs[i].length, `${r.id} segment ${i} length`);
+      if (i) assert.equal(segs[i].start, segs[i - 1].end, `${r.id} has a gap before segment ${i}`);
+    }
+    assert.equal(segs[segs.length - 1].end, routineMs(r), `${r.id} timeline end`);
+  }
+});
+
+test('a warm-up movement is work only — no get-ready, no rest', () => {
+  // What was asked for: they flow one into the next. Both zero phases matter —
+  // a countdown into a movement needing no setup is dead air, and resting
+  // between warm-up movements defeats the point of warming up.
+  const warmups = restDay.items.filter(i => i.warmup);
+  assert.ok(warmups.length >= 4, 'the rest day lost its warm-up');
+  for (const item of warmups) {
+    const p = phasesFor(restDay, item);
+    assert.equal(p.ready, 0, `${item.id} still counts you into a warm-up movement`);
+    assert.equal(p.rest, 0, `${item.id} still rests after a warm-up movement`);
+    assert.equal(p.work, restDay.phases.work, `${item.id} changed the work length too`);
+  }
+  // And the main session is untouched — this was a warm-up change, not a
+  // rewrite of the session it warms you up for.
+  for (const item of restDay.items.filter(i => !i.warmup)) {
+    assert.deepEqual(phasesFor(restDay, item), restDay.phases, `${item.id} phases changed`);
+  }
+  // The cool-down has no warm-up at all, so nothing there moved.
+  for (const item of postClass.items) {
+    assert.deepEqual(phasesFor(postClass, item), postClass.phases, `${item.id} phases changed`);
+  }
+});
+
+test('segmentAt finds the right movement at every boundary', () => {
+  for (const r of ROUTINES) {
+    const segs = segments(r);
+    for (let i = 0; i < segs.length; i++) {
+      assert.equal(segmentAt(segs, segs[i].start), i, `${r.id}: start of segment ${i}`);
+      assert.equal(segmentAt(segs, segs[i].end - 1), i, `${r.id}: last ms of segment ${i}`);
+    }
+    assert.equal(segmentAt(segs, -1), -1, 'before the start');
+    assert.equal(segmentAt(segs, routineMs(r)), -1, 'exactly at the end is past the end');
+    assert.equal(segmentAt(segs, routineMs(r) + 5000), -1, 'past the end');
   }
 });
 

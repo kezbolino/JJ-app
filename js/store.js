@@ -287,6 +287,30 @@ export async function saveStrengthSession(session) {
   return next;
 }
 
+// ---- mobility sessions ----------------------------------------------------
+// A finished cool-down or rest-day routine. Same storage call as strength
+// sessions and the same trade-off: a settings row, so it rides along in
+// Export/Import and does not yet sync to the notes repo.
+//
+// These are **not** classes and must never be counted as one. A cool-down is
+// something you did after training, not training; the calendar marks it apart
+// and no class count, streak or coverage figure reads this list.
+
+export async function getMobilitySessions() {
+  const list = await getSetting('mobilitySessions', []);
+  return Array.isArray(list) ? list : [];
+}
+
+/** Record a finished routine. One row per routine per day — going again on the
+ *  same evening is the same session as far as the calendar is concerned. */
+export async function logMobilitySession(routineId, date = todayISO()) {
+  const sessions = await getMobilitySessions();
+  if (sessions.some(s => s.date === date && s.routine === routineId)) return sessions;
+  const next = [...sessions, { id: `mb-${date}-${routineId}`, date, routine: routineId }];
+  await setSetting('mobilitySessions', next);
+  return next;
+}
+
 /** Exercises muted while something is sore — skipped, without skipping the lot. */
 export const getMutedExercises = () => getSetting('strengthMuted', []);
 export async function toggleMutedExercise(id) {
@@ -460,10 +484,10 @@ export function activePositions(entries) {
  * second calendar somewhere else. A day can hold both, and often should: the
  * rule the programme is built on is lift *after* jiu jitsu, never before.
  */
-export function trainingIndex(entries, strengthSessions = []) {
+export function trainingIndex(entries, strengthSessions = [], mobilitySessions = []) {
   const index = new Map();
   const dayFor = date => {
-    const day = index.get(date) ?? { count: 0, gi: 0, nogi: 0, lifts: 0, ids: [] };
+    const day = index.get(date) ?? { count: 0, gi: 0, nogi: 0, lifts: 0, mobility: 0, ids: [] };
     index.set(date, day);
     return day;
   };
@@ -477,6 +501,7 @@ export function trainingIndex(entries, strengthSessions = []) {
     day.ids.push(entry.id);
   }
   for (const session of strengthSessions) dayFor(session.date).lifts++;
+  for (const session of mobilitySessions) dayFor(session.date).mobility++;
   return index;
 }
 

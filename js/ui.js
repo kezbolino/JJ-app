@@ -142,25 +142,29 @@ export function monthCalendar(ym, index, { today = '', onPick = null, showMonth 
       if (day.gi && day.nogi) classes.push('is-both');
       else if (day.nogi) classes.push('is-nogi');
     }
-    // A lift is marked with a corner tick rather than by filling the cell, so
-    // it never competes with the gi/no-gi fill and a day that held both still
-    // reads as both.
+    // Off-mat work is marked in the corners rather than by filling the cell, so
+    // it never competes with the gi/no-gi fill and a day that held a class, a
+    // lift and a stretch still reads as all three. A lift takes the top-right,
+    // mobility the bottom-left.
     if (day?.lifts) classes.push('is-lift');
+    if (day?.mobility) classes.push('is-mobility');
     if (date === today) classes.push('is-today');
 
     const parts = [];
     if (day?.count) parts.push(`${day.count} ${day.count === 1 ? 'class' : 'classes'}`);
     if (day?.lifts) parts.push(day.lifts === 1 ? 'a lift' : `${day.lifts} lifts`);
+    if (day?.mobility) parts.push(day.mobility === 1 ? 'a stretch' : `${day.mobility} stretches`);
     const label = parts.length ? `${date}: ${parts.join(' + ')}` : `${date}: nothing logged`;
 
     // A day with something in it is a link into that entry; an empty day is
-    // inert, not an invitation to backfill a class that never happened. A
-    // lift-only day has no entry to open, so it goes to the strength screen.
+    // inert, not an invitation to backfill a class that never happened. A day
+    // with only off-mat work has no entry to open, so it goes to that screen.
     if (day?.count && onPick) {
       return h('a.' + classes.join('.'), { href: onPick(day), title: label, 'aria-label': label }, String(n));
     }
-    if (day?.lifts && onPick) {
-      return h('a.' + classes.join('.'), { href: '#/strength', title: label, 'aria-label': label }, String(n));
+    if ((day?.lifts || day?.mobility) && onPick) {
+      const href = day.lifts ? '#/strength' : '#/stretch';
+      return h('a.' + classes.join('.'), { href, title: label, 'aria-label': label }, String(n));
     }
     return h('span.' + classes.join('.'), { title: label, 'aria-label': label }, String(n));
   });
