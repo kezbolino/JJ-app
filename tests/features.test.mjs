@@ -1220,7 +1220,8 @@ await test('the first strength session opens with the programme already prescrib
   await go(page, '/strength');
 
   const targets = await page.locator('.sx-plan-target').allTextContents();
-  assert.equal(targets.length, 8, 'the programme is not eight movements');
+  const count = await page.evaluate(async () => (await import('/js/strength.js')).EXERCISES.length);
+  assert.equal(targets.length, count, 'the plan does not list every movement');
   assert.equal(targets[0], '5 × 6 · 3s down', 'pull-ups do not start where the programme says');
   const names = await page.locator('.sx-plan-name').allTextContents();
   assert.equal(names[0], 'Pull-ups', 'the hardest movement is not first');
@@ -1262,15 +1263,19 @@ await test('tapping a set logs it, and the draft survives leaving the screen', a
   await page.click('.sx-intro .btn.cta');
   await page.waitForSelector('.sx-set');
 
-  assert.equal(await page.locator('.sx-set').count(), 30, 'not every set is on screen');
-  assert.match(await page.locator('.sx-progress').innerText(), /0 of 30 sets/);
+  const totalSets = await page.evaluate(async () => {
+    const m = await import('/js/strength.js');
+    return m.EXERCISES.reduce((n, e) => n + e.sets, 0);
+  });
+  assert.equal(await page.locator('.sx-set').count(), totalSets, 'not every set is on screen');
+  assert.match(await page.locator('.sx-progress').innerText(), new RegExp(`0 of ${totalSets} sets`));
 
   const first = page.locator('.sx-ex').first().locator('.sx-set').first();
   assert.equal(await first.innerText(), '6');
   await first.click();
   await page.waitForTimeout(120);
   assert.equal(await first.getAttribute('aria-pressed'), 'true');
-  assert.match(await page.locator('.sx-progress').innerText(), /1 of 30 sets/);
+  assert.match(await page.locator('.sx-progress').innerText(), new RegExp(`1 of ${totalSets} sets`));
   // Completing a set starts the rest countdown for that movement.
   assert.ok(await page.locator('.sx-rest').isVisible(), 'no rest timer after a set');
   assert.match(await page.locator('.sx-rest-n').innerText(), /^[12]:\d\d$/);
@@ -1284,7 +1289,7 @@ await test('tapping a set logs it, and the draft survives leaving the screen', a
   // A lift runs over an hour and the phone will lock. Leaving must cost nothing.
   await go(page, '/log');
   await go(page, '/strength');
-  assert.match(await page.locator('.sx-progress').innerText(), /1 of 30 sets/,
+  assert.match(await page.locator('.sx-progress').innerText(), new RegExp(`1 of ${totalSets} sets`),
     'the logged set was lost by navigating away');
   // The rest countdown is deliberately not restored — only the log is.
   assert.equal(await page.locator('.sx-rest:visible').count(), 0);
@@ -1325,12 +1330,17 @@ await test('finishing a clean session sets next session\'s targets and says what
   // Log every set at its target — the whole session, the honest way.
   const sets = await page.locator('.sx-set').all();
   for (const set of sets) await set.click();
-  assert.match(await page.locator('.sx-progress').innerText(), /30 of 30 sets/);
+  const all = await page.evaluate(async () => {
+    const m = await import('/js/strength.js');
+    return m.EXERCISES.reduce((n, e) => n + e.sets, 0);
+  });
+  assert.match(await page.locator('.sx-progress').innerText(), new RegExp(`${all} of ${all} sets`));
 
   await page.click('.btn:has-text("Finish session")');
   await page.waitForSelector('.sx-done');
   const changes = await page.locator('.sx-changes li').allTextContents();
-  assert.equal(changes.length, 8, 'a clean session should move all eight movements');
+  assert.equal(changes.length, await page.evaluate(async () => (await import('/js/strength.js')).EXERCISES.length),
+    'a clean session should move every movement');
   assert.ok(changes.some(c => /Pull-ups goes to 7 reps/.test(c)), changes.join(' | '));
   assert.match(await page.locator('.sx-done-note').innerText(), /not a class/i);
 
@@ -1359,29 +1369,28 @@ await test('the lift speaks when a rest ends — the next movement, or "go again
   await page.click('.sx-intro .btn.cta');
   await page.waitForSelector('.sx-set');
 
-  // Starting announces what you are opening with. Until v42 nothing spoke for
-  // the first two minutes of a session, which made a working audio path
-  // indistinguishable from a broken one.
-  await page.waitForTimeout(200);
-  assert.ok(cues.includes('pull-up.webm'),
-    `starting the session announced nothing (heard: ${cues.join(', ') || 'nothing'})`);
-  cues.length = 0;
-
-  // Pull-ups is 5 sets. Log one: sets remain, so the rest ends on a generic
-  // "rest is over" rather than naming a movement you are already doing.
-  await page.locator('.sx-ex').first().locator('.sx-set').first().click();
+  // Start is silent on purpose: the warm-up comes first and has no clip, and
+  // naming the first lift while the screen shows arm circles is worse than
+  // saying nothing (v43).
   await page.waitForTimeout(250);
-  assert.ok(cues.some(c => /^rest-over-[1-5]\.webm$/.test(c)),
-    `no rest-over cue queued (heard: ${cues.join(', ') || 'nothing'})`);
-  assert.ok(!cues.includes('pull-up.webm'), 'it named the movement you are already on');
+  assert.deepEqual(cues, [], `starting the session should be silent, heard: ${cues.join(', ')}`);
 
-  // Finish the remaining four. Now the exercise is done, so the rest before the
-  // next one announces *that* — which is the thing worth hearing face-down.
+  // The first set of a movement names it, inside the tap. Sets remain, so the
+  // rest that follows ends on a generic "go again" rather than naming a
+  // movement you are already on.
+  const first = page.locator('.sx-ex').first().locator('.sx-set');
+  await first.first().click();
+  await page.waitForTimeout(250);
+  assert.ok(cues.includes('pull-up.webm'), `the first set did not name the lift (${cues.join(', ')})`);
+  assert.ok(cues.some(c => /^rest-over-[1-5]\.webm$/.test(c)), `no rest-over cue queued (${cues.join(', ')})`);
+
+  // Finish the movement. Now the rest before the next one announces *that* —
+  // the thing worth hearing with the phone face down.
   cues.length = 0;
-  const sets = await page.locator('.sx-ex').first().locator('.sx-set').all();
-  for (const set of sets.slice(1)) { await set.click(); await page.waitForTimeout(120); }
-  assert.ok(cues.includes('split-squat.webm'),
-    `the rest after the last set did not announce the next lift (heard: ${cues.join(', ')})`);
+  const nextId = await page.evaluate(async () => (await import('/js/strength.js')).EXERCISES[1].id);
+  for (const set of (await first.all()).slice(1)) { await set.click(); await page.waitForTimeout(120); }
+  assert.ok(cues.includes(`${nextId}.webm`),
+    `the rest after the last set did not announce ${nextId} (heard: ${cues.join(', ')})`);
   await page.context().close();
 });
 
@@ -1476,7 +1485,11 @@ await test('a movement can be muted mid-session without skipping the lot', async
 
   await page.locator('.sx-mute').first().click();
   await page.waitForTimeout(200);
-  assert.match(await page.locator('.sx-progress').innerText(), /0 of 25 sets/,
+  const withoutFirst = await page.evaluate(async () => {
+    const m = await import('/js/strength.js');
+    return m.EXERCISES.slice(1).reduce((n, e) => n + e.sets, 0);
+  });
+  assert.match(await page.locator('.sx-progress').innerText(), new RegExp(`0 of ${withoutFirst} sets`),
     'a muted movement still counts towards the session');
   assert.match(await page.locator('.sx-ex').first().innerText(), /muted for this session/i);
   assert.equal(await page.locator('.sx-ex').first().locator('.sx-set').count(), 0);

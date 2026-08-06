@@ -166,7 +166,7 @@ function planRow(plan) {
       last ? h('span.sx-plan-last', `Last: ${last}`) : null,
       plan.muted ? h('span.sx-muted-flag', 'Muted') : null),
     plan.needsLoad ? h('p.sx-load', icon('flame'),
-      'Out of bodyweight road. Add a vest or a loaded rucksack, or move to the next variation.') : null);
+      'Out of bodyweight road. Add weight — a kettlebell held between the feet, a loaded rucksack — or move to the next variation.') : null);
 }
 
 function introScreen(mount, ctx) {
@@ -332,7 +332,7 @@ function exerciseCard(logged, ctx) {
     // point; hiding it behind a disclosure would mean nobody ever does.
     h('p.sx-cue', ex.cue),
     ctx.stateFor(ex.id).needsLoad
-      ? h('p.sx-load', icon('flame'), 'This one needs added weight now — a vest or a loaded rucksack.')
+      ? h('p.sx-load', icon('flame'), 'This one needs added weight now — a kettlebell between the feet, or a loaded rucksack.')
       : null,
     setsRow);
 
@@ -582,15 +582,13 @@ export default async function strength(root, { view } = {}) {
         beep.unlock();
         voice.unlock();
         const fresh = newStrengthSession(today, sessions, { deload, muted });
-        // Announce what you are opening with, here, on the tap.
-        //
-        // Not decoration: until v42 the *only* thing that ever spoke was the
-        // end of a rest, so nothing at all happened for the first two minutes
-        // of a session and there was no way to tell working audio from broken
-        // audio. A cue on the Start tap is both useful and the fastest possible
-        // answer to "is this thing on".
-        const opener = fresh.exercises.find(e => !e.skipped);
-        if (opener) { announced.add(opener.exerciseId); voice.say(opener.exerciseId); }
+        // Deliberately silent. v42 announced the opening lift here, which was
+        // right until v43 put the warm-up first — then Start said "pull-ups"
+        // while the screen showed arm circles, which is worse than saying
+        // nothing. The name now lands on the first set of the movement itself
+        // (see `announce` below), which is both correct and on every route in.
+        // The warm-up gets no cue at all: none is recorded, and a wrong one is
+        // worse than none.
         await store.setStrengthDraft(fresh);
         showSession(fresh);
       },

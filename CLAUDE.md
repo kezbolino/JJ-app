@@ -2067,9 +2067,53 @@ data if forgotten:
 
   Nine suites green (57 browser assertions). sw `CACHE` → v43, `VERSION` → v43.
 
+- 2026-08-06 — **v44: kettlebells, and the Start cue moved to where it belongs.**
+
+  **Start is silent again, on purpose.** v43 put the warm-up first and left v42's
+  announcement on the Start tap, so tapping Start said "Pull-ups first, nephew"
+  while the screen showed arm circles. The user called it the wrong voice, which
+  it was. The name now lands only on the first set of the movement itself. The
+  warm-up gets no cue at all — none is recorded, and a wrong cue is worse than
+  none.
+
+  **Kettlebells.** The user owns 16kg, 10kg and 8kg × 2. The brief said
+  bodyweight only and ruled out extra exercises; that is superseded, and
+  `docs/STRENGTH.md` records it so nobody later "corrects" it back. Two
+  movements, taking the programme to ten and the session to roughly 75–90
+  minutes — mute either from inside a session if that is too long:
+
+  - **Turkish get-up**, second in the order, 3 × 3 each side, 8 → 10 → 16kg.
+    Getting up off your back under load is the most grappling-specific thing a
+    bell does, and it is a skill before it is a lift, so it wants a fresh brain.
+  - **Kettlebell swings**, after the Nordic curl, 4 × 12, 10kg → 16kg → 16kg
+    single-arm. Hip-hinge power and grip, and the one pattern the bodyweight
+    eight never trained — a Nordic curl is knee flexion, not a hinge.
+
+  **The engine gained `noTempo`, and it is a real distinction rather than a
+  flag for convenience.** A swing is ballistic: a slow swing is not a harder
+  swing, it is a different and worse exercise. `noTempo` movements skip ladder
+  rungs 2 and 3 and climb reps → load, and for them `variations` *are* the load
+  (the bells), so the ladder still works with the rung that applies. Holds now
+  route through the same branch, which also fixed a latent bug: a hold with a
+  real variation chain would previously have gone straight to `needsLoad`
+  without ever trying it.
+
+  **Neither new movement has a voice clip**, so the rest-end cue for them 404s
+  and stays silent — the contract `createVoice` has always had. Two lines to
+  record when convenient.
+
+  **A test-hygiene note.** Adding two movements broke six assertions that
+  hard-coded "8 movements" and "30 sets". They derive from `EXERCISES` now,
+  including the browser ones (via `page.evaluate` importing the module). A
+  number copied out of the data is a test that fails on every future change to
+  the data without ever finding a bug.
+
+  Nine suites green (57 browser assertions, 29 strength). sw `CACHE` → v44,
+  `VERSION` → v44.
+
 ## Parked — pick this up next session
 
-**Everything through v43 is shipped and deployed.** The voice-cue re-recording
+**Everything through v44 is shipped and deployed.** The voice-cue re-recording
 job that sat parked here is **finished** — all 30 per-move names, the six "other
 side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
 wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.

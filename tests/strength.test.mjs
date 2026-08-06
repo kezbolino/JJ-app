@@ -48,8 +48,8 @@ const badSession = (date, sessions = [], missing = 2) => {
 
 // ---- the programme itself -------------------------------------------------
 
-test('the eight movements are complete and uniquely identified', () => {
-  assert.equal(EXERCISES.length, 8);
+test('every movement is complete and uniquely identified', () => {
+  assert.ok(EXERCISES.length >= 8, 'the programme lost movements');
   const ids = new Set();
   for (const ex of EXERCISES) {
     assert.ok(ex.id && !ids.has(ex.id), `duplicate or missing id: ${ex.id}`);
@@ -282,7 +282,8 @@ test('a deload runs the same movements at half the sets and the same reps', () =
   const light = todaysPlan(sessions, { deload: true }).find(p => p.exercise.id === 'pull-up');
   assert.equal(light.reps, normal.reps, 'a deload must not change the reps');
   assert.ok(light.sets < normal.sets && light.sets >= 1, 'a deload should halve the sets');
-  assert.equal(todaysPlan(sessions, { deload: true }).length, 8, 'a deload drops no movement');
+  assert.equal(todaysPlan(sessions, { deload: true }).length, EXERCISES.length,
+    'a deload drops no movement');
 });
 
 // ---- the session object ---------------------------------------------------
@@ -302,7 +303,7 @@ test('a new session freezes the targets it was started with', () => {
 
 test('a muted exercise is still in the session, marked skipped', () => {
   const session = newStrengthSession('2026-08-12', [], { muted: ['pull-up'] });
-  assert.equal(session.exercises.length, 8);
+  assert.equal(session.exercises.length, EXERCISES.length);
   assert.equal(session.exercises.find(e => e.exerciseId === 'pull-up').skipped, true);
   assert.equal(sessionProgress(session).total,
     session.exercises.filter(e => !e.skipped).reduce((n, e) => n + e.sets.length, 0),
@@ -311,7 +312,8 @@ test('a muted exercise is still in the session, marked skipped', () => {
 
 test('progress counts completed sets, ignoring what is muted', () => {
   const session = newStrengthSession('2026-08-12', []);
-  assert.deepEqual(sessionProgress(session), { done: 0, total: 30, pct: 0 });
+  const totalSets = EXERCISES.reduce((n, e) => n + e.sets, 0);
+  assert.deepEqual(sessionProgress(session), { done: 0, total: totalSets, pct: 0 });
   session.exercises[0].sets.forEach(s => { s.completed = true; });
   assert.equal(sessionProgress(session).done, 5);
 });
@@ -319,7 +321,8 @@ test('progress counts completed sets, ignoring what is muted', () => {
 test('the after-session summary names what actually changed', () => {
   const first = perfectSession('2026-08-05');
   const changes = sessionChanges([], first);
-  assert.equal(changes.length, 8, 'a clean session should move all eight');
+  assert.equal(changes.length, EXERCISES.length,
+    'a clean session should move every movement');
   const pull = changes.find(c => c.exercise.id === 'pull-up');
   assert.match(pull.change, /7 reps/);
   const hold = changes.find(c => c.exercise.id === 'hollow-hold');
@@ -339,6 +342,42 @@ test('history lists a movement newest first and leaves out what was muted', () =
   assert.equal(rows[0].session.date, '2026-08-05');
   assert.equal(historyFor([a, b], 'inverted-row').map(r => r.session.date).join(),
     '2026-08-12,2026-08-05');
+});
+
+test('a ballistic or held movement skips the tempo rungs and climbs load', () => {
+  // Slowing a swing down is not a harder swing, it is a different and worse
+  // exercise; a hold has nothing to lower. Both must go reps → load.
+  for (const id of ['kb-swing', 'kb-getup', 'hollow-hold']) {
+    const ex = EXERCISE_BY_ID[id];
+    assert.ok(ex.isHold || ex.noTempo, `${id} should be marked as skipping tempo`);
+    let s = startingState(ex);
+    for (let i = 0; i < 40; i++) {
+      s = advance(s, ex);
+      assert.equal(s.eccentricSec, 0, `${id} grew a slow lowering`);
+      assert.equal(s.pauseSec, 0, `${id} grew a pause`);
+    }
+  }
+  // And the load rung does work: swings climb through their bells.
+  const swing = EXERCISE_BY_ID['kb-swing'];
+  let s = startingState(swing);
+  const bells = new Set();
+  for (let i = 0; i < 40; i++) { bells.add(variationOf(s, swing).name); s = advance(s, swing); }
+  assert.ok(bells.size > 1, 'swings never moved onto a heavier bell');
+});
+
+test('the kettlebell work covers what the bodyweight eight never did', () => {
+  const swing = EXERCISE_BY_ID['kb-swing'];
+  const getup = EXERCISE_BY_ID['kb-getup'];
+  assert.ok(swing && getup, 'the kettlebell movements are missing');
+  // The bells the user actually owns — a variation naming a weight he does not
+  // have is a prescription he cannot follow.
+  const owned = ['8kg', '10kg', '16kg'];
+  for (const ex of [swing, getup]) {
+    for (const v of ex.variations) {
+      const weight = v.name.match(/\d+kg/)?.[0];
+      assert.ok(weight && owned.includes(weight), `${ex.id} names a bell not owned: ${v.name}`);
+    }
+  }
 });
 
 test('the warm-up rehearses the session, and never touches the programme', () => {

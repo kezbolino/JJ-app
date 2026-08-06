@@ -212,6 +212,34 @@ every time. A stored counter drifts the moment a session is edited or deleted,
 and drift in this particular number is invisible: you would simply be told to do
 the wrong thing forever.
 
+### Kettlebells (v44)
+
+The brief says bodyweight only and rules out "any exercise library beyond the
+eight above". The user then turned out to own **16kg, 10kg and 8kg × 2** and
+asked for kettlebell work, which supersedes both — recorded here so nobody
+later reads the spec and "corrects" it back.
+
+Two movements added, taking the programme to ten and the session to roughly
+75–90 minutes (mute either one from inside a session if that is too long):
+
+- **Turkish get-up**, second in the order. The most grappling-specific thing
+  you can do with a bell — getting up off your back under load without losing
+  the shoulder — and a skill before it is a lift, so it wants a fresh brain.
+  3 × 3 each side, 8kg → 10kg → 16kg.
+- **Kettlebell swings**, after the Nordic curl. Hip-hinge power and grip, and
+  the one pattern the bodyweight eight never trained: a Nordic curl is knee
+  flexion, not a hinge. 4 × 12, 10kg → 16kg → 16kg single-arm.
+
+**The engine gained `noTempo`.** A swing is ballistic: slowing it down is not a
+harder swing, it is a different and worse exercise. Movements marked `noTempo`
+(and holds, which have nothing to lower) skip ladder rungs 2 and 3 and go
+straight from reps to load — and for these, `variations` *are* the load, so the
+ladder keeps working with the rung that applies. Tests pin that neither ever
+grows an eccentric or a pause.
+
+The `needsLoad` prompt now names a kettlebell rather than only a vest, since
+there is one in the room.
+
 ### Three deliberate departures
 
 1. **No RPE.** The spec lists it as optional. The BJJ side of this app had a

@@ -14,8 +14,9 @@
 // section (Off mat) and a beeper, and nothing else.
 //
 // **The progression problem.** Standard workout apps progress by adding weight.
-// There is no weight here: a pull-up bar and a floor. So progression climbs a
-// four-step ladder per exercise instead:
+// This one mostly cannot: eight of the ten movements are bodyweight, a pull-up
+// bar and a floor. So progression climbs a four-step ladder per exercise
+// instead:
 //
 //   1. add reps, up to a ceiling
 //   2. slow the lowering — 3 seconds, then 5
@@ -27,6 +28,12 @@
 // `needsLoad` means, and surfacing it is the difference between the programme
 // stalling loudly and stalling silently.
 //
+// **`noTempo` movements skip rungs 2 and 3.** A kettlebell swing is ballistic:
+// slowing one down is not a harder swing, it is a different and worse exercise.
+// A hold has nothing to lower. Both climb reps and then load, and their
+// `variations` are the load — 8kg, 10kg, 16kg — so the ladder keeps working
+// with the rung that actually applies.
+//
 // Everything below is pure: no DOM, no storage, no clock. It is the only part
 // of this module worth unit-testing, and tests/strength.test.mjs does.
 //
@@ -37,8 +44,8 @@ const REP_STEP = 1;
 const HOLD_STEP = 5;
 
 /**
- * The eight movements, in the order they are done: hardest first, while you
- * are freshest. `variations` is the chain from easiest to hardest and `start`
+ * The movements, in the order they are done: hardest first, while you are
+ * freshest, and the skill-heavy get-up early for the same reason. `variations` is the chain from easiest to hardest and `start`
  * says which one the programme begins on — he is not starting at the bottom of
  * every chain, and pretending otherwise would waste months.
  *
@@ -67,6 +74,28 @@ export const EXERCISES = [
       { id: 'pull-up-weighted', name: 'Weighted pull-ups', needsLoad: true },
     ],
     start: 1,
+  },
+  {
+    // Added in v44, when the user turned out to own kettlebells. The most
+    // grappling-specific thing you can do with one: getting up off your back
+    // under load, slowly, without losing the shoulder. Early in the session
+    // because it is a skill before it is a lift, and skills want a fresh brain.
+    id: 'kb-getup',
+    name: 'Turkish get-up',
+    category: 'core',
+    sets: 3,
+    startReps: 3,
+    repCeiling: 5,
+    restSec: 90,
+    unilateral: true,
+    noTempo: true,
+    cue: 'Slow. Eyes on the bell the whole way up and the whole way down. Stop the moment the shoulder loses its place.',
+    variations: [
+      { id: 'getup-8', name: '8kg' },
+      { id: 'getup-10', name: '10kg' },
+      { id: 'getup-16', name: '16kg' },
+    ],
+    start: 0,
   },
   {
     id: 'split-squat',
@@ -132,6 +161,26 @@ export const EXERCISES = [
       { id: 'nordic-assisted', name: 'Partial, hand assisted' },
       { id: 'nordic-negative', name: 'Full negative' },
       { id: 'nordic-slow', name: 'Slow negative' },
+    ],
+    start: 1,
+  },
+  {
+    // The other kettlebell addition. Hip-hinge power and grip endurance, which
+    // is most of what a scramble is — and the one pattern the bodyweight eight
+    // never trained: the Nordic curl is knee flexion, not a hinge.
+    id: 'kb-swing',
+    name: 'Kettlebell swings',
+    category: 'posterior',
+    sets: 4,
+    startReps: 12,
+    repCeiling: 20,
+    restSec: 90,
+    noTempo: true,
+    cue: 'Hinge, do not squat. Snap the hips and let the bell float — the arms are ropes, not levers.',
+    variations: [
+      { id: 'swing-10', name: '10kg, two hands' },
+      { id: 'swing-16', name: '16kg, two hands' },
+      { id: 'swing-16-single', name: '16kg, one hand' },
     ],
     start: 1,
   },
@@ -247,16 +296,20 @@ export function advance(state, ex) {
     return next;
   }
 
-  if (ex.isHold) return { ...next, needsLoad: true };
-
-  if (next.step === 1) {
-    return { ...next, step: 2, eccentricSec: 3, reps: ex.startReps };
-  }
-  if (next.step === 2 && next.eccentricSec < 5) {
-    return { ...next, eccentricSec: 5, reps: ex.startReps };
-  }
-  if (next.step === 2) {
-    return { ...next, step: 3, pauseSec: 2, reps: ex.startReps };
+  // The tempo rungs only mean something where a slow lowering does. A hold has
+  // nothing to lower, and a swing is **ballistic** — a slow swing is not a
+  // harder swing, it is a different and worse exercise. Those movements climb
+  // reps and then load, skipping straight to the variation rung.
+  if (!ex.isHold && !ex.noTempo) {
+    if (next.step === 1) {
+      return { ...next, step: 2, eccentricSec: 3, reps: ex.startReps };
+    }
+    if (next.step === 2 && next.eccentricSec < 5) {
+      return { ...next, eccentricSec: 5, reps: ex.startReps };
+    }
+    if (next.step === 2) {
+      return { ...next, step: 3, pauseSec: 2, reps: ex.startReps };
+    }
   }
 
   // Step 3 at the ceiling with a 5-second lowering: the ladder is spent.
