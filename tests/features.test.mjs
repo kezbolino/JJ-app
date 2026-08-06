@@ -1359,6 +1359,14 @@ await test('the lift speaks when a rest ends — the next movement, or "go again
   await page.click('.sx-intro .btn.cta');
   await page.waitForSelector('.sx-set');
 
+  // Starting announces what you are opening with. Until v42 nothing spoke for
+  // the first two minutes of a session, which made a working audio path
+  // indistinguishable from a broken one.
+  await page.waitForTimeout(200);
+  assert.ok(cues.includes('pull-up.webm'),
+    `starting the session announced nothing (heard: ${cues.join(', ') || 'nothing'})`);
+  cues.length = 0;
+
   // Pull-ups is 5 sets. Log one: sets remain, so the rest ends on a generic
   // "rest is over" rather than naming a movement you are already doing.
   await page.locator('.sx-ex:first-of-type .sx-set').first().click();

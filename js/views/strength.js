@@ -523,6 +523,15 @@ export default async function strength(root, { view } = {}) {
         beep.unlock();
         voice.unlock();
         const fresh = newStrengthSession(today, sessions, { deload, muted });
+        // Announce what you are opening with, here, on the tap.
+        //
+        // Not decoration: until v42 the *only* thing that ever spoke was the
+        // end of a rest, so nothing at all happened for the first two minutes
+        // of a session and there was no way to tell working audio from broken
+        // audio. A cue on the Start tap is both useful and the fastest possible
+        // answer to "is this thing on".
+        const opener = fresh.exercises.find(e => !e.skipped);
+        if (opener) voice.say(opener.exerciseId);
         await store.setStrengthDraft(fresh);
         showSession(fresh);
       },

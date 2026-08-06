@@ -1316,10 +1316,13 @@ a.cal__day:active { transform: scale(.9); }
    mean to press rather than a link you might brush past. */
 .btn.danger {
   background: var(--danger); color: var(--on-danger);
-  border-color: var(--danger); box-shadow: 0 4px 0 var(--danger-edge);
+  border-color: var(--danger); box-shadow: 0 3px 0 var(--danger-edge);
 }
 .btn.danger:active { box-shadow: 0 0 0 var(--danger-edge); }
-.st-end { flex: 1; max-width: 190px; }
+/* Small on purpose. It has to look like a control you mean to press — hence
+   the fill and the red — but it is the one button on this screen you should
+   almost never want, so it does not get to be the size of the ones you do. */
+.st-end { flex: 0 0 auto; padding: 8px 16px; min-height: 38px; font-size: .78rem; }
 
 /* The version footer is for checking a deploy landed, which is not a thing you
    are doing mid-hold. Hidden while a routine runs, present everywhere else. */

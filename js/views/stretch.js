@@ -281,7 +281,7 @@ function attachRunning(mount, token, onExit) {
     type: 'button', 'aria-pressed': String(muted), 'aria-label': muted ? 'Unmute the sound' : 'Mute the sound',
     title: muted ? 'Sound off' : 'Sound on',
   }, icon(muted ? 'soundOff' : 'sound'));
-  const endBtn = h('button.btn.danger.st-end', { type: 'button' }, 'End routine');
+  const endBtn = h('button.btn.small.danger.st-end', { type: 'button' }, 'End routine');
 
   mount.replaceChildren(
     h('div.st-top', stepEl, leftEl),

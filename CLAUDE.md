@@ -1963,9 +1963,41 @@ data if forgotten:
   browser assertions). sw `CACHE` → v41, `VERSION` → v41; `js/voice.js` added
   to `SHELL`.
 
+- 2026-08-06 — **v42: the lift announces its opening movement, and End routine
+  got smaller.** User: the strength audio is not working, and the End button is
+  massive.
+
+  **The End button.** It was inheriting the full `.btn` sizing — 52px tall, 190px
+  wide, weight 900 — which made the one control you should almost never want the
+  most prominent thing under the clock. Now `.btn.small.danger`, 106×44. It keeps
+  the fill and the red, because it still has to read as a control you mean to
+  press rather than a link you brush past; it just does not get to be the size of
+  the ones you do want.
+
+  **The audio was not broken, and that is the finding.** Instrumented
+  `createOscillator` and `createBufferSource` in a real browser rather than
+  guessing: both the beep at rest-start and the clip at rest-end fire correctly,
+  in a resumed context. What was wrong is that **the only thing that ever spoke
+  was the end of a rest** — so a session was silent for its first two minutes,
+  and there was no way to tell a working audio path from a broken one. That is a
+  design fault even though every line of it worked.
+
+  Fixed by announcing the opening movement **on the Start tap**: immediate, and
+  useful in itself. There is a test on it now. Worth remembering as a shape:
+  when a user says a feature does not work and the code is provably fine, the
+  bug is usually that the feature is unobservable, not absent.
+
+  **Also worth knowing, because it cost a round trip:** images attached in chat
+  are rendered into context but **never written to disk**, while audio and
+  markdown attachments are. So a PNG can be looked at and not traced. The
+  `art-inbox` branch exists as the transport for raster figures — upload there,
+  it never merges, and it is deleted once a batch is processed.
+
+  Nine suites green (55 browser assertions). sw `CACHE` → v42, `VERSION` → v42.
+
 ## Parked — pick this up next session
 
-**Everything through v41 is shipped and deployed.** The voice-cue re-recording
+**Everything through v42 is shipped and deployed.** The voice-cue re-recording
 job that sat parked here is **finished** — all 30 per-move names, the six "other
 side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
 wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.
