@@ -1768,96 +1768,82 @@ data if forgotten:
   Nine suites green (the known week-streak date flake aside). sw `CACHE` → v38,
   `VERSION` → v38; the six clips added to `SHELL`.
 
+- 2026-08-06 — **v39: all 30 move names re-cut, plus a spoken countdown and
+  seven hype lines.** One 2:37 take holding four zones (13 cool-down names, 17
+  rest-day names, one "3, 2, 1, let's go", seven hype lines), with the zone
+  boundaries the user gave as timestamps.
+
+  **The cut was hard, and the reason is worth knowing.** This take has
+  background music under it. Both of the tricks that worked before failed:
+
+  - **Gap width could not separate a line break from a mid-sentence pause.**
+    In the cool-down the two ranges happen to separate at 0.70s; in the rest day
+    they overlap, and picking "the n-1 widest gaps" merged two lines *and* split
+    one, arriving at the right total by cancelling errors. A correct count is
+    not a correct segmentation.
+  - **Gap *level* could not either.** The theory was that a real cut drops to
+    digital silence while a pause keeps the music underneath. Measured: **every
+    gap in the file is true silence**, −70 to −100 dBFS. The music is gated, so
+    it says nothing about where the takes were cut.
+
+  **What worked: transcribe and align.** `pip install pocketsphinx` (the
+  acoustic model ships inside the wheel, so no download — Whisper's is still
+  blocked by this session's egress policy). Split on every gap ≥0.40s to get
+  *fragments*, transcribe each, and align them against the script by hand. The
+  transcript is garbage in isolation — "os x one makes" is "Cossack squat next" —
+  but it is unambiguous about *which line* a fragment belongs to, which is the
+  only question being asked. That caught two errors width alone had made:
+  `ninety-ninety-liftoff` spans a 0.62s gap, and `bear-crawl` / `side-plank` are
+  separated by only 0.28s.
+
+  **Every one of the 30 output clips was then transcribed again and checked
+  against its own move.** 29 matched a distinctive word outright; the 30th
+  (`quad-kneel`) matched on its tail, "you know don't rush it" for "young'n.
+  Don't rush it". That audit is the closest thing to listening available here,
+  and it is worth the two minutes — a clip cut one line early is silent about
+  its own wrongness.
+
+  The v32 traps were handled as before: two-pass cut (trim to WAV, then fade and
+  encode), and `volumedetect` on all 38 outputs — −20 to −29 dB, none silent.
+  `pip install imageio-ffmpeg` is still how to get an ffmpeg in this image.
+
+  **The wiring.** Two new slots, both deliberately *not* on every set — the
+  beeps are the baseline and a voice on every rep is just the noise the app
+  makes. `COUNTDOWN_CHANCE` 0.18: a spoken "3, 2, 1, let's go" fires with 3
+  seconds of get-ready left and **replaces** the three tick beeps rather than
+  playing over them (muted falls back to ticks, so the last three seconds are
+  never silent). `HYPE_CHANCE` 0.45: a hype line as the work phase starts. They
+  are **mutually exclusive by construction** — both are decided once, on
+  entering the ready phase, because the countdown already ends on "let's go" and
+  a hype line on top of it would be two voices at once.
+
+  `pickOtherSide` generalised to `pickCue(count, last, rand)`, with `pickHype`
+  as the second caller. Same no-immediate-repeat guarantee, same unit tests, now
+  run over both counts.
+
+  **Testing a coin flip.** The two new cues fire at random, which is untestable
+  as written, so the browser tests stub `Math.random` via `addInitScript` before
+  the app loads — 0.10 lands under the countdown chance, 0.30 misses it and
+  lands under the hype chance. That pins the wiring deterministically while the
+  pickers stay unit-tested. The clip-integrity test now covers all 14 generic
+  cues and still measures **decoded sample peaks**, not duration.
+
+  Nine suites green, 50 browser assertions. sw `CACHE` → v39, `VERSION` → v39;
+  `countdown.webm` and `hype-1..7.webm` added to `SHELL`.
+
 ## Parked — pick this up next session
 
-**Everything through v38 is shipped and deployed.** v35 (the strength module +
-the Off mat rename), v36 (Skip rest, Home's stretch shortcut, the cog), v37
-(the dumbbell tab icon) and v38 (the "other side" cues) all went out in the
-same session, each as its own fast-forward.
+**Everything through v39 is shipped and deployed.** The voice-cue re-recording
+job that sat parked here is **finished** — all 30 per-move names, the six "other
+side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
+wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.
 
-**The user is re-recording the voice cues. File 3 of 3 is done (v38); files 1
-and 2 are still outstanding**, and their scripts are below. Nothing is
-half-built in the repo: the currently-deployed per-move clips still work — they
-are just cut less accurately than the new ones. This is a "when the MP3s
-arrive" job, not an unfinished one.
-
-**Why they're being re-recorded.** The 26 clips in `audio/cues/` were cut from
-two continuous takes with no reliable gaps between lines, so the cut points
-had to be estimated from word-count proportions and snapped to whatever
-silence could be detected (see the v29 entry). The user judged the result not
-good enough and is re-recording with a deliberate pause after every line.
-**That pause is the whole point** — with real gaps, cutting becomes ordinary
-silence-splitting instead of guesswork.
-
-**Three files are being recorded**, and the script below is exactly what was
-handed over. `[LONG PAUSE]` marks each cut point. Move names are verbatim from
-`js/stretches.js` and must not drift — everything around them is flavour, and
-the voice is a deliberate Snoop Dogg impression the user chose and has been
-using since v29.
-
-*File 1 — cool-down (`post-class`), 13 lines, in routine order:*
-
-```
-Next up is the neck side stretch, ease into it nephew. [LONG PAUSE]
-Kneeling wrist stretch, fo shizzle — your grip been through it, bitch. [LONG PAUSE]
-Child's pose next. Drop down and breathe, laid back. [LONG PAUSE]
-Now we threadin' the needle, cuz. Twist it out. [LONG PAUSE]
-Half-kneeling ankle rock. Rock it slow, yadadamean. [LONG PAUSE]
-Kneeling hip flexor lunge — open them hips up, bitch. [LONG PAUSE]
-Kneeling quad stretch next, young'n. Don't rush it. [LONG PAUSE]
-Pigeon stretch. This one's gon' hurt, hold it down anyway. [LONG PAUSE]
-Frog stretch, big homie. Knees out, breathe through it, bitch. [LONG PAUSE]
-Ninety ninety hip stretch. Sit in it, no stress. [LONG PAUSE]
-Seated forward fold. Reach for them toes, fo shizzle. [LONG PAUSE]
-Sphinx pose next. Chest up, nice and smooth. [LONG PAUSE]
-Last one — supine spinal twist. Let the floor hold you down, bitch. [LONG PAUSE]
-```
-
-*File 2 — rest day (`rest-day`), 17 lines; the first four are the v34 warm-up:*
-
-```
-March in place, let's get it warmed up nephew. [LONG PAUSE]
-Bodyweight squat pulses. Keep it movin', bitch. [LONG PAUSE]
-Arm circles next. Big and slow, then flip it. [LONG PAUSE]
-Leg swings, cuz. Let it swing, don't force it. [LONG PAUSE]
-Deep squat hold. Sit all the way down in it, fo shizzle. [LONG PAUSE]
-Cossack squat next. Shift that weight over, bitch. [LONG PAUSE]
-Ninety ninety lift-off. Small range, all control, yadadamean. [LONG PAUSE]
-Single-leg glute bridge. Drive through that heel, nephew. [LONG PAUSE]
-Copenhagen plank. This the groin killer — hold it down. [LONG PAUSE]
-Single-leg RDL, young'n. Balance or fall, bitch. [LONG PAUSE]
-Jefferson curl. Roll it down slow, one bone at a time. [LONG PAUSE]
-Prone thoracic press-up. Chest up, hips stay down, laid back. [LONG PAUSE]
-Scapular wall slide. Elbows on that wall, keep 'em there. [LONG PAUSE]
-Dead hang next. Just hang there and chill, fo shizzle. [LONG PAUSE]
-Neck isometrics. Light pressure, don't be a hero, bitch. [LONG PAUSE]
-Bear crawl, cuz. Hips low, crawl it out. [LONG PAUSE]
-Last move — side plank. Hold that line, big homie. [LONG PAUSE]
-```
-
-*File 3 — "other side" variations, 8 lines. **This one is new and needs code.***
-
-```
-Now the other side, bitch. [LONG PAUSE]
-Flip it over, nephew. [LONG PAUSE]
-Other side now, fo shizzle. [LONG PAUSE]
-Switch it up, cuz. [LONG PAUSE]
-Same thing, other side — let's go bitch. [LONG PAUSE]
-Roll it over to the other side, young'n. [LONG PAUSE]
-Other side, and don't slack, bitch. [LONG PAUSE]
-Switch sides, big homie. Same energy. [LONG PAUSE]
-```
-
-**File 3 is DONE — shipped in v38, six takes not eight.** The rest of this
-section (files 1 and 2, the per-move names) is still outstanding.
-
-**When cutting these, read the v32 entry first.** Two traps, both already paid
-for: cut in **two passes** (trim to an intermediate WAV, *then* fade and
-encode — combining `-ss`/`-t` with `afade` in one command silently produced 24
-completely silent files), and verify the output with
-`ffmpeg -af volumedetect`, never just that it decodes. A valid container with
-the right duration and no sound in it is exactly the failure that shipped
-twice.
+**If more clips ever arrive, read the v39 entry before cutting them.** The short
+version: that take had background music, and neither gap *width* nor gap *level*
+could separate a line break from a mid-sentence pause — every gap was digital
+silence, and the widths overlapped. The only thing that worked was transcribing
+the fragments with `pocketsphinx` and aligning them against the script by ear-in-
+text. Budget for that; it is not the ten-minute job the v38 take was.
 
 **Also still open**, unchanged and unrelated to the audio: 19 movements have no
 artwork (`PENDING_ART` in `js/stretch-art.js` — the 15 from v27 plus the four

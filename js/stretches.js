@@ -391,6 +391,16 @@ export function clock(ms) {
 export const OTHER_SIDE_CUES = 6;
 
 /**
+ * Hype lines, played as a set begins — `audio/cues/hype-N.webm`.
+ *
+ * Deliberately *not* played every set. A line that fires every single time
+ * stops being encouragement and becomes the sound the app makes; the beeps
+ * alone are the baseline and these land on some of them. Same reason the
+ * spoken "3, 2, 1, let's go" is rarer still.
+ */
+export const HYPE_CUES = 7;
+
+/**
  * Pick a take, never the one that just played.
  *
  * Pure, and `rand` is injectable, because this is the only part of the audio
@@ -401,16 +411,17 @@ export const OTHER_SIDE_CUES = 6;
  * Uniform over the other five rather than re-rolling until it differs — a
  * re-roll loop is unbounded in principle, and this runs mid-routine.
  */
-export function pickOtherSide(last, rand = Math.random) {
+export function pickCue(count, last, rand = Math.random) {
   // No previous take (start of a session): every one is fair game. Without
   // this branch the skip-over below shifts every result up by one and take 1
   // can never play first.
-  if (!(last >= 1 && last <= OTHER_SIDE_CUES)) {
-    return 1 + Math.floor(rand() * OTHER_SIDE_CUES);
-  }
-  const n = 1 + Math.floor(rand() * (OTHER_SIDE_CUES - 1));   // 1..5
-  return n >= last ? n + 1 : n;                               // skip over `last`
+  if (!(last >= 1 && last <= count)) return 1 + Math.floor(rand() * count);
+  const n = 1 + Math.floor(rand() * (count - 1));   // 1..count-1
+  return n >= last ? n + 1 : n;                     // skip over `last`
 }
+
+export const pickOtherSide = (last, rand) => pickCue(OTHER_SIDE_CUES, last, rand);
+export const pickHype = (last, rand) => pickCue(HYPE_CUES, last, rand);
 
 /** Does this item have a drawing yet? See PENDING_ART in stretch-art.js. */
 export function hasArt(item) {

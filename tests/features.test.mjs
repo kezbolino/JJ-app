@@ -987,7 +987,57 @@ await test('each move announces itself by name, and muting stops it', async () =
   await page.context().close();
 });
 
-await test('every "other side" take is a real clip with sound in it', async () => {
+// The two flourishes added in v39 fire on a coin flip, which is untestable as
+// written — so these two stub Math.random before the app loads. 0.10 lands
+// under COUNTDOWN_CHANCE (0.18); 0.30 misses it but lands under HYPE_CHANCE
+// (0.45). Pinning the *wiring* deterministically; the pickers themselves are
+// unit-tested in tests/stretches.test.mjs.
+const withRandom = async value => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  context.setDefaultTimeout(8000);
+  await context.addInitScript(v => { Math.random = () => v; }, value);
+  const page = await context.newPage();
+  const cues = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/audio/cues/')[1]);
+  });
+  await page.goto(BASE, { waitUntil: 'networkidle' });
+  return { page, cues };
+};
+
+await test('the spoken countdown replaces the 3-2-1 beeps, on the sets it lands on', async () => {
+  const { page, cues } = await withRandom(0.10);
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  // Get-ready runs 10s; the countdown fires with 3 left. Skip forward to the
+  // last seconds rather than waiting them out.
+  await page.waitForTimeout(7600);
+  assert.ok(cues.includes('countdown.webm'),
+    `no spoken countdown in the last 3 seconds (heard: ${cues.join(', ') || 'nothing'})`);
+  await page.context().close();
+});
+
+await test('a hype line lands as the set begins, and not when the countdown did', async () => {
+  const { page, cues } = await withRandom(0.30);
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  await page.waitForTimeout(10600);            // through get-ready, into the hold
+  assert.ok(cues.some(c => /^hype-[1-7]\.webm$/.test(c)),
+    `no hype line as the set started (heard: ${cues.join(', ') || 'nothing'})`);
+  assert.ok(!cues.includes('countdown.webm'),
+    'the countdown and a hype line both fired on the same set');
+  await page.context().close();
+});
+
+const NAMES = [
+  ...Array.from({ length: 6 }, (_, i) => `other-side-${i + 1}`),
+  ...Array.from({ length: 7 }, (_, i) => `hype-${i + 1}`),
+  'countdown',
+];
+
+await test('every spoken cue is a real clip with sound in it', async () => {
   // The clips themselves, not the picker — that is unit-tested in
   // tests/stretches.test.mjs, where the choice can be seen. What a browser can
   // check is that all six exist, decode, and are not silent: a webm can be a
@@ -997,23 +1047,23 @@ await test('every "other side" take is a real clip with sound in it', async () =
   const report = await page.evaluate(async n => {
     const ctx = new AudioContext();
     const out = [];
-    for (let i = 1; i <= n; i++) {
-      const res = await fetch(`audio/cues/other-side-${i}.webm`);
+    for (const name of n) {
+      const res = await fetch(`audio/cues/${name}.webm`);
       const buf = await ctx.decodeAudioData(await res.arrayBuffer());
       const data = buf.getChannelData(0);
       let peak = 0;
       for (let j = 0; j < data.length; j++) peak = Math.max(peak, Math.abs(data[j]));
-      out.push({ i, ok: res.ok, seconds: buf.duration, peak });
+      out.push({ name, ok: res.ok, seconds: buf.duration, peak });
     }
     return out;
-  }, 6);
+  }, NAMES);
 
   for (const clip of report) {
-    assert.ok(clip.ok, `other-side-${clip.i}.webm did not load`);
-    assert.ok(clip.seconds > 0.5 && clip.seconds < 4,
-      `other-side-${clip.i} is ${clip.seconds.toFixed(2)}s, which is not a short spoken line`);
+    assert.ok(clip.ok, `${clip.name}.webm did not load`);
+    assert.ok(clip.seconds > 0.5 && clip.seconds < 5,
+      `${clip.name} is ${clip.seconds.toFixed(2)}s, which is not a short spoken line`);
     assert.ok(clip.peak > 0.05,
-      `other-side-${clip.i} decodes but is silent (peak ${clip.peak.toFixed(4)})`);
+      `${clip.name} decodes but is silent (peak ${clip.peak.toFixed(4)})`);
   }
   await page.context().close();
 });

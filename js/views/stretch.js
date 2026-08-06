@@ -45,7 +45,7 @@ import { createBeeper } from '../beeps.js';
 import { createWakeLock } from '../wakelock.js';
 import {
   DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs,
-  clock, stretchFigure, pickOtherSide,
+  clock, stretchFigure, pickOtherSide, pickHype,
 } from '../stretches.js';
 
 /**
@@ -137,6 +137,19 @@ function cueFor(s, i) {
   return `other-side-${s.lastOtherSide}`;
 }
 
+/**
+ * How often a set gets something spoken on top of the beeps.
+ *
+ * Both are well under 1 on purpose. The beeps are the baseline and they carry
+ * the timing on their own; the voice is a garnish, and a garnish on every
+ * single set is just the noise the app makes. The spoken countdown is rarer
+ * again because it replaces the 3-2-1 ticks rather than sitting alongside
+ * them — losing that cue on every set would cost you the one piece of
+ * information the beeps exist to give.
+ */
+const COUNTDOWN_CHANCE = 0.18;
+const HYPE_CHANCE = 0.45;
+
 const sessionElapsed = s => s.baseElapsed + (s.anchor === null ? 0 : performance.now() - s.anchor);
 const sessionRunning = s => s.anchor !== null;
 
@@ -162,13 +175,31 @@ function engineTick() {
   if (key !== s.lastKey) {
     s.lastKey = key;
     s.lastCount = -1;
-    if (st.phase === 'ready') { s.beep.ready(); if (!s.beep.isMuted()) s.voice.say(cueFor(s, st.i)); }
-    else if (st.phase === 'work') s.beep.go();
-    else s.beep.rest();
+    if (st.phase === 'ready') {
+      s.beep.ready();
+      // Decide this set's flourishes once, on entry, so the countdown and the
+      // hype line can't both land — the countdown already ends on "let's go".
+      s.countdownDue = Math.random() < COUNTDOWN_CHANCE;
+      s.hypeDue = !s.countdownDue && Math.random() < HYPE_CHANCE;
+      if (!s.beep.isMuted()) s.voice.say(cueFor(s, st.i));
+    } else if (st.phase === 'work') {
+      s.beep.go();
+      if (s.hypeDue && !s.beep.isMuted()) {
+        s.lastHype = pickHype(s.lastHype);
+        s.voice.say(`hype-${s.lastHype}`);
+      }
+    } else s.beep.rest();
   }
   if (st.secs !== s.lastCount) {
     s.lastCount = st.secs;
-    if (st.secs <= 3) s.beep.tick();
+    if (st.secs <= 3) {
+      // The spoken "3, 2, 1, let's go" *replaces* the three ticks rather than
+      // playing over them. Muted falls back to the ticks, so the last three
+      // seconds are never silent.
+      const spoken = st.phase === 'ready' && s.countdownDue && !s.beep.isMuted();
+      if (!spoken) s.beep.tick();
+      else if (st.secs === 3) s.voice.say('countdown');
+    }
   }
 
   for (const paint of s.renderers) paint(st);
@@ -189,7 +220,8 @@ function startSession(routine) {
     READY: routine.phases.ready, WORK: routine.phases.work,
     totalMs: segs.length * segmentMs(routine),
     baseElapsed: 0, anchor: performance.now(),
-    lastKey: '', lastCount: -1, lastOtherSide: 0, finished: false,
+    lastKey: '', lastCount: -1, lastOtherSide: 0, lastHype: 0,
+    countdownDue: false, hypeDue: false, finished: false,
     beep, voice, wake, timer: null, renderers: new Set(),
   };
   s.onVisible = () => { if (sessionRunning(s)) s.wake.reacquire(); };

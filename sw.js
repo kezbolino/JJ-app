@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v38';
+const CACHE = 'jj-app-v39';
 
 const SHELL = [
   './',
@@ -74,6 +74,16 @@ const SHELL = [
   'audio/cues/other-side-4.webm',
   'audio/cues/other-side-5.webm',
   'audio/cues/other-side-6.webm',
+  // Spoken "3, 2, 1, let's go", and the hype lines that land on some sets.
+  // Both are picked at random, so all of them have to be cached.
+  'audio/cues/countdown.webm',
+  'audio/cues/hype-1.webm',
+  'audio/cues/hype-2.webm',
+  'audio/cues/hype-3.webm',
+  'audio/cues/hype-4.webm',
+  'audio/cues/hype-5.webm',
+  'audio/cues/hype-6.webm',
+  'audio/cues/hype-7.webm',
   'audio/cues/pigeon.webm',
   'audio/cues/quad-kneel.webm',
   'audio/cues/seated-fold.webm',

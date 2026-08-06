@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
-  READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, pickOtherSide,
+  READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, HYPE_CUES, pickOtherSide, pickHype,
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
 
@@ -185,13 +185,32 @@ test('the picker is uniform over the takes it is allowed to choose', () => {
   assert.deepEqual([0, 0.99].map(v => pickOtherSide(0, at(v))), [1, 6]);
 });
 
-test('there is a recorded take behind every number the picker can return', () => {
+test('the hype picker behaves the same way, over its own count', () => {
+  let last = 0;
+  for (let i = 0; i < 3000; i++) {
+    const n = pickHype(last);
+    assert.ok(Number.isInteger(n) && n >= 1 && n <= HYPE_CUES, `picked ${n}, out of range`);
+    assert.notEqual(n, last, 'the same hype line played twice running');
+    last = n;
+  }
+  const seen = new Set();
+  for (let i = 0; i < 3000; i++) seen.add(pickHype(0));
+  assert.equal(seen.size, HYPE_CUES, `only reached ${[...seen].sort().join()}`);
+});
+
+test('there is a recorded take behind every number a picker can return', () => {
   // The clips are precached in sw.js by name; a picker that can return a
-  // number with no file behind it is a silent cue offline.
+  // number with no file behind it is a silent cue offline. The spoken
+  // countdown has no picker, but it has the same failure mode.
   const shell = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-  for (let i = 1; i <= OTHER_SIDE_CUES; i++) {
-    assert.ok(shell.includes(`audio/cues/other-side-${i}.webm`),
-      `other-side-${i}.webm is not in the service worker's SHELL`);
+  const want = [
+    ...Array.from({ length: OTHER_SIDE_CUES }, (_, i) => `other-side-${i + 1}`),
+    ...Array.from({ length: HYPE_CUES }, (_, i) => `hype-${i + 1}`),
+    'countdown',
+  ];
+  for (const name of want) {
+    assert.ok(shell.includes(`audio/cues/${name}.webm`),
+      `${name}.webm is not in the service worker's SHELL`);
   }
 });
 
