@@ -1995,6 +1995,33 @@ data if forgotten:
 
   Nine suites green (55 browser assertions). sw `CACHE` → v42, `VERSION` → v42.
 
+- 2026-08-06 — **Deploy gotcha: a Pages run marked `failure` may still have
+  deployed.** Chasing "why is my phone still on v41", the run list said the last
+  three Pages builds had failed — so the obvious reading was that v41 and v42
+  were both stuck. Wrong. **Look at the jobs, not the run's conclusion:**
+
+  - **v41 (`16e6f1c`)** — `build` succeeded in 25 seconds. `deploy` polled
+    `deployment_in_progress` for ten minutes, hit `Timeout reached, aborting!`
+    and cancelled itself. The run reads `failure`, and **the content went live
+    anyway** — which is why the phone showed v41.
+  - **v42 (`6293b5c`)** — different symptom, same weather: `build` never got
+    assigned a runner at all, sat 15 minutes, was cancelled, and `deploy` was
+    skipped. Nothing deployed.
+
+  So GitHub Pages' backend was running slower than the action's own 10-minute
+  timeout. Nothing in this repo caused it — the first run to fail was a commit
+  that only touched this file.
+
+  **The lesson for next time the footer disagrees with `main`:** check
+  `js/version.js` on `origin/main`, then the Pages *deploy job's log* — not the
+  run badge. A red run is not proof nothing shipped, and a green one is the only
+  proof that it did. `mcp__github__actions_list` with `list_workflow_jobs` gives
+  the per-job breakdown; `get_job_logs` gives the reason.
+
+  Also worth knowing: a re-run that never queues **cannot be cancelled**
+  (`409 Cannot cancel a workflow re-run that has not yet queued`). Pushing a new
+  commit to trigger a fresh run is the only way past it.
+
 ## Parked — pick this up next session
 
 **Everything through v42 is shipped and deployed.** The voice-cue re-recording
