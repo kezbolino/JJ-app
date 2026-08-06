@@ -29,6 +29,8 @@ import { h, icon, offMatTabs, fmtDate, empty, toast, clear } from '../ui.js';
 import { renderToken, isCurrent } from '../render.js';
 import { createBeeper } from '../beeps.js';
 import { createWakeLock } from '../wakelock.js';
+import { createVoice } from '../voice.js';
+import { pickCue } from '../stretches.js';
 import * as store from '../store.js';
 import {
   EXERCISES, EXERCISE_BY_ID, WARM_UP, DELOAD_EVERY,
@@ -60,7 +62,10 @@ function sinceLine(last, today) {
 // routines, for the same reason.
 // ---------------------------------------------------------------------------
 
-function createRestTimer(beep, wake, token) {
+/** How many generic "rest is over" takes are recorded in audio/cues/. */
+const REST_OVER_CUES = 5;
+
+function createRestTimer(beep, wake, voice, token) {
   const count = h('span.sx-rest-n');
   const label = h('span.sx-rest-l');
   const bar = h('i');
@@ -73,7 +78,7 @@ function createRestTimer(beep, wake, token) {
     h('div.sx-rest-rail', bar),
     skip);
 
-  let deadline = 0, span = 0, timer = null, lastSecs = -1;
+  let deadline = 0, span = 0, timer = null, lastSecs = -1, cue = null;
 
   const stop = () => {
     clearInterval(timer);
@@ -87,7 +92,15 @@ function createRestTimer(beep, wake, token) {
     // navigation, and a timer beeping at a screen that is gone is a bug.
     if (!isCurrent(token)) { stop(); return; }
     const left = deadline - Date.now();
-    if (left <= 0) { beep.go(); stop(); return; }
+    if (left <= 0) {
+      beep.go();
+      // The phone is face down for two minutes; the beep alone is easy to miss,
+      // and it cannot tell you whether you are repeating the movement or
+      // starting the next one. The voice can.
+      if (cue) voice.say(cue);
+      stop();
+      return;
+    }
     count.textContent = restClock(left);
     bar.style.width = `${Math.max(0, Math.min(100, (left / span) * 100))}%`;
     const secs = Math.ceil(left / 1000);
@@ -99,7 +112,13 @@ function createRestTimer(beep, wake, token) {
 
   return {
     el,
-    start(seconds, text) {
+    start(seconds, text, cueId = null) {
+      // Called straight from the tap that logged a set, so this is inside a
+      // user gesture — the only place an AudioContext will resume.
+      voice.unlock();
+      cue = cueId;
+      // Decode it during the rest, not at the moment it is due to play.
+      if (cueId) voice.preload(cueId);
       span = seconds * 1000;
       deadline = Date.now() + span;
       lastSecs = -1;
@@ -113,6 +132,23 @@ function createRestTimer(beep, wake, token) {
     },
     stop,
   };
+}
+
+/**
+ * The beeper and the voice for whichever strength screen is mounted.
+ *
+ * Module-scope and replaced on each mount, because a browser allows only a
+ * handful of live AudioContexts and this screen is one you come back to. Up to
+ * v40 each visit that started a session created a beeper and never closed it;
+ * a few visits in, every tone would have gone silent with no error. Closing the
+ * previous pair here bounds it at one.
+ */
+let audio = null;
+function mountAudio() {
+  audio?.beep.close();
+  audio?.voice.close();
+  audio = { beep: createBeeper(), voice: createVoice() };
+  return audio;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +349,13 @@ function exerciseCard(logged, ctx) {
       onComplete: () => {
         editor.close();
         const remaining = logged.sets.some(s => !s.completed);
-        ctx.rest(ex.restSec, remaining ? `Rest · ${ex.name}` : `Rest · next up after ${ex.name}`);
+        // Same movement again → a generic "rest is over". Moving on → the name
+        // of the movement you are moving on to, which is the more useful thing
+        // to hear when the phone is face down.
+        const next = remaining ? null : ctx.nextExerciseId(logged.exerciseId);
+        ctx.rest(ex.restSec,
+          remaining ? `Rest · ${ex.name}` : `Rest · next up after ${ex.name}`,
+          next ?? ctx.restOverCue());
       },
     })));
     setsRow.append(...buttons);
@@ -458,10 +500,11 @@ export default async function strength(root, { view } = {}) {
 
   if (view === 'history') { historyScreen(mount, sessions); return; }
 
-  const beep = createBeeper();
+  const { beep, voice } = mountAudio();
   const wake = createWakeLock();
-  const restTimer = createRestTimer(beep, wake, token);
+  const restTimer = createRestTimer(beep, wake, voice, token);
 
+  let lastRestOver = 0;   // never the same "rest is over" take twice running
   const state = programmeState(sessions);
   const lastSession = sessions[sessions.length - 1] ?? null;
 
@@ -478,6 +521,7 @@ export default async function strength(root, { view } = {}) {
         // The AudioContext has to be unlocked inside a tap or every beep on
         // this screen is silent. This is that tap.
         beep.unlock();
+        voice.unlock();
         const fresh = newStrengthSession(today, sessions, { deload, muted });
         await store.setStrengthDraft(fresh);
         showSession(fresh);
@@ -492,7 +536,18 @@ export default async function strength(root, { view } = {}) {
       stateFor: id => state[id],
       lastFor: id => lastSession?.exercises?.find(e => e.exerciseId === id) ?? null,
       save: () => { store.setStrengthDraft(current).catch(() => {}); },
-      rest: (seconds, label) => restTimer.start(seconds, label),
+      rest: (seconds, label, cue) => restTimer.start(seconds, label, cue),
+      // The next movement with work still to do. Skipped ones are not coming.
+      nextExerciseId: id => {
+        const list = current.exercises;
+        const at = list.findIndex(e => e.exerciseId === id);
+        return list.slice(at + 1)
+          .find(e => !e.skipped && e.sets.some(x => !x.completed))?.exerciseId ?? null;
+      },
+      restOverCue: () => {
+        lastRestOver = pickCue(REST_OVER_CUES, lastRestOver);
+        return `rest-over-${lastRestOver}`;
+      },
       toggleSkip: async logged => {
         logged.skipped = !logged.skipped;
         await store.toggleMutedExercise(logged.exerciseId);

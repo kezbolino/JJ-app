@@ -3,7 +3,7 @@
 //   node tests/stretches.test.mjs
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
   READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, HYPE_CUES, pickOtherSide, pickHype,
@@ -263,6 +263,26 @@ test('there is a recorded take behind every number a picker can return', () => {
   for (const name of want) {
     assert.ok(shell.includes(`audio/cues/${name}.webm`),
       `${name}.webm is not in the service worker's SHELL`);
+  }
+});
+
+test('every recorded clip is precached, and every precached clip exists', () => {
+  // Both directions, because both have already gone wrong: v39 wrote the four
+  // warm-up clips to disk and never added them to SHELL, so they 404'd offline
+  // with nothing on screen to show for it. A name in SHELL with no file behind
+  // it is worse — `cache.addAll` rejects, and the whole install fails.
+  const shell = new Set(
+    [...readFileSync(new URL('../sw.js', import.meta.url), 'utf8')
+      .matchAll(/'audio\/cues\/([^']+)\.webm'/g)].map(m => m[1]));
+  const disk = new Set(
+    readdirSync(new URL('../audio/cues', import.meta.url))
+      .filter(f => f.endsWith('.webm')).map(f => f.slice(0, -5)));
+
+  for (const name of disk) {
+    assert.ok(shell.has(name), `${name}.webm is recorded but not precached — it 404s offline`);
+  }
+  for (const name of shell) {
+    assert.ok(disk.has(name), `${name}.webm is precached but does not exist — install will fail`);
   }
 });
 

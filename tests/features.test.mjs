@@ -1348,6 +1348,63 @@ await test('finishing a clean session sets next session\'s targets and says what
   await page.context().close();
 });
 
+await test('the lift speaks when a rest ends — the next movement, or "go again"', async () => {
+  const page = await newPage();
+  const cues = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/audio/cues/')[1]);
+  });
+
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  // Pull-ups is 5 sets. Log one: sets remain, so the rest ends on a generic
+  // "rest is over" rather than naming a movement you are already doing.
+  await page.locator('.sx-ex:first-of-type .sx-set').first().click();
+  await page.waitForTimeout(250);
+  assert.ok(cues.some(c => /^rest-over-[1-5]\.webm$/.test(c)),
+    `no rest-over cue queued (heard: ${cues.join(', ') || 'nothing'})`);
+  assert.ok(!cues.includes('pull-up.webm'), 'it named the movement you are already on');
+
+  // Finish the remaining four. Now the exercise is done, so the rest before the
+  // next one announces *that* — which is the thing worth hearing face-down.
+  cues.length = 0;
+  const sets = await page.locator('.sx-ex:first-of-type .sx-set').all();
+  for (const set of sets.slice(1)) { await set.click(); await page.waitForTimeout(120); }
+  assert.ok(cues.includes('split-squat.webm'),
+    `the rest after the last set did not announce the next lift (heard: ${cues.join(', ')})`);
+  await page.context().close();
+});
+
+await test('every strength cue is a real clip with sound in it', async () => {
+  const page = await newPage();
+  const names = [
+    'pull-up', 'split-squat', 'archer-press-up', 'inverted-row',
+    'nordic-curl', 'pike-press-up', 'hanging-leg-raise', 'hollow-hold',
+    ...Array.from({ length: 5 }, (_, i) => `rest-over-${i + 1}`),
+  ];
+  const report = await page.evaluate(async list => {
+    const ctx = new AudioContext();
+    const out = [];
+    for (const name of list) {
+      const res = await fetch(`audio/cues/${name}.webm`);
+      const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+      const data = buf.getChannelData(0);
+      let peak = 0;
+      for (let j = 0; j < data.length; j++) peak = Math.max(peak, Math.abs(data[j]));
+      out.push({ name, ok: res.ok, seconds: buf.duration, peak });
+    }
+    return out;
+  }, names);
+  for (const clip of report) {
+    assert.ok(clip.ok, `${clip.name}.webm did not load`);
+    assert.ok(clip.seconds > 0.4 && clip.seconds < 6, `${clip.name} is ${clip.seconds.toFixed(2)}s`);
+    assert.ok(clip.peak > 0.05, `${clip.name} decodes but is silent (peak ${clip.peak.toFixed(4)})`);
+  }
+  await page.context().close();
+});
+
 await test('a movement can be muted mid-session without skipping the lot', async () => {
   const page = await newPage();
   await go(page, '/strength');

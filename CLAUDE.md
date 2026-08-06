@@ -1903,9 +1903,69 @@ data if forgotten:
   rest, finish and calendar in light and dark, no overflow at 390px. sw `CACHE`
   → v40, `VERSION` → v40, no files added or removed.
 
+- 2026-08-06 — **v41: the strength session got a voice, and a v39 precache bug
+  came out with it.** One 69s take: eight lift names, five "rest is over" lines,
+  three extra motivational ones the user added at 1:04 and told me to "use
+  wherever".
+
+  **The cut was ordinary and the audit is the part that matters.** They batched
+  roughly three lines per generation (the free TTS caps at 200 characters), so
+  the between-generation gaps are 2–4.5s and the between-line gaps 1.2–1.8s —
+  wide enough to split on directly. What is *not* optional is the check
+  afterwards: **all eight lift clips were transcribed and matched against their
+  own move name**, 8/8, and that mapping was shown to the user before anything
+  was wired. They asked "can I trust you wire it correctly", and the honest
+  answer is not to ask for trust — the eight names are the only clips whose
+  identity matters, so verify those and show the table. The generic pool cannot
+  be mis-mapped by construction: any of them can play in any slot.
+
+  One line, `rest-over-1`, is only 0.91s ("Rest done.") where the script had a
+  longer line. Kept — it is a complete short line, not a clipped one.
+
+  **Where they play.** The rest timer is the only moment in a lift when the
+  phone is face down, so that is where the voice went: when the rest ends it
+  either names the **next** movement (if the one you just did is finished) or
+  plays a generic "rest is over" (if you are going again). The beep alone cannot
+  tell those apart, which is the whole point. `nextExerciseId` skips muted
+  movements and ones already complete. The three motivational lines joined the
+  stretch routines' hype pool as `hype-8..10`; `HYPE_CUES` 7 → 10 and nothing
+  else changed.
+
+  **`createVoice()` moved to `js/voice.js`**, alongside `beeps.js` and
+  `wakelock.js`, now that both Off mat screens use it.
+
+  **Two bugs found on the way, neither reported by a user.**
+
+  1. **Four clips shipped in v39 were never precached.** `warmup-march`,
+     `warmup-squat`, `warmup-arm-circle` and `warmup-leg-swing` were new files
+     in v39 — the warm-up had no voice before — and I added them to disk and not
+     to `SHELL`. They 404 offline, silently, because `createVoice` swallows a
+     missing clip by design. There is now a test asserting **`SHELL` and
+     `audio/cues/` match exactly, both directions**: a clip on disk but not
+     precached is silent offline, and a clip in `SHELL` that does not exist is
+     worse — `cache.addAll` rejects and the *whole service worker install*
+     fails. Verified the test fails on each direction before keeping it.
+  2. **The strength screen leaked an AudioContext per visit.** Since v35 it
+     built a beeper on every mount and never closed it; adding a voice would
+     have doubled the rate. Browsers allow only a handful, so a few visits in
+     every tone would have gone silent with no error at all. `mountAudio()`
+     closes the previous pair, bounding it at one.
+
+  **A latency fix that the test flushed out.** The cue for the end of a rest is
+  known two minutes ahead, so `voice.preload(id)` fetches and decodes it when
+  the rest *starts*. Otherwise the first play on a cold cache puts a network
+  round-trip between the beep and the voice, at the exact moment you are not
+  looking at the screen. (The test that caught it was watching for a request
+  that only fired when the timer fired — worth remembering as a way to notice
+  work happening later than it should.)
+
+  `audio/cues/` is now 60 clips, 824 KB, all precached. Nine suites green (55
+  browser assertions). sw `CACHE` → v41, `VERSION` → v41; `js/voice.js` added
+  to `SHELL`.
+
 ## Parked — pick this up next session
 
-**Everything through v40 is shipped and deployed.** The voice-cue re-recording
+**Everything through v41 is shipped and deployed.** The voice-cue re-recording
 job that sat parked here is **finished** — all 30 per-move names, the six "other
 side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
 wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.

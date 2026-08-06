@@ -441,7 +441,7 @@ export const OTHER_SIDE_CUES = 6;
  * alone are the baseline and these land on some of them. Same reason the
  * spoken "3, 2, 1, let's go" is rarer still.
  */
-export const HYPE_CUES = 7;
+export const HYPE_CUES = 10;
 
 /**
  * Pick a take, never the one that just played.
