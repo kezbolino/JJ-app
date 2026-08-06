@@ -1773,18 +1773,27 @@ data if forgotten:
   rest-day names, one "3, 2, 1, let's go", seven hype lines), with the zone
   boundaries the user gave as timestamps.
 
-  **The cut was hard, and the reason is worth knowing.** This take has
-  background music under it. Both of the tricks that worked before failed:
+  **The cut was hard, and the reason is worth knowing — it is about the
+  delivery, not the recording.** (Corrected after the fact: I first blamed
+  background music, inferred from the filename, and said so here. There is no
+  music. My own measurements disproved it in the same session — every gap in
+  the file is true digital silence, −70 to −100 dBFS, which is exactly what
+  music underneath would rule out — and I kept the wrong explanation anyway.
+  Don't repeat that: the numbers were right there.)
 
-  - **Gap width could not separate a line break from a mid-sentence pause.**
-    In the cool-down the two ranges happen to separate at 0.70s; in the rest day
-    they overlap, and picking "the n-1 widest gaps" merged two lines *and* split
-    one, arriving at the right total by cancelling errors. A correct count is
-    not a correct segmentation.
-  - **Gap *level* could not either.** The theory was that a real cut drops to
-    digital silence while a pause keeps the music underneath. Measured: **every
-    gap in the file is true silence**, −70 to −100 dBFS. The music is gated, so
-    it says nothing about where the takes were cut.
+  The actual problem is that **the pauses inside a line and the pauses between
+  lines overlap in length**, because most lines are two sentences ("Deep squat
+  hold. Sit all the way down in it, fo shizzle.") and some lines run into the
+  next with barely a breath. Concretely, in this take:
+
+  - a pause *inside* `ninety-ninety-liftoff`, between "lift-off" and "small
+    range", is **0.74s**;
+  - the break *between* `bear-crawl` and `side-plank` is **0.33s**.
+
+  So a mid-sentence pause ran more than twice as long as a real line break, and
+  no width threshold can separate those. Picking "the n-1 widest gaps" landed on
+  the right *total* by merging two lines and splitting another — a correct count
+  is not a correct segmentation, and that is the trap to remember.
 
   **What worked: transcribe and align.** `pip install pocketsphinx` (the
   acoustic model ships inside the wheel, so no download — Whisper's is still
@@ -1902,11 +1911,12 @@ side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
 wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.
 
 **If more clips ever arrive, read the v39 entry before cutting them.** The short
-version: that take had background music, and neither gap *width* nor gap *level*
-could separate a line break from a mid-sentence pause — every gap was digital
-silence, and the widths overlapped. The only thing that worked was transcribing
-the fragments with `pocketsphinx` and aligning them against the script by ear-in-
-text. Budget for that; it is not the ten-minute job the v38 take was.
+version: in that take the pauses *inside* a line were sometimes longer than the
+breaks *between* lines (0.74s vs 0.33s), so no gap-width threshold could split
+it and a plausible-looking split was silently wrong. The only thing that worked
+was transcribing the fragments with `pocketsphinx` and aligning them against the
+script. Budget for that whenever the pauses are not obviously graded — the v38
+take, with a deliberate 1.2–1.9s after every line, was a ten-minute job.
 
 **Also still open**, unchanged and unrelated to the audio: 19 movements have no
 artwork (`PENDING_ART` in `js/stretch-art.js` — the 15 from v27 plus the four
