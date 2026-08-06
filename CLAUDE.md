@@ -2022,9 +2022,54 @@ data if forgotten:
   (`409 Cannot cancel a workflow re-run that has not yet queued`). Pushing a new
   commit to trigger a fresh run is the only way past it.
 
+- 2026-08-06 — **v43: the real reason the lift was silent, and a warm-up for it.**
+
+  **The v42 fix was in the wrong place, and the user hit exactly the gap.** v42
+  announced the opening movement on the **Start tap** — but `strength()` skips
+  the intro entirely when a draft from today exists (`if (draft && draft.date
+  === today) showSession(draft)`). Anyone who had started a session earlier that
+  day never saw a Start button, so the announcement never fired, and the only
+  other thing that spoke was the end of a two-minute rest. Two versions of
+  "fixed" and the screen was still silent on the path they were actually on.
+
+  The fix is to announce on the **first set tap of each movement**, which is on
+  every route in and is always a user gesture — the only place an AudioContext
+  resumes. An `announced` Set stops it doubling up with the rest-end cue, which
+  already names whatever is coming next. There is a test that resumes a draft
+  and asserts the tap still speaks.
+
+  **The lesson, which is the same one as v42 stated better:** when a fix is
+  "announce it at moment X", enumerate every route into the screen before
+  believing it. Two of the three ways into a strength session skip the intro.
+
+  **A warm-up for the lift.** The five movements were already in the brief and
+  were rendered as one line of text on the intro; they are now a tickable card
+  at the top of the session. Deliberately **not** the rest-day routine's warm-up
+  ported over: that one is marching and swinging, to get you warm before loading
+  end-range mobility cold. This one is arm circles, leg swings, squats,
+  press-ups, dead hang — the last three **rehearse the session's own patterns**,
+  so you squat before the split squat, press before the archer press and hang
+  before the pull. Porting the other one would leave the working joints cold.
+
+  It is a **checklist, not a routine** — untimed, self-paced, one tap per row.
+  Giving it a clock would make it the stretch engine, and this screen is a form.
+  `warmup` lives on the draft *outside* `exercises`, so it can never reach the
+  progression engine: a warm-up is not a set and must not move a prescription.
+  Tests pin that ticking every box changes `sessionProgress` and
+  `sessionChanges` by nothing at all.
+
+  **A selector trap worth knowing:** the warm-up card is a `<section.card>`, so
+  it became the first `<section>` on the screen and every
+  `.sx-ex:first-of-type` in the browser tests silently stopped matching. Six
+  tests failed at once. They index by class now (`.sx-ex` then `.first()`),
+  which does not care what else is on the page — `:first-of-type` is a
+  positional assertion about markup you did not mean to make.
+
+  Nine suites green (57 browser assertions). sw `CACHE` → v43, `VERSION` → v43.
+
 ## Parked — pick this up next session
 
-**Everything through v42 is shipped and deployed.** The voice-cue re-recording
+**Everything through v43 is shipped and deployed.** The voice-cue re-recording
 job that sat parked here is **finished** — all 30 per-move names, the six "other
 side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
 wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.

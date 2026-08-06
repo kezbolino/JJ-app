@@ -203,7 +203,7 @@ function introScreen(mount, ctx) {
         h('a.sx-hist-link', { href: '#/strength?view=history' }, 'History ›')),
       h('p.sx-week',
         `This week: ${load.classes} ${load.classes === 1 ? 'class' : 'classes'} · ${load.lifts} ${load.lifts === 1 ? 'lift' : 'lifts'}`),
-      h('p.sx-warmup', h('strong', 'Warm up first: '), WARM_UP.join(' · ')),
+      h('p.sx-warmup', h('strong', 'Warm up first: '), WARM_UP.map(w => w.name).join(' · ')),
       h('button.btn.primary.wide.cta', { type: 'button', onclick: () => ctx.start(false) },
         sessions.length ? 'Start session' : 'Start your first session')),
     h('ol.sx-plans', plans.map(planRow)),
@@ -348,11 +348,20 @@ function exerciseCard(logged, ctx) {
       onEdit: j => editor.open(j),
       onComplete: () => {
         editor.close();
+        // First set of this movement → say its name, here, inside the tap.
+        //
+        // The Start tap announces the opener, but a session resumed from a
+        // draft never shows the Start button at all — you land straight in the
+        // session — so that path was silent from beginning to end. Announcing
+        // on the first set covers every route in, and a set tap is always a
+        // user gesture, which is the only place an AudioContext will resume.
+        ctx.announce(logged.exerciseId);
         const remaining = logged.sets.some(s => !s.completed);
         // Same movement again → a generic "rest is over". Moving on → the name
         // of the movement you are moving on to, which is the more useful thing
         // to hear when the phone is face down.
         const next = remaining ? null : ctx.nextExerciseId(logged.exerciseId);
+        if (next) ctx.markAnnounced(next);   // the rest will name it; don't say it twice
         ctx.rest(ex.restSec,
           remaining ? `Rest · ${ex.name}` : `Rest · next up after ${ex.name}`,
           next ?? ctx.restOverCue());
@@ -364,6 +373,53 @@ function exerciseCard(logged, ctx) {
     setsRow.append(h('p.sx-skipped', 'Muted for this session — nothing here counts either way.'));
   }
 
+  return card;
+}
+
+/**
+ * The warm-up: five rows you tap off. No timer, no reps logged, nothing that
+ * reaches the progression engine — it is a checklist, and the only thing it
+ * owes you is a memory that you have done it.
+ */
+function warmupCard(draft, ctx) {
+  const rows = draft.warmup ?? [];
+  if (!rows.length) return null;
+
+  const card = h('section.card.sx-warmup-card');
+  const count = h('span.sx-wu-count');
+
+  const paint = () => {
+    const done = rows.filter(r => r.done).length;
+    count.textContent = `${done} of ${rows.length}`;
+    card.classList.toggle('is-done', done === rows.length);
+  };
+
+  const list = h('ul.sx-wu-list', rows.map(row => {
+    const spec = WARM_UP.find(w => w.id === row.id);
+    const btn = h('li.sx-wu' + (row.done ? '.is-done' : ''),
+      h('button', { type: 'button', 'aria-pressed': String(Boolean(row.done)) },
+        h('span.sx-wu-tick', row.done ? '✓' : ''),
+        h('span.sx-wu-txt',
+          h('span.sx-wu-name', spec?.name ?? row.id),
+          spec?.dose ? h('span.sx-wu-dose', spec.dose) : null)));
+    btn.querySelector('button').addEventListener('click', () => {
+      row.done = !row.done;
+      btn.classList.toggle('is-done', row.done);
+      btn.querySelector('.sx-wu-tick').textContent = row.done ? '✓' : '';
+      btn.querySelector('button').setAttribute('aria-pressed', String(row.done));
+      paint();
+      ctx.save();
+    });
+    return btn;
+  }));
+
+  card.append(
+    h('div.sx-ex-head',
+      h('div', h('h3.sx-ex-name', 'Warm-up'),
+        h('p.sx-ex-var', 'Before the first set. Nothing here is logged.')),
+      count),
+    list);
+  paint();
   return card;
 }
 
@@ -400,19 +456,21 @@ function sessionScreen(mount, ctx) {
     save: () => { paintProgress(); ctx.save(); },
   })).filter(Boolean);
 
-  mount.replaceChildren(
+  mount.replaceChildren(...[
     offMatTabs('strength'),
     h('div.sx-top',
       h('span.sx-when', draft.deload ? 'Deload session' : fmtDate(draft.date)),
       countEl),
     rail,
     ctx.restTimer.el,
+    warmupCard(draft, ctx),
     ...cards,
     h('div.btn-row', { style: 'margin-top:16px' }, finishBtn),
     h('button.sx-abandon', {
       type: 'button',
       onclick: () => ctx.abandon(),
-    }, 'Discard this session'));
+    }, 'Discard this session'),
+  ].filter(Boolean));
 
   paintProgress();
 }
@@ -505,6 +563,7 @@ export default async function strength(root, { view } = {}) {
   const restTimer = createRestTimer(beep, wake, voice, token);
 
   let lastRestOver = 0;   // never the same "rest is over" take twice running
+  const announced = new Set();   // movements already named aloud this session
   const state = programmeState(sessions);
   const lastSession = sessions[sessions.length - 1] ?? null;
 
@@ -531,7 +590,7 @@ export default async function strength(root, { view } = {}) {
         // audio. A cue on the Start tap is both useful and the fastest possible
         // answer to "is this thing on".
         const opener = fresh.exercises.find(e => !e.skipped);
-        if (opener) voice.say(opener.exerciseId);
+        if (opener) { announced.add(opener.exerciseId); voice.say(opener.exerciseId); }
         await store.setStrengthDraft(fresh);
         showSession(fresh);
       },
@@ -546,6 +605,15 @@ export default async function strength(root, { view } = {}) {
       lastFor: id => lastSession?.exercises?.find(e => e.exerciseId === id) ?? null,
       save: () => { store.setStrengthDraft(current).catch(() => {}); },
       rest: (seconds, label, cue) => restTimer.start(seconds, label, cue),
+      // Say a movement's name once per session. The end of a rest already
+      // announces whatever is coming next, so this must not repeat it two
+      // minutes later when you actually start the thing.
+      announce: id => {
+        if (announced.has(id)) return;
+        announced.add(id);
+        voice.say(id);
+      },
+      markAnnounced: id => announced.add(id),
       // The next movement with work still to do. Skipped ones are not coming.
       nextExerciseId: id => {
         const list = current.exercises;

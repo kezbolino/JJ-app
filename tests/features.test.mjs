@@ -1242,7 +1242,7 @@ await test('a lift on a day with jiu jitsu already logged says lift after, never
   await go(page, '/strength');
   await page.click('.sx-intro .btn.cta');
   await page.waitForSelector('.sx-set');
-  await page.click('.sx-ex:first-of-type .sx-set:first-of-type');
+  await page.click('.sx-ex .sx-set >> nth=0');
   await page.click('.btn:has-text("Finish session")');
   await page.click('.btn:has-text("finish anyway")');
   await page.waitForSelector('.sx-done');
@@ -1265,7 +1265,7 @@ await test('tapping a set logs it, and the draft survives leaving the screen', a
   assert.equal(await page.locator('.sx-set').count(), 30, 'not every set is on screen');
   assert.match(await page.locator('.sx-progress').innerText(), /0 of 30 sets/);
 
-  const first = page.locator('.sx-ex:first-of-type .sx-set').first();
+  const first = page.locator('.sx-ex').first().locator('.sx-set').first();
   assert.equal(await first.innerText(), '6');
   await first.click();
   await page.waitForTimeout(120);
@@ -1297,7 +1297,7 @@ await test('a logged set can be corrected without typing', async () => {
   await page.click('.sx-intro .btn.cta');
   await page.waitForSelector('.sx-set');
 
-  const first = page.locator('.sx-ex:first-of-type .sx-set').first();
+  const first = page.locator('.sx-ex').first().locator('.sx-set').first();
   await first.click();                       // log it at target
   await first.click();                       // tap again: corrections open
   await page.waitForSelector('.sx-edit-n');
@@ -1369,7 +1369,7 @@ await test('the lift speaks when a rest ends — the next movement, or "go again
 
   // Pull-ups is 5 sets. Log one: sets remain, so the rest ends on a generic
   // "rest is over" rather than naming a movement you are already doing.
-  await page.locator('.sx-ex:first-of-type .sx-set').first().click();
+  await page.locator('.sx-ex').first().locator('.sx-set').first().click();
   await page.waitForTimeout(250);
   assert.ok(cues.some(c => /^rest-over-[1-5]\.webm$/.test(c)),
     `no rest-over cue queued (heard: ${cues.join(', ') || 'nothing'})`);
@@ -1378,7 +1378,7 @@ await test('the lift speaks when a rest ends — the next movement, or "go again
   // Finish the remaining four. Now the exercise is done, so the rest before the
   // next one announces *that* — which is the thing worth hearing face-down.
   cues.length = 0;
-  const sets = await page.locator('.sx-ex:first-of-type .sx-set').all();
+  const sets = await page.locator('.sx-ex').first().locator('.sx-set').all();
   for (const set of sets.slice(1)) { await set.click(); await page.waitForTimeout(120); }
   assert.ok(cues.includes('split-squat.webm'),
     `the rest after the last set did not announce the next lift (heard: ${cues.join(', ')})`);
@@ -1413,6 +1413,61 @@ await test('every strength cue is a real clip with sound in it', async () => {
   await page.context().close();
 });
 
+await test('a resumed session still announces the movement you tap into', async () => {
+  // The Start tap announces the opener — but a session resumed from a draft
+  // never shows the Start button, so that whole path was silent from beginning
+  // to end. This is the bug the user hit: they had a draft from earlier and so
+  // never once heard the app speak.
+  const page = await newPage();
+  const cues = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/audio/cues/')[1]);
+  });
+
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  // Leave and come back: no intro, no Start button, straight into the session.
+  await go(page, '/');
+  await go(page, '/strength');
+  assert.equal(await page.locator('.sx-intro').count(), 0, 'the draft did not resume');
+  cues.length = 0;
+
+  await page.locator('.sx-ex').first().locator('.sx-set').first().click();
+  await page.waitForTimeout(250);
+  assert.ok(cues.includes('pull-up.webm'),
+    `a resumed session stayed silent (heard: ${cues.join(', ') || 'nothing'})`);
+  await page.context().close();
+});
+
+await test('the warm-up is a checklist that survives leaving, and counts for nothing', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-wu');
+
+  assert.equal(await page.locator('.sx-wu').count(), 5);
+  assert.match(await page.locator('.sx-wu-count').innerText(), /0 of 5/);
+  const names = await page.locator('.sx-wu-name').allTextContents();
+  assert.ok(names.some(n => /squat/i.test(n)), 'nothing rehearses the squat');
+  assert.ok(names.some(n => /hang/i.test(n)), 'nothing rehearses the hang');
+
+  // Ticking it must not move the session on — a warm-up is not a set.
+  const before = await page.locator('.sx-progress').innerText();
+  await page.locator('.sx-wu button').first().click();
+  await page.waitForTimeout(150);
+  assert.match(await page.locator('.sx-wu-count').innerText(), /1 of 5/);
+  assert.equal(await page.locator('.sx-progress').innerText(), before,
+    'the warm-up counted towards the session');
+
+  await go(page, '/log');
+  await go(page, '/strength');
+  assert.match(await page.locator('.sx-wu-count').innerText(), /1 of 5/,
+    'the ticked warm-up was lost by navigating away');
+  await page.context().close();
+});
+
 await test('a movement can be muted mid-session without skipping the lot', async () => {
   const page = await newPage();
   await go(page, '/strength');
@@ -1423,8 +1478,8 @@ await test('a movement can be muted mid-session without skipping the lot', async
   await page.waitForTimeout(200);
   assert.match(await page.locator('.sx-progress').innerText(), /0 of 25 sets/,
     'a muted movement still counts towards the session');
-  assert.match(await page.locator('.sx-ex:first-of-type').innerText(), /muted for this session/i);
-  assert.equal(await page.locator('.sx-ex:first-of-type .sx-set').count(), 0);
+  assert.match(await page.locator('.sx-ex').first().innerText(), /muted for this session/i);
+  assert.equal(await page.locator('.sx-ex').first().locator('.sx-set').count(), 0);
   await page.context().close();
 });
 

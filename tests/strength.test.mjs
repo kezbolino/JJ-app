@@ -13,6 +13,7 @@ import {
   startingState, advance, regress, applyResult, exerciseOutcome,
   programmeState, todaysPlan, isDeloadDue, prescriptionLine, lastLine,
   newStrengthSession, sessionProgress, sessionChanges, historyFor, variationOf,
+  WARM_UP,
   restClock,
 } from '../js/strength.js';
 
@@ -338,6 +339,31 @@ test('history lists a movement newest first and leaves out what was muted', () =
   assert.equal(rows[0].session.date, '2026-08-05');
   assert.equal(historyFor([a, b], 'inverted-row').map(r => r.session.date).join(),
     '2026-08-12,2026-08-05');
+});
+
+test('the warm-up rehearses the session, and never touches the programme', () => {
+  // The last three deliberately mirror the session's own patterns — squat
+  // before the split squat, press before the archer press, hang before the
+  // pull. A generic warm-up would leave the working joints cold.
+  const names = WARM_UP.map(w => w.name.toLowerCase()).join(' ');
+  for (const pattern of ['squat', 'press', 'hang']) {
+    assert.ok(names.includes(pattern), `nothing in the warm-up rehearses a ${pattern}`);
+  }
+  for (const w of WARM_UP) {
+    assert.ok(w.id && w.name && w.dose, `warm-up item ${w.id} is incomplete`);
+  }
+
+  const session = newStrengthSession('2026-08-06', []);
+  assert.equal(session.warmup.length, WARM_UP.length);
+  assert.ok(session.warmup.every(w => w.done === false), 'a new session starts warmed up');
+
+  // Ticking every box must move nothing: a warm-up is not a set.
+  const before = sessionProgress(session);
+  session.warmup.forEach(w => { w.done = true; });
+  assert.deepEqual(sessionProgress(session), before, 'the warm-up counted towards the session');
+  assert.deepEqual(sessionChanges([], session), [],
+    'a warm-up-only session moved the programme');
+  assert.equal(programmeState([session])['pull-up'].reps, EXERCISE_BY_ID['pull-up'].startReps);
 });
 
 test('the rest clock formats mm:ss and never goes negative', () => {

@@ -1504,6 +1504,33 @@ body:has(.st.is-running) .appfoot { display: none; }
 }
 .sx-tempo.is-on { background: var(--good-soft); color: var(--good); border-color: var(--good-soft); }
 
+/* --- the warm-up checklist ----------------------------------------------
+   Green, like the rest-day routine's warm-up badge and its rest phase: a
+   warm-up is a positive, unhurried state, not a gap. Amber stays reserved. */
+.sx-warmup-card { margin-bottom: var(--gap); box-shadow: 0 5px 0 var(--good); }
+.sx-warmup-card.is-done { box-shadow: 0 5px 0 var(--edge); opacity: .72; }
+.sx-wu-count { color: var(--good); font-size: .8rem; font-weight: 800; white-space: nowrap; }
+.sx-wu-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.sx-wu button {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 9px 2px; border: 0; background: none; cursor: pointer;
+  font-family: inherit; text-align: left; color: inherit;
+  border-bottom: 2px solid var(--line);
+}
+.sx-wu:last-child button { border-bottom: 0; }
+.sx-wu-tick {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 9px;
+  border: 2px solid var(--dash); display: grid; place-items: center;
+  font-size: .8rem; font-weight: 900; color: transparent;
+}
+.sx-wu.is-done .sx-wu-tick {
+  background: var(--good); border-color: var(--good); color: #fff;
+}
+.sx-wu-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sx-wu-name { font-size: .9rem; font-weight: 700; }
+.sx-wu.is-done .sx-wu-name { color: var(--muted); text-decoration: line-through; }
+.sx-wu-dose { font-size: .76rem; font-weight: 700; color: var(--muted); }
+
 /* --- rest timer ----------------------------------------------------------
    Sticky, so the countdown is still readable once you have scrolled down to
    read the next movement's cue. Kept to one compact line for the same reason

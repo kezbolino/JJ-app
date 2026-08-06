@@ -180,13 +180,30 @@ export const EXERCISES = [
 
 export const EXERCISE_BY_ID = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
 
-/** Before the first session: what the programme table says to do. */
+/**
+ * The warm-up, run before exercise 1.
+ *
+ * These are the five from the programme brief, and the list is better than a
+ * generic one because the last three **rehearse the session's own patterns** —
+ * you squat before you split squat, press before you archer press, and hang
+ * before you pull. The first two just move blood.
+ *
+ * Deliberately *not* the rest-day routine's warm-up. That one exists to get you
+ * warm before loading end-range mobility cold, so it is marching and swinging;
+ * this one exists to get you ready to pull your bodyweight off a bar. Porting
+ * one to the other would leave you warm and still cold on the exact joints
+ * about to do the work.
+ *
+ * Untimed and self-paced, like everything else on this screen — tap each one
+ * off. It is a checklist, not a routine: giving it a clock would make it the
+ * stretch engine, and this session is a form.
+ */
 export const WARM_UP = [
-  'Arm circles',
-  'Leg swings',
-  '10 bodyweight squats',
-  '10 press-ups',
-  'Dead hang',
+  { id: 'wu-arm-circles', name: 'Arm circles', dose: '20 forward, 20 back' },
+  { id: 'wu-leg-swings', name: 'Leg swings', dose: '10 each leg, each way' },
+  { id: 'wu-squats', name: 'Bodyweight squats', dose: '10 reps, full depth' },
+  { id: 'wu-press-ups', name: 'Press-ups', dose: '10 reps' },
+  { id: 'wu-dead-hang', name: 'Dead hang', dose: '20–30 seconds' },
 ];
 
 /** How many sessions between deload prompts. */
@@ -423,6 +440,10 @@ export function newStrengthSession(date, sessions = [], { deload = false, muted 
     id: `sx-${date}-${Math.random().toString(36).slice(2, 8)}`,
     date,
     deload,
+    // Ticked off as you go. Deliberately outside `exercises`, so it can never
+    // reach the progression engine — a warm-up is not a set and must not move
+    // a prescription in either direction.
+    warmup: WARM_UP.map(w => ({ id: w.id, done: false })),
     exercises: todaysPlan(sessions, { deload, muted }).map(plan => ({
       exerciseId: plan.exercise.id,
       variationId: plan.variation.id,
