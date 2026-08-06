@@ -2113,7 +2113,25 @@ data if forgotten:
 
 ## Parked — pick this up next session
 
-**Everything through v44 is shipped and deployed.** The voice-cue re-recording
+**Everything through v44 is shipped and deployed.** `main` and
+`claude/stretch-section-addition-3j1lvr` both sit at v44, `CACHE` == `VERSION`,
+tree clean.
+
+**Two voice clips are outstanding** — `kb-getup` and `kb-swing`, added in v44.
+They 404 and stay silent, which is the contract, so nothing is broken. The
+script lines are: *"Turkish get-up, nephew. Slow, eyes on that bell."* and
+*"Kettlebell swings. Snap them hips, bitch."*
+
+**The `art-inbox` branch is live and unmerged**, waiting for raster figures.
+Images attached in chat are rendered into context but never written to disk, so
+that branch is the only way to get a PNG somewhere it can be traced. The trace
+pipeline is proven end to end — potrace at `turdsize 8`, `alphamax 1.0`,
+`opttolerance 1.2`, threshold 128, 5% viewBox margin. An existing figure was
+round-tripped through it and came out indistinguishable from the Illustrator
+original, so **the user no longer needs Illustrator at all**: send PNGs, not
+SVGs, and skip the import/trace/delete-background/export steps entirely. First
+real test is `ankle-rock`; the last attempt had the pose type right but the knee
+behind the toes and a lighter line weight than the existing 11. The voice-cue re-recording
 job that sat parked here is **finished** — all 30 per-move names, the six "other
 side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
 wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.
