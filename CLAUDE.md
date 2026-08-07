@@ -2276,6 +2276,44 @@ data if forgotten:
   `America/Los_Angeles` and `Australia/Sydney`). sw `CACHE` → v46, `VERSION` →
   v46; `js/appstate.js` added to `SHELL`.
 
+- 2026-08-07 — **v47: the first traced figure, and the rounding rule got more
+  precise.** `ankle-rock` shipped — 18 of the 19 undrawn movements remain.
+
+  **The pose is not the stretch, and it shipped anyway at the user's call.** The
+  drawing shows a half-kneeling position with the shin about 20° forward of
+  vertical and the knee still *behind* the toe tips; an end-range ankle rock
+  wants ~40° and the knee clearly past them, which is what the cue in
+  `js/stretches.js` actually says. The concrete cost, verified in a screenshot
+  rather than argued: in the intro list `Half-kneeling ankle rock` sits directly
+  above `Kneeling hip flexor lunge`, whose shipped figure is also half-kneeling
+  side-on with the front foot flat, and at 52px the two thumbnails are near
+  identical. Told the user before shipping; they chose to ship. **If it ever
+  reads as a duplicate, the fix is a regenerated PNG with the knee driven past
+  the toes, not a code change.**
+
+  **The trace pipeline is now proven on a real submission.** potrace at
+  `turdsize 8`, `alphamax 1.0`, `opttolerance 1.2`, threshold 128, drop any
+  contour spanning >97% of the canvas, reframe the `viewBox` to a square on the
+  real bbox + 5% margin. Line weight came out matching the eleven Illustrator
+  originals with no adjustment — that was the complaint on the previous attempt
+  and it is fixed.
+
+  **The "never round the coordinates" rule was too broad, and is now split.** It
+  is absolutely right for the eleven originals: those are full of **relative**
+  commands, so rounding each delta accumulates error until contours stop closing
+  and the figure floods to a silhouette (v26 rebuilt everything over this).
+  A potrace figure is **absolute** `M/C/L/Z` only, so every point stands alone
+  and rounding cannot accumulate. Checked rather than assumed: rendered both at
+  400px and diffed — 32 antialiasing-level pixels out of 160,000, ink coverage
+  within 5px. 18 KB → 7.4 KB, which matters at 18 more figures to come. The
+  comment at the top of `js/stretch-art.js` now says which kind is which.
+
+  Note the uploaded PNG landed at the repo root of `art-inbox` rather than in
+  `art-inbox/`. It does not matter — that branch never merges — and it is not
+  worth correcting anyone over.
+
+  Ten suites green. sw `CACHE` → v47, `VERSION` → v47.
+
 ## Parked — pick this up next session
 
 **v45 and v46 are deployed.** `main` fast-forwarded from v44 (`1eae4c7`) to
@@ -2335,9 +2373,12 @@ off-mat logs. That closes the last item that had real downside. What it does
 live in `localStorage` rather than IndexedDB and are genuinely per-device
 (theme, font, button style), and the 30-day trash, which is deliberately local.
 
-**Also still open**, unchanged and unrelated to the audio: 19 movements have no
-artwork (`PENDING_ART` in `js/stretch-art.js` — the 15 from v27 plus the four
-v34 warm-up items). The strength module
+**Also still open**, unchanged and unrelated to the audio: **18** movements have
+no artwork (`PENDING_ART` in `js/stretch-art.js`) — `ankle-rock` landed in v47
+and the rest have image prompts written for them. **The ten strength movements
+have no artwork either, and `js/views/strength.js` has no code that would draw
+one** — it is a form, not a routine. Adding figures there is a view change as
+well as an art job; do not assume the prompts alone are enough. The strength module
 ships no artwork and no voice cues at all — it is a form, not a routine, so it
 needs neither, but if the two stretch routines ever get their missing figures
 the eight lifts are the obvious next ask.
