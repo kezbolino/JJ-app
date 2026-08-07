@@ -2278,10 +2278,17 @@ data if forgotten:
 
 ## Parked — pick this up next session
 
-**v45 and v46 are built and pushed to `claude/whats-next-ki8w1d`, and are NOT
-deployed** — `main` is still at v44. Deploying is a fast-forward of `main` to
-that branch; `CACHE` == `VERSION` == v46 and the tree is clean. Everything
-through v44 is live at `https://kezbolino.github.io/JJ-app/`.
+**v45 and v46 are deployed.** `main` fast-forwarded from v44 (`1eae4c7`) to
+`37a699b` and pushed, so GitHub Pages is serving v46 at
+`https://kezbolino.github.io/JJ-app/`. Ship gate before pushing: ten suites
+green (`schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`),
+`CACHE` == `VERSION` == v46, clean tree, fast-forward confirmed rather than a
+merge. All three Pages jobs succeeded — `build` 23s, `deploy` 11s — checked at
+the **job** level, not the run badge, per the 2026-08-06 note above.
+
+**The live site could not be fetched from this session to double-check** —
+`kezbolino.github.io` is blocked by the agent proxy (403 on CONNECT). The
+green deploy job is the evidence; the footer on the phone is the confirmation.
 
 **Expect one new file in `jj-app-data` on the first sync after v46** —
 `app-state.md`, holding the deck, starred moves, promotions and the off-mat
