@@ -2425,12 +2425,31 @@ off-mat logs. That closes the last item that had real downside. What it does
 live in `localStorage` rather than IndexedDB and are genuinely per-device
 (theme, font, button style), and the 30-day trash, which is deliberately local.
 
-**Also still open**, unchanged and unrelated to the audio: **7** movements have
-no artwork (`PENDING_ART` in `js/stretch-art.js`) — `warmup-march`,
-`ninety-ninety-liftoff`, `copenhagen`, `jefferson-curl`, `thoracic-press-up`,
-`wall-slide`, `dead-hang`. Prompts for all of them are in `docs/ART-PROMPTS.md`,
-which leads with the status and with **"one image per movement, not a contact
-sheet"** — that is the thing to say when asking for them. **The ten strength movements
+**Artwork is PARKED as of 2026-08-07, and the reason is worth reading before
+restarting it.** Seven movements have no figure (`PENDING_ART` in
+`js/stretch-art.js`) — `warmup-march`, `ninety-ninety-liftoff`, `copenhagen`,
+`jefferson-curl`, `thoracic-press-up`, `wall-slide`, `dead-hang` — plus all ten
+strength ones.
+
+The blocker is **not** the prompts, which are written and specific
+(`docs/ART-PROMPTS.md`). It is that the two ways of asking each fail
+differently: **one request for all of them returns a contact sheet** — one
+consistent style, but ~150×130px per figure, which is a thirtieth of the area
+needed and comes with captions and borders traced in. **One request per figure
+gives full resolution but a different style each time** — some come back with
+faces, some without, line weights vary. A list where half the figures have faces
+is worse than one where several have no figure, so partial delivery is not a
+safe default here.
+
+The eleven shipped in v48 all came from the same sheet, so they are at least
+consistent with each other. `PENDING_ART` means anything missing renders with no
+figure at all, which is the designed contract and looks fine — **nothing is
+broken while this stays parked.**
+
+**The idea worth trying next:** pass one of the shipped figures (a PNG render of
+it) to the generator as a style reference alongside each prompt, instead of
+describing the style in words. That is the only route that plausibly gets both
+resolution and consistency. **The ten strength movements
 have no artwork either, and `js/views/strength.js` has no code that would draw
 one** — it is a form, not a routine. Adding figures there is a view change as
 well as an art job; do not assume the prompts alone are enough. The strength module

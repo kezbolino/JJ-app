@@ -1,18 +1,25 @@
 # Image prompts for the missing figures
 
-> **Status, v48.** Eleven of these landed from the first Gemini batch: `sphinx`,
-> `warmup-squat`, `warmup-arm-circle`, `warmup-leg-swing`, `deep-squat-hold`,
-> `cossack-squat`, `glute-bridge-single`, `single-leg-rdl`, `neck-isometric`,
-> `bear-crawl`, `side-plank`. **Seven mobility figures are still wanted** —
-> `warmup-march`, `ninety-ninety-liftoff`, `copenhagen`, `jefferson-curl`,
-> `thoracic-press-up`, `wall-slide`, `dead-hang` — plus all ten strength ones.
+> **PARKED, 2026-08-07.** Seven mobility figures and all ten strength ones are
+> still missing, and the prompts below are ready — but the generation route is
+> the unsolved part, not the wording.
 >
-> **One image per movement, please, not a contact sheet.** A 6×6 grid in one
-> 1024px file gives each figure ~150×130px, roughly a thirtieth of the area of a
-> single PNG, and it bakes in a caption and a border that both trace as marks.
-> Four of the seven above failed for exactly that reason: `wall-slide` lost its
-> wall, `dead-hang` lost its bar, `jefferson-curl` lost its head and torso, and
-> `warmup-march` came back with a scribble where the head should be.
+> **The bind:** asking for all of them in one go returns a contact sheet, which
+> is stylistically consistent but leaves each figure at ~150×130px — a
+> thirtieth of the area needed, with captions and borders drawn in. Asking one
+> at a time gives full resolution but a different house style every time: some
+> figures come back with faces, some without, line weights vary. Neither route
+> gives consistency *and* resolution, and a routine list where half the figures
+> have faces is worse than one where several have no figure at all.
+>
+> The eleven that shipped in v48 came from the sheet and are internally
+> consistent with each other; `PENDING_ART` means the rest simply render without
+> a figure, which is the designed behaviour and looks fine.
+>
+> **Worth trying when this is picked up again:** feed the generator one of the
+> shipped SVGs (or a PNG render of one) as a style reference alongside each
+> prompt, so it has something concrete to match rather than a description. That
+> is the only approach that plausibly gets both.
 
 One prompt per movement, for generating the line drawings that `js/stretch-art.js`
 holds. Send the **raw PNG** to the `art-inbox` branch, named after the id in the
