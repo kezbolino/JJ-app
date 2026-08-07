@@ -309,6 +309,112 @@ await test('a failed sync is recorded, and a good one clears it', async () => {
   await broken.context.close();
 });
 
+// The standing gap since v0.1, closed in v46: the deck, the starred moves and
+// the off-mat logs lived on one device and nowhere else.
+await test('the deck and starred moves reach the other device', async () => {
+  const laptop = await newDevice();
+  await runSync(laptop.page);
+
+  await phone.page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    await store.setFocuses([
+      { front: 'half guard passing', back: 'staple the knee' },
+      { front: 'standing up in base', back: '' },
+    ]);
+    await store.toggleLikedMove({ position: 'half-guard', technique: 'knee-slice' });
+    await store.setPromotions([{ rank: 'blue', date: '2026-01-15' }]);
+  });
+  const up = await runSync(phone.page);
+  assert.ok(state.files['app-state.md'], 'no app-state.md was written');
+  assert.match(state.files['app-state.md'], /half guard passing/);
+
+  const down = await runSync(laptop.page);
+  assert.ok(down.settingsChanged > 0, 'the laptop reported pulling no settings');
+
+  const got = await laptop.page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    return {
+      deck: (await store.getFocuses()).map(f => f.front),
+      liked: await store.getLikedMoves(),
+      promotions: await store.getPromotions(),
+    };
+  });
+  assert.deepEqual(got.deck, ['half guard passing', 'standing up in base'], 'the deck did not travel');
+  assert.equal(got.liked.length, 1, 'starred moves did not travel');
+  assert.equal(got.promotions[0]?.rank, 'blue', 'promotions did not travel');
+  assert.equal(up.pushed >= 0, true);
+
+  // And it settles: a second round trip must not keep re-writing the file.
+  const before = state.commitCount;
+  await runSync(laptop.page);
+  await runSync(phone.page);
+  assert.equal(state.commitCount, before, 'the settings file is being committed on every sync');
+
+  await laptop.context.close();
+});
+
+await test('a card deleted on one device stays deleted on the other', async () => {
+  const laptop = await newDevice();
+  await runSync(laptop.page);
+  assert.equal((await laptop.page.evaluate(async () =>
+    (await import('/js/store.js')).getFocuses())).length, 2, 'the laptop did not start with the deck');
+
+  await phone.page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    await store.setFocuses([{ front: 'half guard passing', back: 'staple the knee' }]);
+  });
+  await runSync(phone.page);
+  await runSync(laptop.page);
+
+  const deck = await laptop.page.evaluate(async () =>
+    (await import('/js/store.js')).getFocuses());
+  assert.deepEqual(deck.map(f => f.front), ['half guard passing'], 'the deleted card came back');
+
+  // …and does not bounce back the other way on the next sync either.
+  await runSync(phone.page);
+  const onPhone = await phone.page.evaluate(async () =>
+    (await import('/js/store.js')).getFocuses());
+  assert.equal(onPhone.length, 1, 'the deleted card was resurrected by the return trip');
+
+  await laptop.context.close();
+});
+
+await test('lifts logged on two devices are both kept, not overwritten', async () => {
+  const laptop = await newDevice();
+  await runSync(laptop.page);
+
+  const addLift = (page, id, date) => page.evaluate(async ([liftId, on]) => {
+    const store = await import('/js/store.js');
+    await store.saveStrengthSession({ id: liftId, date: on, exercises: [] });
+  }, [id, date]);
+
+  // Both log a session before either syncs — the shape of a phone at the gym
+  // and a laptop at home. Last-write-wins here would throw one away silently.
+  await addLift(phone.page, 'lift-phone', '2026-08-10');
+  await addLift(laptop.page, 'lift-laptop', '2026-08-11');
+
+  await runSync(phone.page);
+  await runSync(laptop.page);
+  await runSync(phone.page);
+
+  const ids = page => page.evaluate(async () =>
+    (await (await import('/js/store.js')).getStrengthSessions()).map(s => s.id));
+  assert.deepEqual((await ids(phone.page)).sort(), ['lift-laptop', 'lift-phone'], 'the phone lost a session');
+  assert.deepEqual((await ids(laptop.page)).sort(), ['lift-laptop', 'lift-phone'], 'the laptop lost a session');
+
+  await laptop.context.close();
+});
+
+await test('a lift in progress is never sent anywhere', async () => {
+  await phone.page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    await store.setStrengthDraft({ id: 'draft-1', date: '2026-08-12', exercises: [] });
+  });
+  await runSync(phone.page);
+  assert.ok(!state.files['app-state.md'].includes('draft-1'),
+    'half a workout was published to the repo');
+});
+
 await phone.context.close();
 await browser.close();
 server.close();

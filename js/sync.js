@@ -7,19 +7,26 @@
 // Uses the Git Data API rather than the Contents API so an entire sync lands
 // as ONE commit, instead of one commit per note.
 
-import { getSetting, setSetting, allEntries, allEntriesRaw, putEntryRaw, removeEntryRaw } from './store.js';
+import {
+  getSetting, setSetting, allEntries, allEntriesRaw, putEntryRaw, removeEntryRaw,
+  readAppState, putSettingRaw,
+} from './store.js';
 import {
   toMarkdown, fromMarkdown, pathFor, buildIndex,
   overridesToMarkdown, overridesFromMarkdown,
 } from './markdown.js';
 import { getOverrides, setOverrides } from './overrides.js';
+import {
+  STATE_PATH, mergeAppState, appStateToMarkdown, appStateFromMarkdown,
+} from './appstate.js';
 
 const DEFAULT_API = 'https://api.github.com';
 const INDEX_PATH = 'README.md';
 const OVERRIDES_PATH = 'ontology-overrides.md';
 
 /** Files in the repo that aren't journal entries. */
-const isSpecial = path => path === INDEX_PATH || path === OVERRIDES_PATH;
+const isSpecial = path =>
+  path === INDEX_PATH || path === OVERRIDES_PATH || path === STATE_PATH;
 
 // ---- config --------------------------------------------------------------
 // The token lives in this browser's IndexedDB and is never written to either
@@ -141,7 +148,7 @@ const readBlob = async (config, sha) =>
  */
 export async function pull(config) {
   const commitSha = await headCommit(config);
-  if (!commitSha) return { added: 0, updated: 0, removed: 0, checked: 0 };
+  if (!commitSha) return { added: 0, updated: 0, removed: 0, settingsChanged: 0, checked: 0 };
 
   const { notes: remote, special } = await remoteTree(config, commitSha);
 
@@ -152,6 +159,22 @@ export async function pull(config) {
       const mine = await getOverrides();
       if ((theirs.updatedAt ?? '') > (mine.updatedAt ?? '')) await setOverrides(theirs);
     } catch { /* malformed or hand-edited; local wins */ }
+  }
+
+  // The deck, starred moves, promotions and the off-mat logs. Merge rules and
+  // the reasoning behind them live in js/appstate.js; the only thing that
+  // matters here is that the result is written with `putSettingRaw`, keeping
+  // the remote's timestamp. Restamping to now would make this device look
+  // permanently newer and the two would push at each other forever.
+  let settingsChanged = 0;
+  if (special[STATE_PATH]) {
+    const theirs = appStateFromMarkdown(await readBlob(config, special[STATE_PATH]));
+    const mine = await readAppState();
+    const merged = mergeAppState(mine, theirs);
+    for (const key of merged.changed) {
+      await putSettingRaw(key, merged.values[key], merged.stamps[key]);
+    }
+    settingsChanged = merged.changed.length;
   }
 
   // Trashed entries are still rows here, so pull has to see them: an entry in
@@ -204,7 +227,7 @@ export async function pull(config) {
     if (!remote[entry.syncPath]) { await removeEntryRaw(entry.id); removed++; }
   }
 
-  return { added, updated, removed, checked: Object.keys(remote).length };
+  return { added, updated, removed, settingsChanged, checked: Object.keys(remote).length };
 }
 
 // ---- push ----------------------------------------------------------------
@@ -237,6 +260,17 @@ export async function push(config) {
   const overridesText = overridesToMarkdown(await getOverrides());
   const overridesChanged = state.overridesHash !== hash(overridesText);
 
+  // The deck, starred moves, promotions and the off-mat logs. Serialised from
+  // whatever the pull just merged in, so this is one file holding the agreed
+  // state rather than this device's opinion of it.
+  const appState = await readAppState();
+  // A device that has never had a deck, a starred move or a session writes no
+  // file at all — an empty app-state.md in the repo just invites the question
+  // of what happened to it.
+  const stateText = appStateToMarkdown(appState);
+  const stateChanged = Object.keys(appState.values).length > 0
+    && state.appStateHash !== hash(stateText);
+
   // Paths to remove: ones we wrote before that no longer belong to an entry
   // (deleted, or renamed because the date changed), plus explicit tombstones.
   const tombstones = await getSetting('tombstones', {});
@@ -265,7 +299,7 @@ export async function push(config) {
     }
   }
 
-  if (!changed.length && !indexChanged && !overridesChanged && !gone.size) {
+  if (!changed.length && !indexChanged && !overridesChanged && !stateChanged && !gone.size) {
     // Still record what the repo holds, so a later delete knows what to remove.
     await setState({ ...state, paths: Object.fromEntries([...seenPaths].map(p => [p, true])) });
     return { pushed: 0, deleted: 0, commit: parent };
@@ -283,6 +317,7 @@ export async function push(config) {
   for (const [path, text, changedFlag] of [
     [INDEX_PATH, indexText, indexChanged],
     [OVERRIDES_PATH, overridesText, overridesChanged],
+    [STATE_PATH, stateText, stateChanged],
   ]) {
     if (!changedFlag) continue;
     const blob = await api(config, repoPath(config, '/git/blobs'), {
@@ -332,6 +367,7 @@ export async function push(config) {
     commit: commit.sha,
     indexHash: hash(indexText),
     overridesHash: hash(overridesText),
+    appStateHash: hash(stateText),
     paths: Object.fromEntries([...seenPaths].map(p => [p, true])),
   });
   // The deletions are in the repo now, so the tombstones have done their job.

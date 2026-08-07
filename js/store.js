@@ -3,6 +3,7 @@
 import * as db from './db.js';
 import { POSITIONS, POSITION_BY_ID, ROLE_LABEL, rolesFor } from './ontology.js';
 import { tagKey } from './tagger.js';
+import { SYNCED_SETTINGS } from './appstate.js';
 import { suggestMoves, moveKey } from './moves.js';
 import {
   localISO, todayISO, addDays, weekOf, dayOfWeek, daysBetween,
@@ -185,7 +186,53 @@ export async function getSetting(key, fallback) {
   return row === undefined ? fallback : row.value;
 }
 
-export const setSetting = (key, value) => db.put('settings', { key, value });
+/**
+ * Write a setting, and — for the ones that sync — record *when*.
+ *
+ * The stamp is the merge key, exactly as `updatedAt` is for an entry, and it
+ * carries the same trap. **Never use `setSetting` for sync bookkeeping; use
+ * `putSettingRaw`.** Restamping while applying what the repo sent makes the
+ * local copy look permanently newer than the remote one, so two devices push
+ * the same value at each other forever. This is the settings-shaped version of
+ * the `saveEntry` / `putEntryRaw` rule in CLAUDE.md.
+ */
+export async function setSetting(key, value) {
+  await db.put('settings', { key, value });
+  if (SYNCED_SETTINGS[key]) await stampSetting(key, new Date().toISOString());
+}
+
+const STAMPS_KEY = 'settingsStamps';
+
+/** When each synced setting last changed on *this* device. Never leaves it. */
+export async function getSettingStamps() {
+  const row = await db.get('settings', STAMPS_KEY);
+  return row?.value && typeof row.value === 'object' ? row.value : {};
+}
+
+// Written through db.put rather than setSetting, or stamping would recurse.
+async function stampSetting(key, at) {
+  const stamps = await getSettingStamps();
+  await db.put('settings', { key: STAMPS_KEY, value: { ...stamps, [key]: at } });
+}
+
+/**
+ * Apply a value that came from the repo, keeping the remote's timestamp.
+ * The sync's only writer — see the warning on `setSetting`.
+ */
+export async function putSettingRaw(key, value, at) {
+  await db.put('settings', { key, value });
+  if (SYNCED_SETTINGS[key]) await stampSetting(key, at ?? '');
+}
+
+/** The synced settings as they stand, for handing to `mergeAppState`. */
+export async function readAppState() {
+  const values = {};
+  for (const key of Object.keys(SYNCED_SETTINGS)) {
+    const row = await db.get('settings', key);
+    if (row !== undefined) values[key] = row.value;
+  }
+  return { values, stamps: await getSettingStamps() };
+}
 
 // "Things you're working on" — flashcards. Each is { front, back }: front is
 // the thing (e.g. "half guard passing"), back is your cues/notes to drill.
@@ -230,8 +277,8 @@ export function beltStanding(entries, promotions) {
 }
 
 // Liked moves — the seed for "Your game" suggestions. A move is { position,
-// technique }. Stored as a setting, so (like focuses) it's device-local and
-// not yet part of the notes-repo sync.
+// technique }. Stored as a setting, and synced since v46 — see
+// js/appstate.js, which owns the list of which settings travel and how.
 export const getLikedMoves = () => getSetting('likedMoves', []);
 export const setLikedMoves = list => setSetting('likedMoves', list);
 
@@ -259,8 +306,11 @@ export async function toggleLikedMove(move) {
 //     the DEVICE_LOCAL_SETTINGS skip list, so a restored phone gets the log
 //     back.
 //
-// The cost, stated plainly: like focuses and likedMoves, **strength sessions do
-// not sync to the notes repo yet.** Export is the backup until they do.
+// They **do** sync, as of v46 — not as notes, but in `app-state.md`, unioned by
+// id so a session logged on the phone and one logged on the laptop both
+// survive. js/appstate.js explains why that is a union and the deck is not.
+// Nothing here deletes a session; if that is ever added it needs a tombstone,
+// or the other device puts it straight back.
 
 /** Every completed session, oldest first. */
 export async function getStrengthSessions() {

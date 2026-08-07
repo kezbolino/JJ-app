@@ -45,6 +45,7 @@ js/overrides.js       the user's corrections: taught words, muted words
 js/tagger.js          text → suggested tags (literal matching, no AI)
 js/db.js              IndexedDB wrapper + migrations
 js/store.js           entry CRUD and every derived query (coverage, gaps, themes)
+js/appstate.js        which settings sync, and how two devices' copies merge
 js/backup.js          JSON export/import
 js/markdown.js        entry ↔ markdown file (the backup format)
 js/sync.js            GitHub backup repo sync, via the Git Data API
@@ -76,6 +77,7 @@ node tests/moves.test.mjs       # pure node, fast
 node tests/stretches.test.mjs   # pure node, fast — routine data + timing maths
 node tests/schedule.test.mjs    # pure node, fast — dates, SRS, attendance
 node tests/strength.test.mjs   # pure node, fast — the progression engine
+node tests/appstate.test.mjs   # pure node, fast — synced-settings merge rules
 python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
@@ -83,11 +85,12 @@ node tests/features.test.mjs    # Playwright; calendar, deck, trash, links,
                                 # stretch, strength
 ```
 
-**Run all nine after touching anything in `js/`.** Between them they cover the
+**Run all ten after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
 including user corrections, backup format fidelity, multi-device sync including
 deletions, the move-suggestion engine, the stretch routines, the strength
-progression ladder, and everything added in v17.
+progression ladder, the synced-settings merge rules, and everything added in
+v17.
 
 **One known flake, unrelated to anything:** `the strip shows a week streak…` in
 `tests/features.test.mjs` is date-dependent and fails identically on unmodified
@@ -133,7 +136,7 @@ feature quietly start claiming competence.
 ## Sync — the rules that are easy to break
 
 Local IndexedDB is the source of truth; a private GitHub repo holds a markdown
-mirror. Full detail in `docs/DATA-MODEL.md`. Three things will silently corrupt
+mirror. Full detail in `docs/DATA-MODEL.md`. Four things will silently corrupt
 data if forgotten:
 
 - **Never use `saveEntry` for sync bookkeeping — use `putEntryRaw`.**
@@ -145,7 +148,15 @@ data if forgotten:
   writes a tombstone; push converts it to a file deletion; push clears it.
 - **Front matter is a fixed tiny grammar, not YAML.** We write it and we parse
   it. Don't add a YAML library or free-form fields — `tests/markdown.test.mjs`
-  is what stops the backup rotting.
+  is what stops the backup rotting. (This is about the **note** format.
+  `app-state.md` is JSON in a fenced block, on purpose and by exception — see
+  `js/appstate.js`.)
+- **Settings sync too, and have the same restamping trap.** `setSetting` stamps
+  `settingsStamps`, which is the merge key; the sync must write through
+  `putSettingRaw`, keeping the remote's timestamp. Which settings travel and
+  how they merge is `js/appstate.js` — and the two merge rules there are not
+  interchangeable: `whole` for things you edit (so a deletion propagates),
+  `byId` for logs you append to (so two devices' sessions both survive).
 
 ## Known traps
 
@@ -2192,17 +2203,94 @@ data if forgotten:
   Map in light and dark, no horizontal overflow at 360px. sw `CACHE` → v45,
   `VERSION` → v45, no files added or removed.
 
+- 2026-08-07 — **v46: the deck, starred moves and both session logs now sync.**
+  The standing gap since v0.1, and the last item on the open list with real
+  downside: the flashcard deck that is the front door of Home lived in one
+  browser's IndexedDB and nowhere else, with Library → Export as the only
+  backup.
+
+  **New module `js/appstate.js` — pure, no storage, no network.** It owns three
+  things: the allowlist of which settings travel, the merge, and the file
+  format. Pure so the merge rules can be *tested* rather than hoped for;
+  `tests/appstate.test.mjs` is 18 assertions against it and the **suite count is
+  now ten**.
+
+  **Two merge rules, and they are not interchangeable.** Getting them the wrong
+  way round loses data silently in both directions, so both are pinned by tests:
+
+  - `whole` — things you **edit**: the deck, `likedMoves`, `promotions`,
+    `strengthMuted`. Last write wins on the whole value. It has to be whole:
+    removing the third card only reaches your other device if the newer copy
+    *replaces* the older one. A union would resurrect it.
+  - `byId` — logs you **append to**: `strengthSessions`, `mobilitySessions`.
+    Unioned by id, newer side winning a clash. Last-write-wins here means the
+    phone that syncs second wipes the lift the laptop logged, with nothing said.
+
+  **Nothing deletes a session today.** If a delete is ever added, union alone
+  stops being enough — it needs a tombstone, exactly as entry deletion does, or
+  the other device puts it straight back. Written at the top of `appstate.js`.
+
+  **`setSetting` now stamps, and `putSettingRaw` is the sync's only writer.**
+  This is the settings-shaped version of the `saveEntry` / `putEntryRaw` rule:
+  the stamp is the merge key, so restamping while applying what the repo sent
+  makes the local copy look permanently newer and the two devices push at each
+  other forever. Stamps live in a `settingsStamps` row written through `db.put`
+  directly — going through `setSetting` would recurse — and that row **never
+  leaves the device**: it is on `DEVICE_LOCAL_SETTINGS`, because another
+  device's stamps describe changes this one never made.
+
+  **Import restamps what it wrote.** Restoring a phone from an export is a
+  change this device just made and has to look like one; without a stamp the
+  merge reads the restored deck as older than the empty one on the other device
+  and quietly undoes the restore.
+
+  **The file is JSON in a fenced block, and it is the only one in the repo that
+  is.** A deck and a strength session are nested records, and a second bespoke
+  grammar for them would be a second parser to keep from rotting. CLAUDE.md's
+  "fixed tiny grammar, no YAML" rule is about the **note** format and is
+  untouched — `tests/markdown.test.mjs` still guards it. `app-state.md` still
+  carries a heading and an explanation so it reads as something on github.com.
+
+  **Two things that would have made it commit on every sync, both caught before
+  shipping.** The header date is the newest stamp in the payload, never `now` —
+  push decides whether to upload by hashing the text, so a clock in it would
+  commit an identical state forever. And key order is fixed, for the same
+  reason. There is a test on byte-stability and a browser test asserting the
+  commit count does not move on a second round trip.
+
+  A device that has never had a deck, a starred move or a session writes **no
+  file at all** rather than an empty one.
+
+  **Explicitly not synced**, so nobody has to guess whether it was an oversight:
+  `strengthDraft` (half a workout arriving mid-lift is worse than not having
+  it), `nudgeDismissedOn`, `settingsStamps`, and the credentials/bookkeeping
+  (`sync`, `syncState`, `tombstones`, `lastSyncAt`, `lastSyncError`).
+  `ontologyOverrides` already had its own file since v0.2 and is unchanged.
+
+  Four new browser tests in `tests/sync.test.mjs` drive it two-device: the deck
+  travels, a **deleted card stays deleted** in both directions, lifts logged on
+  both devices before either syncs both survive, and a draft never reaches the
+  repo. Settings' "How this works" card now says what travels.
+
+  Ten suites green (16 sync, 59 features; `schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`). sw `CACHE` → v46, `VERSION` →
+  v46; `js/appstate.js` added to `SHELL`.
+
 ## Parked — pick this up next session
 
-**v45 is built and pushed to `claude/whats-next-ki8w1d`, and is NOT deployed** —
-`main` is still at v44. Deploying is a fast-forward of `main` to that branch;
-`CACHE` == `VERSION` == v45 and the tree is clean. Everything through v44 is
-live at `https://kezbolino.github.io/JJ-app/`.
+**v45 and v46 are built and pushed to `claude/whats-next-ki8w1d`, and are NOT
+deployed** — `main` is still at v44. Deploying is a fast-forward of `main` to
+that branch; `CACHE` == `VERSION` == v46 and the tree is clean. Everything
+through v44 is live at `https://kezbolino.github.io/JJ-app/`.
 
-**Expect no churn in `jj-app-data` from v45** — nothing in it touches
-`js/markdown.js` or the entry model. The visible tells that the deploy landed
-are the footer reading `JUJI v45` and, on the Map, two new cards below "Your
-game": *Classes by month* and *Attention drift*.
+**Expect one new file in `jj-app-data` on the first sync after v46** —
+`app-state.md`, holding the deck, starred moves, promotions and the off-mat
+logs. Nothing else churns: neither version touches `js/markdown.js` or the entry
+model.
+
+**The visible tells that the deploy landed:** the footer reads `JUJI v46`; the
+Map carries two new cards below "Your game" (*Classes by month* and *Attention
+drift*); and Settings → How this works mentions the deck travelling.
 
 **Two voice clips are outstanding** — `kb-getup` and `kb-swing`, added in v44.
 They 404 and stay silent, which is the contract, so nothing is broken. The
@@ -2234,12 +2322,15 @@ take, with a deliberate 1.2–1.9s after every line, was a ten-minute job.
 **`docs/AUDIT.md` is closed** as of v45 — every item in it is built. Nothing in
 that document is a to-do any more.
 
+**Settings sync as of v46** — the deck, starred moves, promotions and both
+off-mat logs. That closes the last item that had real downside. What it does
+*not* cover, and would be the next ask if wanted: the appearance pickers, which
+live in `localStorage` rather than IndexedDB and are genuinely per-device
+(theme, font, button style), and the 30-day trash, which is deliberately local.
+
 **Also still open**, unchanged and unrelated to the audio: 19 movements have no
 artwork (`PENDING_ART` in `js/stretch-art.js` — the 15 from v27 plus the four
-v34 warm-up items); and focuses, `likedMoves` and now
-**strength sessions** are all device-local and do not sync — **this is now the
-single largest open item**, and the one with real downside: the flashcard deck
-that is the front door of Home lives on one phone only. The strength module
+v34 warm-up items). The strength module
 ships no artwork and no voice cues at all — it is a form, not a routine, so it
 needs neither, but if the two stretch routines ever get their missing figures
 the eight lifts are the obvious next ask.

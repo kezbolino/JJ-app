@@ -197,6 +197,10 @@ export default async function settings(root) {
         'private GitHub repo — readable on github.com, openable in Obsidian — and ' +
         'pulls down anything written on your other devices.'),
       h('p.small.muted',
+        'Your flashcard deck, starred moves, belt promotions and off-mat sessions ' +
+        'travel too, in one app-state.md file. A lift you have not finished stays ' +
+        'on this device.'),
+      h('p.small.muted',
         'The token is stored in this browser only. It is never written to either repo. ' +
         'Use a fine-grained token scoped to the data repo alone, with Contents: read and write.')),
 

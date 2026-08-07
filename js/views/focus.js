@@ -2,8 +2,9 @@
 //
 // Each card has a front (the thing) and an optional back (your cues / notes).
 // Tap the card to flip it; step through the deck to review, the way you'd
-// drill. The data is a { front, back } list in settings — device-local, like
-// the rest of the focus feature; it does not sync.
+// drill. The data is a { front, back } list in settings, and it syncs to the
+// backup repo as of v46 (js/appstate.js): last write wins on the whole deck,
+// so removing a card reaches your other device instead of coming back.
 //
 // v20 removed the Again/Good/Easy rating that used to follow each flip, and
 // the SM-2 scheduler behind it. Drilling is not a memory test: you already
