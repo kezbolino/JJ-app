@@ -1,5 +1,19 @@
 # Image prompts for the missing figures
 
+> **Status, v48.** Eleven of these landed from the first Gemini batch: `sphinx`,
+> `warmup-squat`, `warmup-arm-circle`, `warmup-leg-swing`, `deep-squat-hold`,
+> `cossack-squat`, `glute-bridge-single`, `single-leg-rdl`, `neck-isometric`,
+> `bear-crawl`, `side-plank`. **Seven mobility figures are still wanted** —
+> `warmup-march`, `ninety-ninety-liftoff`, `copenhagen`, `jefferson-curl`,
+> `thoracic-press-up`, `wall-slide`, `dead-hang` — plus all ten strength ones.
+>
+> **One image per movement, please, not a contact sheet.** A 6×6 grid in one
+> 1024px file gives each figure ~150×130px, roughly a thirtieth of the area of a
+> single PNG, and it bakes in a caption and a border that both trace as marks.
+> Four of the seven above failed for exactly that reason: `wall-slide` lost its
+> wall, `dead-hang` lost its bar, `jefferson-curl` lost its head and torso, and
+> `warmup-march` came back with a scribble where the head should be.
+
 One prompt per movement, for generating the line drawings that `js/stretch-art.js`
 holds. Send the **raw PNG** to the `art-inbox` branch, named after the id in the
 heading — no tracing, no Illustrator, no removing the background. The pipeline

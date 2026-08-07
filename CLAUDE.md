@@ -2314,6 +2314,58 @@ data if forgotten:
 
   Ten suites green. sw `CACHE` → v47, `VERSION` → v47.
 
+- 2026-08-07 — **v48: eleven figures salvaged from a contact sheet.** A batch
+  arrived as one 1024px PNG holding a 6×6 grid — 34 movements at ~150×130px
+  each, with a caption and a border drawn into every cell.
+
+  **What that costs, measured rather than argued.** The sheet happened to
+  include `ankle-rock`, which already ships from a full-size PNG, so there was a
+  ground truth: traced with identical settings, the tile version is visibly
+  noisier and the face collapses to a scribble. Stroke weight is *not* the
+  problem — measured at 1.13× the original proportionally — the problem is that
+  wobble at 150px is wobble, and no amount of processing invents detail.
+
+  **The captions were offset from the drawings by roughly a row**, so the sheet
+  could not be read as a legend at all. Every figure was identified by *pose*,
+  which is also how three duplicates and three misses were found:
+  `ninety-ninety-liftoff`, `copenhagen` and `thoracic-press-up` are not in the
+  batch at all, and `cossack-squat` appears twice with one of them being a
+  second `deep-squat-hold`.
+
+  **Eleven shipped, seven rejected.** Rejected: `warmup-march` (head is a
+  scribble), `jefferson-curl` (head and torso did not survive), `wall-slide`
+  (lost the wall), `dead-hang` (lost the bar), plus the three missing. The
+  prompts doc now leads with which are still wanted.
+
+  **Three extraction traps, all worth knowing if another sheet ever arrives:**
+
+  1. **Dropping a contour that spans most of the canvas inverts the figure.**
+     The first pass dropped anything spanning >85% to kill the cell border, and
+     every figure came out a solid silhouette — because a contour drawing's
+     *interior* is a hole spanning nearly the whole figure, and removing it fills
+     the body in. The border is now identified by spanning the canvas **and**
+     starting at its very edge.
+  2. **Detecting each cell's border is not worth it.** Four attempts — long-run
+     detection, connected components, coverage thresholds, argmax — each failed
+     on a different subset, because several cells have faint or partial borders.
+     What works is cropping on the nominal grid and painting out a margin band:
+     it does not care whether a border is there.
+  3. **That band eats props.** A pull-up bar and a wall run right to the frame,
+     so a 9px erase removed them and left a figure with its hands in the air.
+     Narrowing to 4px did not rescue them either — those three need regenerating.
+
+  **Upscale before tracing, and scale 2 is the setting.** Resampling adds no
+  detail but stops potrace turning each pixel step into a corner. 2×, 3× and 4×
+  are indistinguishable at 190px and at 52px; 4× costs 73% more bytes. All
+  eleven are absolute-command paths rounded to 2dp, per the v47 note.
+
+  `js/stretch-art.js` is 57 KB → 120 KB. That is the real cost of this batch and
+  it is worth watching: it is precached in `SHELL`, so it is download size on
+  every update. Seven more figures at ~6 KB is fine; a second doubling would not
+  be.
+
+  Ten suites green. sw `CACHE` → v48, `VERSION` → v48.
+
 ## Parked — pick this up next session
 
 **v45 and v46 are deployed.** `main` fast-forwarded from v44 (`1eae4c7`) to
@@ -2373,9 +2425,12 @@ off-mat logs. That closes the last item that had real downside. What it does
 live in `localStorage` rather than IndexedDB and are genuinely per-device
 (theme, font, button style), and the 30-day trash, which is deliberately local.
 
-**Also still open**, unchanged and unrelated to the audio: **18** movements have
-no artwork (`PENDING_ART` in `js/stretch-art.js`) — `ankle-rock` landed in v47
-and the rest have image prompts written for them. **The ten strength movements
+**Also still open**, unchanged and unrelated to the audio: **7** movements have
+no artwork (`PENDING_ART` in `js/stretch-art.js`) — `warmup-march`,
+`ninety-ninety-liftoff`, `copenhagen`, `jefferson-curl`, `thoracic-press-up`,
+`wall-slide`, `dead-hang`. Prompts for all of them are in `docs/ART-PROMPTS.md`,
+which leads with the status and with **"one image per movement, not a contact
+sheet"** — that is the thing to say when asking for them. **The ten strength movements
 have no artwork either, and `js/views/strength.js` has no code that would draw
 one** — it is a form, not a routine. Adding figures there is a view change as
 well as an art job; do not assume the prompts alone are enough. The strength module
