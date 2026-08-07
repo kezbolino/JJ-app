@@ -27,12 +27,20 @@ import { renderToken, isCurrent } from '../render.js';
 // Settings to set sync up. Configured → tap to sync now; a dot shows when there
 // are local changes not yet pushed. The app also syncs itself once a day (see
 // home()), so the button is mostly a manual nudge and a status light.
-function syncButton({ configured, pending, root }) {
+function syncButton({ configured, pending, health, root }) {
   if (!configured) {
     return h('a.avatar-btn', { href: '#/settings', 'aria-label': 'Set up sync' }, icon('cloud'));
   }
-  const btn = h('button.avatar-btn' + (pending ? '.pending' : ''),
-    { 'aria-label': pending ? `Sync now (${pending} unsaved)` : 'Sync now', title: 'Sync now' },
+  // A broken backup outranks "there is something to push" — the dot and the
+  // warning are the same corner, so the worse state wins it.
+  const warn = health.state === 'failing' || health.state === 'stale';
+  const btn = h('button.avatar-btn' + (warn ? '.warn' : pending ? '.pending' : ''),
+    {
+      'aria-label': warn
+        ? `Sync now — ${health.message}`
+        : pending ? `Sync now (${pending} unsaved)` : 'Sync now',
+      title: warn ? health.message : 'Sync now',
+    },
     icon('cloud'));
   btn.addEventListener('click', async () => {
     const token = renderToken();
@@ -43,6 +51,10 @@ function syncButton({ configured, pending, root }) {
   });
   return btn;
 }
+
+// Which day the automatic sync last *attempted*. Module scope so it survives
+// the router rebuilding this view — see the note at the call site.
+let autoSyncedOn = null;
 
 // Shared by the button and the daily auto-sync. `quiet` suppresses the toast
 // (auto-sync shouldn't nag, especially when the phone is just offline).
@@ -240,6 +252,25 @@ function nudgePanel(nudge, dismissedOn, today) {
 }
 
 /**
+ * The backup has stopped working — say so, here, where it will be seen.
+ *
+ * This is deliberately not the pending dot. That dot means "you wrote something
+ * since the last sync", which is true most of the time and is therefore the cue
+ * a user is most trained to ignore. This one only appears when the mirror has
+ * actually stopped moving, and it is amber for the same reason everything else
+ * amber is: it is a gap, and it is waiting on you.
+ *
+ * Settings is the fix for both states, which is where the banner goes.
+ */
+function syncPanel(health) {
+  if (health.state === 'off' || health.state === 'ok') return null;
+  return h('a.banner.warn', { href: '#/settings' },
+    h('span.b-ico', icon('cloud')),
+    h('span.b-txt', health.message),
+    h('span.b-edit', 'Check sync'));
+}
+
+/**
  * "Working on", as big swipeable tiles — the main event on the front door.
  *
  * This was a one-line banner, which is the wrong size for the thing you are
@@ -351,23 +382,32 @@ export default async function home(root) {
   const config = await sync.getConfig();
   const configured = sync.isConfigured(config);
   const lastSync = await sync.getLastSync();
+  const lastError = configured ? await sync.getLastSyncError() : null;
   const pending = configured ? store.pendingSync(entries, lastSync) : 0;
+  const health = store.syncHealth({ configured, lastSyncAt: lastSync, lastError, today });
 
   // Daily autosaver: if sync is set up and we haven't synced yet today, do it
   // in the background, then re-render so counts and the pending dot refresh.
   // Fully quiet — a failed sync (usually just offline) shouldn't interrupt.
   // The token check is what stops a slow sync from wiping a screen the user has
   // navigated to in the meantime.
-  if (configured && (!lastSync || lastSync.slice(0, 10) < today)) {
-    runSync(null, { quiet: true }).then(ok => {
-      if (ok && isCurrent(token)) { clear(root); home(root); }
+  if (configured && autoSyncedOn !== today && (!lastSync || lastSync.slice(0, 10) < today)) {
+    // Mark the attempt before it runs, not after. A failure leaves `lastSyncAt`
+    // untouched, so without this flag the re-render below would satisfy the
+    // same condition and start another sync, forever.
+    autoSyncedOn = today;
+    runSync(null, { quiet: true }).then(() => {
+      // Re-render either way now: on success the counts and the pending dot
+      // move, and on failure the banner above needs to appear.
+      if (isCurrent(token)) { clear(root); home(root); }
     });
   }
 
   const standing = store.beltStanding(entries, promotions);
 
   root.append(...[
-    brandRow(syncButton({ configured, pending, root }), standing),
+    brandRow(syncButton({ configured, pending, health, root }), standing),
+    syncPanel(health),
     // Working on comes first and comes big: it is the thing you are trying to
     // change, and the one panel worth looking at every single time.
     workingOn(focuses),

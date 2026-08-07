@@ -235,4 +235,102 @@ test('no promotions recorded means no claim about your rank', () => {
   assert.equal(store.beltStanding([], undefined), null);
 });
 
+// ---- attention over time ---------------------------------------------------
+
+const tagged = (date, position) => cls(date, { tags: [{ kind: 'pos', position, role: 'sweep' }] });
+
+test('monthlyClasses fills in the months you did nothing', () => {
+  const rows = store.monthlyClasses(
+    [cls('2026-06-02'), cls('2026-06-09'), cls('2026-08-03')],
+    { months: 3, today: '2026-08-07' });
+
+  assert.deepEqual(rows.map(r => r.month), ['2026-06', '2026-07', '2026-08']);
+  assert.deepEqual(rows.map(r => r.count), [2, 0, 1]);
+});
+
+test('monthlyClasses counts classes only, and ignores anything off the window', () => {
+  const rows = store.monthlyClasses([
+    cls('2026-08-01'),
+    { type: 'note', date: '2026-08-02', id: 'n' },
+    cls('2025-01-04'), // long before the window
+  ], { months: 2, today: '2026-08-07' });
+
+  assert.deepEqual(rows.map(r => r.count), [0, 1]);
+});
+
+test('attentionDrift shows a position fading as another arrives', () => {
+  const entries = [
+    tagged('2026-06-02', 'half-guard'), tagged('2026-06-09', 'half-guard'),
+    tagged('2026-06-16', 'half-guard'),
+    tagged('2026-07-02', 'half-guard'),
+    tagged('2026-08-03', 'closed-guard'), tagged('2026-08-05', 'closed-guard'),
+  ];
+  const rows = store.attentionDrift(entries, { months: 3, top: 5, today: '2026-08-07' });
+
+  const half = rows.find(r => r.position === 'half-guard');
+  const closed = rows.find(r => r.position === 'closed-guard');
+  assert.deepEqual(half.months.map(m => m.count), [3, 1, 0], 'half guard did not fade');
+  assert.deepEqual(closed.months.map(m => m.count), [0, 0, 2], 'closed guard did not arrive');
+  assert.equal(half.total, 4);
+  assert.equal(rows[0].position, 'half-guard', 'rows are not busiest-first');
+  assert.ok(half.label, 'a row carries no readable label');
+});
+
+test('attentionDrift counts a position once per entry, however many tags it has', () => {
+  const entry = cls('2026-08-03', {
+    tags: [
+      { kind: 'pos', position: 'half-guard', role: 'sweep' },
+      { kind: 'pos', position: 'half-guard', role: 'pass' },
+      { kind: 'concept', concept: 'Pressure' },
+    ],
+  });
+  const rows = store.attentionDrift([entry], { months: 1, today: '2026-08-07' });
+  assert.equal(rows.length, 1, 'a concept tag became a position row');
+  assert.equal(rows[0].total, 1, 'one entry counted twice');
+});
+
+test('attentionDrift honours `top`', () => {
+  const entries = [
+    tagged('2026-08-01', 'half-guard'), tagged('2026-08-02', 'half-guard'),
+    tagged('2026-08-03', 'closed-guard'),
+    tagged('2026-08-04', 'mount'),
+  ];
+  assert.equal(store.attentionDrift(entries, { months: 1, top: 2, today: '2026-08-07' }).length, 2);
+});
+
+// ---- is the backup actually working ----------------------------------------
+
+test('syncHealth says nothing when sync is not set up', () => {
+  assert.equal(store.syncHealth({ configured: false }).state, 'off');
+  assert.equal(store.syncHealth({ configured: false }).message, null);
+});
+
+test('syncHealth reports a recorded failure', () => {
+  const health = store.syncHealth({
+    configured: true,
+    lastSyncAt: '2026-08-07T09:00:00.000Z',
+    lastError: { message: 'GitHub 401: Bad credentials' },
+    today: '2026-08-07',
+  });
+  assert.equal(health.state, 'failing');
+  assert.match(health.message, /Bad credentials/);
+});
+
+test('syncHealth goes stale after a week of silence, not before', () => {
+  const at = day => `${day}T09:00:00.000Z`;
+  const on = (last, today) =>
+    store.syncHealth({ configured: true, lastSyncAt: at(last), lastError: null, today });
+
+  assert.equal(on('2026-08-06', '2026-08-07').state, 'ok');
+  assert.equal(on('2026-08-01', '2026-08-07').state, 'ok', 'six days is not stale');
+  assert.equal(on('2026-07-31', '2026-08-07').state, 'stale', 'seven days should be stale');
+  assert.match(on('2026-07-24', '2026-08-07').message, /24 Jul/);
+});
+
+test('syncHealth treats never-synced as stale, with something to say', () => {
+  const health = store.syncHealth({ configured: true, lastSyncAt: null, today: '2026-08-07' });
+  assert.equal(health.state, 'stale');
+  assert.ok(health.message);
+});
+
 console.log(`\n${passed} passed`);

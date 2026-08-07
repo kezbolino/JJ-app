@@ -228,6 +228,87 @@ await test('the repo is browsable — types are foldered, index lists everything
   assert.match(state.files['README.md'], /## Classes/);
 });
 
+// The audit's §4. The fake GitHub now 422s on deleting a path the base tree
+// doesn't hold, which is what real GitHub does — before that this scenario
+// committed cleanly here and would have failed on the user's phone. It matters
+// more than one bad sync: tombstones are cleared only after a *successful*
+// push, so the same rejected delete is re-sent on every sync from then on.
+await test('deleting the same note on two devices does not wedge the backup', async () => {
+  const laptop = await newDevice();
+  await runSync(laptop.page);
+
+  const id = await addClass(phone.page, {
+    date: '2026-08-05', title: 'Doomed twice',
+    sections: { techniques: 'Kimura', rolling: '', thoughts: '' },
+  });
+  await runSync(phone.page);
+  await runSync(laptop.page);
+
+  const del = (page, entryId) => page.evaluate(async target => {
+    const store = await import('/js/store.js');
+    await store.deleteEntry(target);
+  }, entryId);
+
+  // Both devices delete it while offline from each other, then both push.
+  await del(phone.page, id);
+  await del(laptop.page, id);
+
+  await runSync(phone.page);           // removes the file
+  await runSync(laptop.page);          // must not ask for it again
+
+  // The real proof is that the next sync still works. A wedged tombstone
+  // throws here on every attempt, forever.
+  const after = await runSync(laptop.page);
+  assert.ok(after, 'a later sync threw — the tombstone is stuck');
+
+  const tombstones = await laptop.page.evaluate(async () =>
+    (await import('/js/store.js')).getSetting('tombstones', {}));
+  assert.deepEqual(tombstones, {}, 'a dead tombstone is still being carried');
+
+  assert.ok(!Object.keys(state.files).some(p => p.includes('doomed-twice')),
+    'the note is still in the repo');
+  await laptop.context.close();
+});
+
+// The audit's §5. The daily sync is quiet on purpose, so the failure has to be
+// written down or a dead token stops every backup with nothing on screen.
+await test('a failed sync is recorded, and a good one clears it', async () => {
+  const broken = await newDevice();
+  await broken.page.evaluate(async () => {
+    const sync = await import('/js/sync.js');
+    const config = await sync.getConfig();
+    await sync.setConfig({ ...config, apiBase: 'http://localhost:8097' }); // nothing there
+  });
+
+  await broken.page.evaluate(async () => {
+    const sync = await import('/js/sync.js');
+    try { await sync.sync(); } catch { /* expected */ }
+  });
+  const failure = await broken.page.evaluate(async () =>
+    (await import('/js/sync.js')).getLastSyncError());
+  assert.ok(failure?.message, 'the failure was not recorded');
+  assert.ok(failure.at, 'the failure has no timestamp');
+
+  // Home reads this through store.syncHealth, so check the state it derives.
+  const state1 = await broken.page.evaluate(async f => {
+    const store = await import('/js/store.js');
+    return store.syncHealth({ configured: true, lastSyncAt: null, lastError: f });
+  }, failure);
+  assert.equal(state1.state, 'failing');
+
+  await broken.page.evaluate(async api => {
+    const sync = await import('/js/sync.js');
+    const config = await sync.getConfig();
+    await sync.setConfig({ ...config, apiBase: api });
+  }, apiBase);
+  await runSync(broken.page);
+
+  const cleared = await broken.page.evaluate(async () =>
+    (await import('/js/sync.js')).getLastSyncError());
+  assert.equal(cleared, null, 'a successful sync did not clear the failure');
+  await broken.context.close();
+});
+
 await phone.context.close();
 await browser.close();
 server.close();

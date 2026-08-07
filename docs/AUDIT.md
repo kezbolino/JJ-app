@@ -157,6 +157,10 @@ actually want from a restore.
 
 ## 4. A tombstone can ask GitHub to delete a file that is already gone
 
+**RESOLVED in v45.** `push()` intersects its delete list with the remote tree
+and drops tombstones whose file is already absent. `tests/fake-github.mjs` now
+422s on deleting an unknown path, so the suite fails without the fix.
+
 **Severity: medium — hardening. Not reproducible against the fake GitHub;
 unverified against real GitHub.**
 
@@ -187,6 +191,10 @@ deleting an unknown path, so the test suite would actually catch this.
 
 ## 5. A failing sync is invisible
 
+**RESOLVED in v45.** `sync()` records `lastSyncError`; `store.syncHealth()`
+turns that plus the age of the last success into a state, and Home shows an
+amber banner and an amber sync button when the backup has stopped moving.
+
 **Severity: medium.**
 
 The daily auto-sync swallows everything:
@@ -215,6 +223,10 @@ same job. Everything needed is in `store.pendingSync` and `sync.getLastSync()`.
 ---
 
 ## 6. Nothing in the app looks at time
+
+**RESOLVED in v45.** `store.monthlyClasses()` and `store.attentionDrift()`
+feed a Trends section on the Map: classes per month, and the busiest positions
+month by month. Still attention over time, never skill over time.
 
 **Severity: medium — the largest gap against the premise.**
 
@@ -290,6 +302,9 @@ sections, no new concepts.
 
 ## 9. Search doesn't know about the structure the app built
 
+**RESOLVED in v45.** `store.search` now matches the technique and role labels
+on a tag, not only the position.
+
 **Severity: low.**
 
 `store.search` matches raw text plus **position** labels only:
@@ -363,6 +378,11 @@ installed devices.
 ---
 
 ## Suggested order
+
+**Everything in this document is now built.** §1–§3 and §7–§8, §10 landed in
+v17; §4, §5, §6 and §9 in v45. The order below is what it was written as, and
+is kept because the reasoning still explains why things were done when they
+were.
 
 **Ship first (all bugs, all small):** §1 render token, §2 local dates, §3 import
 guard, §10 manifest. Together they're maybe 40 lines and one `CACHE` bump.

@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { suggestTags, suggestTagsOnly } from '../js/tagger.js';
+import * as store from '../js/store.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -80,6 +81,46 @@ test('corrections take effect immediately, not on the next reload', () => {
   assert.ok(base.some(t => t.concept === 'Pressure'));
   const after = suggestTagsOnly('pressure', { aliases: [], muted: [{ term: 'pressure' }], updatedAt: 'b' });
   assert.ok(!after.some(t => t.concept === 'Pressure'), 'stale index served');
+});
+
+// ---- search knows what the tagger wrote down -------------------------------
+// Search lives in store.js, but it is the other half of this file's subject:
+// the whole point of teaching the app a word is that the entry becomes findable
+// by what it is *about*, not only by the words you happened to type.
+
+const entry = (id, body, tags) => ({ id, type: 'class', date: '2026-08-01', title: '', body, tags });
+
+test('search finds an entry by a technique it was tagged with, not just the text', () => {
+  // The gym calls it "the shoulder thing"; the override system turned that into
+  // a Kimura tag. Searching the real name has to find it.
+  const entries = [
+    entry('a', 'worked the shoulder thing from side control', [
+      { kind: 'pos', position: 'side-control', role: 'submit', technique: 'kimura-sc' },
+    ]),
+    entry('b', 'just some drilling', []),
+  ];
+  const hits = store.search(entries, 'kimura');
+  assert.equal(hits.length, 1, 'the tagged technique was not searched');
+  assert.equal(hits[0].id, 'a');
+});
+
+test('search finds an entry by role', () => {
+  const entries = [entry('a', 'nothing useful in this text', [
+    { kind: 'pos', position: 'half-guard', role: 'sweep', technique: 'dogfight' },
+  ])];
+  assert.equal(store.search(entries, 'sweep').length, 1, 'the role was not searched');
+});
+
+test('search still matches positions, concepts and raw text', () => {
+  const entries = [
+    entry('pos', 'x', [{ kind: 'pos', position: 'half-guard', role: 'sweep' }]),
+    entry('con', 'x', [{ kind: 'concept', concept: 'Pressure' }]),
+    entry('txt', 'lots of grip fighting today', []),
+  ];
+  assert.deepEqual(store.search(entries, 'half guard').map(e => e.id), ['pos']);
+  assert.deepEqual(store.search(entries, 'pressure').map(e => e.id), ['con']);
+  assert.deepEqual(store.search(entries, 'grip').map(e => e.id), ['txt']);
+  assert.deepEqual(store.search(entries, '   ').map(e => e.id), []);
 });
 
 console.log(`\n${passed} passed`);

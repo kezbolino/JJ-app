@@ -1512,6 +1512,87 @@ await test('the manifest offers launcher shortcuts and matches the light default
   await page.context().close();
 });
 
+// ---------------------------------------------------------------------------
+// The audit's §5 and §6, on screen: a backup that has stopped moving has to be
+// visible on Home, and the map has to be able to show a change of direction.
+// ---------------------------------------------------------------------------
+
+await test('a backup that has stopped is said out loud on Home', async () => {
+  const page = await newPage();
+  await seed(page, [{ date: '2026-08-01', gi: 'gi' }]);
+
+  // Configured, and the last attempt threw. `apiBase` points nowhere on
+  // purpose: the daily auto-sync must not reach the real GitHub from a test.
+  await page.evaluate(async () => {
+    const sync = await import('/js/sync.js');
+    const store = await import('/js/store.js');
+    await sync.setConfig({
+      owner: 'kezbolino', repo: 'jj-app-data', branch: 'main',
+      token: 'fake', apiBase: 'http://localhost:8096',
+    });
+    await store.setSetting('lastSyncAt', new Date().toISOString());
+    await store.setSetting('lastSyncError', { message: 'GitHub 401: Bad credentials', at: new Date().toISOString() });
+  });
+
+  await go(page, '/');
+  const banner = page.locator('.banner.warn').filter({ hasText: 'Backup failed' });
+  assert.ok(await banner.isVisible(), 'nothing on Home says the backup is broken');
+  assert.equal(await banner.getAttribute('href'), '#/settings', 'the banner does not lead to the fix');
+
+  // And the corner button carries it too, since that is the thing you look at.
+  assert.ok(await page.locator('.avatar-btn.warn').isVisible(), 'the sync button looks fine');
+
+  // A healthy backup says nothing at all — this must not become wallpaper.
+  await page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    await store.setSetting('lastSyncError', null);
+  });
+  await go(page, '/map');
+  await go(page, '/');
+  assert.equal(await page.locator('.banner.warn').count(), 0, 'the warning outstayed the failure');
+
+  await page.context().close();
+});
+
+await test('the map shows attention month by month, once there is more than one month', async () => {
+  const page = await newPage();
+  const half = [{ kind: 'pos', position: 'half-guard', role: 'sweep' }];
+
+  // Dates are built from the month, not from `daysAgo`, so this test doesn't
+  // change meaning depending on which day of the month it runs — two days back
+  // from the 1st is last month, and that is the whole thing under test.
+  const now = new Date();
+  const inMonth = (back, day) =>
+    localISO(new Date(now.getFullYear(), now.getMonth() - back, day));
+
+  // One month only: a trend needs two points, so nothing should render yet.
+  await seed(page, [
+    { date: inMonth(0, 1), gi: 'gi', tags: half },
+    { date: inMonth(0, 2), gi: 'nogi', tags: half },
+  ]);
+  await go(page, '/map');
+  assert.equal(await page.locator('.trend').count(), 0, 'one month of data drew a trend');
+
+  // Add a class two months back and the picture has somewhere to go. Via Home,
+  // because setting the hash to the one it already holds fires no hashchange
+  // and the router would never rebuild the view.
+  await seed(page, [{ date: inMonth(2, 15), gi: 'gi', tags: half }]);
+  await go(page, '/');
+  await go(page, '/map');
+  assert.ok(await page.locator('.trend').first().isVisible(), 'no trend rendered');
+  for (const heading of ['Classes by month', 'Attention drift']) {
+    assert.ok(await page.getByText(heading, { exact: false }).first().isVisible(),
+      `"${heading}" is not on the map`);
+  }
+
+  // The drift row is a link into the position, and its bars cover the window.
+  const row = page.locator('.trend-row--pos').first();
+  assert.match(await row.getAttribute('href'), /^#\/map\//, 'a drift row does not open its position');
+  assert.equal(await row.locator('.trend-bars i').count(), 6, 'the window is not six months wide');
+
+  await page.context().close();
+});
+
 await browser.close();
 
 if (errors.length) {

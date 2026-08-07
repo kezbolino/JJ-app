@@ -34,6 +34,17 @@ const setState = state => setSetting('syncState', state);
 
 export const getLastSync = () => getSetting('lastSyncAt', null);
 
+/**
+ * The last failure, or null if the last attempt worked.
+ *
+ * This exists because the daily auto-sync is deliberately quiet — it must not
+ * nag when the phone is simply offline — and a quiet failure is
+ * indistinguishable from a success. A revoked or expired token would otherwise
+ * stop every backup with nothing on screen ever changing. `store.syncHealth`
+ * turns this into something Home can show.
+ */
+export const getLastSyncError = () => getSetting('lastSyncError', null);
+
 // ---- plumbing ------------------------------------------------------------
 
 // `apiBase` is normally unset. It exists so the sync tests can point at a fake
@@ -234,6 +245,26 @@ export async function push(config) {
     ...Object.values(tombstones).map(t => t.path).filter(p => !seenPaths.has(p)),
   ]);
 
+  // Only ask GitHub to delete files it actually has. Delete the same note on
+  // two devices and the second push sends `sha: null` for a path the base tree
+  // no longer contains, which real GitHub rejects. That is worse than one
+  // failed sync: tombstones are cleared only after a *successful* push, so the
+  // same bad delete is re-sent on every sync from then on and the backup stays
+  // wedged. Intersecting with the tree is what stops one transient error
+  // becoming permanent.
+  if (gone.size) {
+    const { notes, special } = await remoteTree(config, parent);
+    const present = path => path in notes || path in special;
+    for (const path of gone) if (!present(path)) gone.delete(path);
+    // A tombstone whose file has already gone has done its job. Drop it now
+    // rather than carry it into every future push — and do it even if this
+    // push then finds nothing else to do and returns early below.
+    const live = Object.fromEntries(Object.entries(tombstones).filter(([, t]) => present(t.path)));
+    if (Object.keys(live).length !== Object.keys(tombstones).length) {
+      await setSetting('tombstones', live);
+    }
+  }
+
   if (!changed.length && !indexChanged && !overridesChanged && !gone.size) {
     // Still record what the repo holds, so a later delete knows what to remove.
     await setState({ ...state, paths: Object.fromEntries([...seenPaths].map(p => [p, true])) });
@@ -314,8 +345,19 @@ export async function sync() {
   const config = await getConfig();
   if (!isConfigured(config)) throw new Error('Sync is not set up yet');
 
-  const pulled = await pull(config);
-  const pushed = await push(config);
-  await setSetting('lastSyncAt', new Date().toISOString());
-  return { ...pulled, ...pushed };
+  try {
+    const pulled = await pull(config);
+    const pushed = await push(config);
+    await setSetting('lastSyncAt', new Date().toISOString());
+    await setSetting('lastSyncError', null);
+    return { ...pulled, ...pushed };
+  } catch (err) {
+    // Recorded rather than only thrown: the caller that matters is the daily
+    // auto-sync, which swallows the toast on purpose. Without this the only
+    // signal of a dead token is the amber pending dot, which also means "you
+    // wrote something since the last sync" — the cue a user is most trained to
+    // ignore.
+    await setSetting('lastSyncError', { message: err.message, at: new Date().toISOString() });
+    throw err;
+  }
 }

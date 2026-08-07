@@ -6,6 +6,7 @@
 // measurement of you — that is why the decorative radar was deleted in v13.
 
 import { h, card, empty, toast, tagChip, icon, tally } from '../ui.js';
+import { monthLabel } from '../dates.js';
 import { POSITIONS, POSITION_BY_ID, TECHNIQUE_BY_ID, ROLES, ROLE_LABEL, rolesFor, techniqueLabel } from '../ontology.js';
 import * as store from '../store.js';
 
@@ -123,6 +124,71 @@ function exposure(active) {
   }));
 }
 
+/**
+ * Trends: the same attention, month by month.
+ *
+ * Every other number on this screen is all-time, which means it can only ever
+ * accumulate — a position you stopped training two years ago still fills the
+ * map. This is the only place the app can show a change of direction, which is
+ * the pattern `docs/VISION.md` is actually about.
+ *
+ * Bars are scaled per row, not across the card: "how did this position's months
+ * compare to each other" is the readable question. Comparing half guard's tallest
+ * month against mount's would just redraw the exposure breakdown above.
+ */
+function trends(entries, today) {
+  const MONTHS = 6;
+  const perMonth = store.monthlyClasses(entries, { months: MONTHS, today });
+
+  // One month of data is not a trend, it is a number you already have.
+  if (perMonth.filter(m => m.count).length < 2) return null;
+
+  const busiest = Math.max(1, ...perMonth.map(m => m.count));
+  const short = ym => monthLabel(ym).split(' ')[0].slice(0, 3);
+
+  const classRows = h('div.trend', perMonth.map(m =>
+    h('div.trend-row',
+      h('span.trend-month', short(m.month)),
+      tally(Math.round((m.count / busiest) * 100),
+        `${monthLabel(m.month)}: ${m.count} ${m.count === 1 ? 'class' : 'classes'}`),
+      h('span.trend-n', String(m.count)))));
+
+  const blocks = [card('Classes by month', classRows)];
+
+  const drift = store.attentionDrift(entries, { months: MONTHS, top: 5, today });
+  if (drift.length) {
+    const strip = row => {
+      const max = Math.max(1, ...row.months.map(m => m.count));
+      return h('div.trend-bars', row.months.map(m => {
+        const label = `${row.label}, ${monthLabel(m.month)}: ${m.count} ${m.count === 1 ? 'entry' : 'entries'}`;
+        if (!m.count) return h('i', { role: 'img', 'aria-label': label, title: label });
+        // The floor is high on purpose. A month with one entry in it and a
+        // month with nothing must not look the same — the empty slot is the
+        // recessed groove, and anything at all has to read as filled.
+        const alpha = 0.34 + 0.55 * (m.count / max);
+        return h('i.on', {
+          style: `background:rgba(var(--accent-rgb),${alpha.toFixed(3)})`,
+          role: 'img', 'aria-label': label, title: label,
+        });
+      }));
+    };
+
+    blocks.push(card('Attention drift',
+      h('p.small.muted', { style: 'margin:-2px 0 12px' },
+        `Your busiest positions across the last ${MONTHS} months, oldest month on the left.`),
+      h('div.trend', drift.map(row =>
+        h('a.trend-row.trend-row--pos', { href: `#/map/${row.position}` },
+          h('span.trend-month', row.label),
+          strip(row),
+          h('span.trend-n', String(row.total))))),
+      h('p.small.muted', { style: 'margin-top:12px' },
+        'What you wrote about, month by month — a position fading out means you '
+        + 'stopped writing about it, not that you got worse at it.')));
+  }
+
+  return blocks;
+}
+
 // The "Mat time" card lived here until v22. It split your classes across the
 // session types (open mat / competition / private / seminar), and there is
 // nothing left to split them by — a class is a class.
@@ -229,6 +295,9 @@ export default async function map(root) {
   );
 
   root.append(...yourGame(entries, liked, reload));
+
+  const overTime = trends(entries, store.todayISO());
+  if (overTime) root.append(...overTime);
 
   const gaps = store.findGaps(entries);
   if (gaps.length) {

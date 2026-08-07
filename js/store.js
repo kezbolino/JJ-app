@@ -1,10 +1,13 @@
 // Data model and the queries the views ask of it.
 
 import * as db from './db.js';
-import { POSITIONS, POSITION_BY_ID, rolesFor } from './ontology.js';
+import { POSITIONS, POSITION_BY_ID, ROLE_LABEL, rolesFor } from './ontology.js';
 import { tagKey } from './tagger.js';
 import { suggestMoves, moveKey } from './moves.js';
-import { localISO, todayISO, addDays, weekOf, dayOfWeek, daysBetween } from './dates.js';
+import {
+  localISO, todayISO, addDays, weekOf, dayOfWeek, daysBetween,
+  monthOf, recentMonths, MONTH_NAMES,
+} from './dates.js';
 
 export const ENTRY_TYPES = ['class', 'note', 'question', 'video', 'principle'];
 
@@ -367,6 +370,46 @@ export function pendingSync(entries, lastSyncAt) {
     !e.syncPath || (lastSyncAt && e.updatedAt && e.updatedAt > lastSyncAt)).length;
 }
 
+/** A backup this old is a problem whether or not anything reported an error. */
+export const SYNC_STALE_DAYS = 7;
+
+/**
+ * Is the backup actually working? Pure, so the thresholds are testable.
+ *
+ * `pendingSync` above answers "is there anything waiting", which is normal and
+ * happens every time you write a note. This answers the different and much more
+ * serious question "has the mirror stopped moving" — a token expires (GitHub
+ * caps fine-grained PATs at a year and they can be revoked sooner), the daily
+ * sync fails quietly from then on, and the only local copy of the journal is
+ * one phone. Silence is not evidence that it worked.
+ *
+ *   off      — sync isn't set up; nothing to report
+ *   failing  — the last attempt threw
+ *   stale    — nothing has succeeded in a week (or ever)
+ *   ok       — synced recently
+ */
+export function syncHealth({ configured, lastSyncAt, lastError, today = todayISO() } = {}) {
+  if (!configured) return { state: 'off', message: null };
+  if (lastError) {
+    return { state: 'failing', message: `Backup failed — ${lastError.message}` };
+  }
+  if (!lastSyncAt) {
+    return { state: 'stale', message: 'Nothing has been backed up yet.' };
+  }
+  const since = lastSyncAt.slice(0, 10);
+  const days = daysBetween(since, today);
+  if (days >= SYNC_STALE_DAYS) {
+    return { state: 'stale', message: `Not backed up since ${shortDate(since)}.` };
+  }
+  return { state: 'ok', message: null };
+}
+
+/** '2026-07-24' → '24 Jul'. Local to this file; the views have their own. */
+function shortDate(iso) {
+  const [, m, d] = iso.split('-');
+  return `${Number(d)} ${MONTH_NAMES[Number(m) - 1].slice(0, 3)}`;
+}
+
 /**
  * Coverage: how many entries touch each (position, role) cell.
  * This is the matrix everything downstream reads — the pentagon, the gap
@@ -449,15 +492,30 @@ export function entriesForPosition(entries, positionId, role = null) {
   );
 }
 
+/**
+ * Everything a tag knows, as words. Position, technique and role — not just the
+ * position, which is all this used to match.
+ *
+ * The difference shows up exactly where the override system is meant to help:
+ * teach the app that your gym's "the shoulder thing" means Kimura, write that
+ * phrase in a note, then search "kimura". The app knows the entry is about a
+ * Kimura; before this it wouldn't say so. Hand-added tags had the same blind
+ * spot — nothing about them is in the body text at all.
+ */
+function tagWords(tag) {
+  if (tag.kind === 'concept') return tag.concept ?? '';
+  const pos = POSITION_BY_ID[tag.position];
+  const technique = tag.technique && pos?.techniques.find(t => t.id === tag.technique);
+  return [pos?.label ?? tag.position, technique?.label, ROLE_LABEL[tag.role]]
+    .filter(Boolean).join(' ');
+}
+
 export function search(entries, query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   return entries.filter(e => {
     if (`${e.title} ${e.body}`.toLowerCase().includes(q)) return true;
-    return (e.tags ?? []).some(t => {
-      const label = t.kind === 'concept' ? t.concept : POSITION_BY_ID[t.position]?.label ?? '';
-      return label.toLowerCase().includes(q);
-    });
+    return (e.tags ?? []).some(t => tagWords(t).toLowerCase().includes(q));
   });
 }
 
@@ -570,6 +628,67 @@ export function logNudge(entries, today = todayISO()) {
     if (usual.has(dayOfWeek(date)) && !logged.has(date)) return { date };
   }
   return null;
+}
+
+// ---- attention over time --------------------------------------------------
+// Everything above this line is all-time or a fixed recent window, and that is
+// the largest gap against what this app is for: `docs/VISION.md` is about
+// patterns in your game *over years*. Attention accumulates and never decays,
+// so two years in, a player who has rebuilt their whole game around leg
+// entanglements still sees a map dominated by the closed guard they drilled in
+// year one. These two queries are the time dimension.
+//
+// Same discipline as the rest of the map: this is attention over time, never
+// skill over time. A position fading out means you stopped writing about it.
+
+/** Classes per calendar month, oldest first, including months with none. */
+export function monthlyClasses(entries, { months = 6, today = todayISO() } = {}) {
+  const counts = {};
+  for (const entry of entries) {
+    if (entry.type !== 'class') continue;
+    const ym = monthOf(entry.date);
+    counts[ym] = (counts[ym] ?? 0) + 1;
+  }
+  return recentMonths(months, today).map(month => ({ month, count: counts[month] ?? 0 }));
+}
+
+/**
+ * The busiest positions, each with its month-by-month entry count.
+ *
+ * A position is counted once per entry however many of its techniques were
+ * tagged — same rule as `recentThemes`, so a note that names four half guard
+ * sweeps doesn't read as four sessions of half guard.
+ *
+ * `total` is over the window, not all time, because the ranking should answer
+ * "what have you been on lately", not "what have you ever done".
+ */
+export function attentionDrift(entries, { months = 6, top = 5, today = todayISO() } = {}) {
+  const window = recentMonths(months, today);
+  const inWindow = new Set(window);
+  const byPosition = {};
+
+  for (const entry of entries) {
+    const ym = monthOf(entry.date ?? '');
+    if (!inWindow.has(ym)) continue;
+    const seen = new Set();
+    for (const tag of entry.tags ?? []) {
+      if (tag.kind !== 'pos' || seen.has(tag.position)) continue;
+      seen.add(tag.position);
+      const row = byPosition[tag.position] ??= { counts: {}, total: 0 };
+      row.counts[ym] = (row.counts[ym] ?? 0) + 1;
+      row.total++;
+    }
+  }
+
+  return Object.entries(byPosition)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, top)
+    .map(([position, row]) => ({
+      position,
+      label: POSITION_BY_ID[position]?.label ?? position,
+      total: row.total,
+      months: window.map(month => ({ month, count: row.counts[month] ?? 0 })),
+    }));
 }
 
 // Two queries about the *kind* of session lived here and are gone:

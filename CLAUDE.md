@@ -2111,11 +2111,98 @@ data if forgotten:
   Nine suites green (57 browser assertions, 29 strength). sw `CACHE` → v44,
   `VERSION` → v44.
 
+- 2026-08-07 — **v45: `docs/AUDIT.md` is closed out.** The four items still open
+  from the v16 audit — §4, §5, §6, §9 — built in one pass. §7 and §8 turned out
+  to have landed in v17 already; the audit is now marked resolved throughout,
+  and the "Suggested order" section keeps its original reasoning with a note on
+  top saying everything in it is built.
+
+  **§5 — a failing sync was invisible, and that is the one that mattered.** The
+  daily auto-sync passes `quiet: true` and threw every error away, so an expired
+  token stopped every backup with nothing on screen ever changing. `sync()` now
+  records `lastSyncError` and clears it on success; `store.syncHealth()` folds
+  that together with the age of the last success into one of four states
+  (`off` / `ok` / `stale` / `failing`), and Home shows an amber banner into
+  Settings plus an amber sync button.
+
+  **The banner is deliberately not the pending dot.** That dot means "you wrote
+  something since the last sync", which is true most of the time and is
+  therefore the cue a user is most trained to ignore. `warn` beats `pending` in
+  the corner for the same reason — they share one square, and the worse state
+  wins it. Stale is **7 days**, pinned by a test at six days (ok) and seven
+  (stale) so the threshold can't drift silently.
+
+  **A loop the fix created, and the guard for it.** Home's auto-sync only fires
+  when `lastSyncAt` is older than today. A failure leaves that untouched — so
+  re-rendering on failure (which the banner needs) satisfied the same condition
+  and started another sync, forever. `autoSyncedOn` is module-level and is set
+  *before* the sync runs, not after. Worth remembering whenever a retry is added
+  to anything keyed off a success timestamp.
+
+  **§4 — a tombstone could ask GitHub to delete a file that was already gone.**
+  `push()` now intersects its delete list with the remote tree and drops
+  tombstones whose file is already absent, including on the early-return path
+  where nothing else changed. The blast radius is what made it worth fixing on
+  suspicion: **tombstones are cleared only after a successful push**, so one
+  rejection re-sends the same bad delete on every sync from then on and the
+  backup stays wedged forever.
+
+  **The fake GitHub was the reason this was never caught.** It accepted deleting
+  an unknown path; real GitHub does not. `tests/fake-github.mjs` now 422s on it,
+  and the new two-device double-delete test was **verified to fail on the
+  unfixed code first** (10 passed instead of 12) rather than written after and
+  assumed to work.
+
+  **§6 — nothing in the app looked at time.** Every number was all-time or a
+  fixed recent window, which means attention could only ever accumulate: two
+  years in, a player who has rebuilt their game around leg entanglements still
+  sees a map dominated by year one's closed guard. `store.monthlyClasses()` and
+  `store.attentionDrift()` (both pure, both tested in node) feed a Trends
+  section on the Map — classes per month as tally rows, then the busiest
+  positions month by month as small bar strips.
+
+  Drift bars are scaled **per row, not across the card**: "how did this
+  position's months compare to each other" is the readable question, and
+  scaling across rows would just redraw the exposure breakdown above it. The
+  alpha floor is **0.34, not 0.18** — checked in a screenshot, where a month
+  with one entry was almost indistinguishable from an empty slot. That is the
+  coverage rails' rule pointed the other way: never make a real month look
+  like nothing. Same honesty line as everywhere else, written on the card: a
+  position fading out means you stopped writing about it, not that you got
+  worse at it.
+
+  **§9 — search ignored half of what the app knew.** `store.search` matched raw
+  text plus position labels only, so teaching it that your gym's "the shoulder
+  thing" is a Kimura, writing that phrase, and then searching "kimura" found
+  nothing. `tagWords()` now includes the technique and the role. Hand-added tags
+  had the same blind spot and are covered by the same change.
+
+  **Two test-mechanics notes.** `go(page, '/map')` when the hash is *already*
+  `#/map` fires no `hashchange`, so the router never rebuilds — a re-render
+  assertion has to route via another screen first. And the trends test builds
+  its dates from the month rather than `daysAgo`, or it changes meaning
+  depending on which day of the month it runs: two days back from the 1st is
+  last month, which is the exact thing under test.
+
+  `lastSyncError` joins `DEVICE_LOCAL_SETTINGS` in `js/backup.js` — importing
+  another device's stale failure would be a lie about this device's backup.
+
+  Nine suites green (59 browser assertions; `schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`), screenshot-checked Home and the
+  Map in light and dark, no horizontal overflow at 360px. sw `CACHE` → v45,
+  `VERSION` → v45, no files added or removed.
+
 ## Parked — pick this up next session
 
-**Everything through v44 is shipped and deployed.** `main` and
-`claude/stretch-section-addition-3j1lvr` both sit at v44, `CACHE` == `VERSION`,
-tree clean.
+**v45 is built and pushed to `claude/whats-next-ki8w1d`, and is NOT deployed** —
+`main` is still at v44. Deploying is a fast-forward of `main` to that branch;
+`CACHE` == `VERSION` == v45 and the tree is clean. Everything through v44 is
+live at `https://kezbolino.github.io/JJ-app/`.
+
+**Expect no churn in `jj-app-data` from v45** — nothing in it touches
+`js/markdown.js` or the entry model. The visible tells that the deploy landed
+are the footer reading `JUJI v45` and, on the Map, two new cards below "Your
+game": *Classes by month* and *Attention drift*.
 
 **Two voice clips are outstanding** — `kb-getup` and `kb-swing`, added in v44.
 They 404 and stay silent, which is the contract, so nothing is broken. The
@@ -2144,10 +2231,15 @@ was transcribing the fragments with `pocketsphinx` and aligning them against the
 script. Budget for that whenever the pauses are not obviously graded — the v38
 take, with a deliberate 1.2–1.9s after every line, was a ten-minute job.
 
+**`docs/AUDIT.md` is closed** as of v45 — every item in it is built. Nothing in
+that document is a to-do any more.
+
 **Also still open**, unchanged and unrelated to the audio: 19 movements have no
 artwork (`PENDING_ART` in `js/stretch-art.js` — the 15 from v27 plus the four
-v34 warm-up items); `docs/AUDIT.md` §4–§9; and focuses, `likedMoves` and now
-**strength sessions** are all device-local and do not sync. The strength module
+v34 warm-up items); and focuses, `likedMoves` and now
+**strength sessions** are all device-local and do not sync — **this is now the
+single largest open item**, and the one with real downside: the flashcard deck
+that is the front door of Home lives on one phone only. The strength module
 ships no artwork and no voice cues at all — it is a form, not a routine, so it
 needs neither, but if the two stretch routines ever get their missing figures
 the eight lifts are the obvious next ask.

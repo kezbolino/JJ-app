@@ -44,7 +44,9 @@ export async function downloadBackup() {
  * The July 2026 attendance backfill was hand-built with no `settings` key at
  * all to dodge exactly this. That guard belongs here, not in each file.
  */
-const DEVICE_LOCAL_SETTINGS = new Set(['sync', 'syncState', 'tombstones', 'lastSyncAt']);
+const DEVICE_LOCAL_SETTINGS = new Set([
+  'sync', 'syncState', 'tombstones', 'lastSyncAt', 'lastSyncError',
+]);
 
 /**
  * Merge a backup in. Never destructive: an incoming entry only overwrites an

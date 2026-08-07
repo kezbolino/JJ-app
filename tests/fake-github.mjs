@@ -83,8 +83,16 @@ export function startFakeGitHub({ port = 8098, owner = 'kezbolino', repo = 'jj-a
       const base = body.base_tree ? [...(trees.get(body.base_tree) ?? [])] : [];
       const byPath = new Map(base.map(n => [n.path, n]));
       for (const node of body.tree) {
-        if (node.sha === null) byPath.delete(node.path);
-        else byPath.set(node.path, { path: node.path, sha: node.sha });
+        if (node.sha === null) {
+          // Real GitHub is strict here and this fake used to be permissive,
+          // which hid a bug worth failing on: deleting a path the base tree
+          // doesn't have. Because tombstones are only cleared after a
+          // *successful* push, one rejection wedges the backup permanently.
+          if (!byPath.has(node.path)) {
+            return send(422, { message: `path ${node.path} does not exist in the base tree` });
+          }
+          byPath.delete(node.path);
+        } else byPath.set(node.path, { path: node.path, sha: node.sha });
       }
       const nodes = [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
       const id = sha(JSON.stringify(nodes));
