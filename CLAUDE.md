@@ -2366,6 +2366,34 @@ data if forgotten:
 
   Ten suites green. sw `CACHE` → v48, `VERSION` → v48.
 
+- 2026-08-07 — **`docs/DESIGN-SYSTEM.md` written, to hand to Claude Design.** An
+  as-built handoff extracted from `css/app.css` and `js/ui.js` rather than
+  recalled: the token tables for both themes with their semantic rules (blue =
+  action, ink = data, amber = gap and its four jobs, green = positive state, red
+  = throws work away), the type scale and the weight-goes-up-as-size-goes-down
+  rule, the four solid-offset depth tiers (7/5/4/3px), every component class name
+  marked as not-renameable, the data-display rules including the sacred
+  position×role coverage, motion timings with the backwards-fill and
+  breathe-holds-at-rest rules, the two-or-three-strokes icon constraint,
+  accessibility floors, copy voice, and the repo's working constraints. **Docs
+  only — `CACHE`/`VERSION` stay at v48.**
+
+  **The `/design-sync` skill does not apply to this repo, and won't in future.**
+  It converts a *component library* into components Claude Design builds with:
+  it installs from a lockfile, builds the repo's `dist/`, bundles the compiled
+  components into `_ds_bundle.js` and emits a `.d.ts` per component. This app has
+  none of those inputs — no `package.json`, no lockfile, no `dist/`, no
+  Storybook, no components in any framework sense — and manufacturing them would
+  mean adding the build step and dependencies that this file makes load-bearing.
+  The markdown doc is the whole deliverable for that purpose: paste it into a
+  Claude Design chat and the agent designs against the real tokens and class
+  names; it just cannot render the actual compiled components, because there are
+  none. **Don't spend a session trying to make the sync run.** If a visual
+  reference is ever wanted, the cheap version is a single self-contained HTML
+  page reusing `css/app.css` to render every component in both themes — no build
+  step, no deps — screenshotted into the design chat alongside the doc. Offered
+  this session and not taken up.
+
 ## Parked — pick this up next session
 
 **v45 and v46 are deployed.** `main` fast-forwarded from v44 (`1eae4c7`) to
