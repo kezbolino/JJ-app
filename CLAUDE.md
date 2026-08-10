@@ -2366,15 +2366,34 @@ data if forgotten:
 
   Ten suites green. sw `CACHE` → v48, `VERSION` → v48.
 
+- 2026-08-10 — **Status check only, no code changed.** Confirmed the tree is
+  clean and `main` and `claude/whats-next-g6eb28` are both at `c425763`, with
+  `CACHE` == `VERSION` == v48. **v47 and v48 are deployed** — the Pages run for
+  `c425763` (and for every commit back to `37a699b`) completed `success`, so
+  the whole v47/v48 batch is live and the footer on the phone should read
+  `JUJI v48`. Nothing was outstanding to ship.
+
+  **A fetch gotcha worth remembering:** `origin/main` in this container read
+  `a91d753` / v27 on the first look — twenty-one versions behind — purely
+  because the clone's remote ref was stale from session start. `git fetch
+  origin main` moved it straight to `c425763`. Fetch before concluding anything
+  about what is or is not deployed; a stale ref looks exactly like a failed
+  deploy.
+
+  The remaining work is unchanged and is listed below: the two kettlebell voice
+  clips, and the parked artwork job.
+
 ## Parked — pick this up next session
 
-**v45 and v46 are deployed.** `main` fast-forwarded from v44 (`1eae4c7`) to
-`37a699b` and pushed, so GitHub Pages is serving v46 at
-`https://kezbolino.github.io/JJ-app/`. Ship gate before pushing: ten suites
-green (`schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`),
-`CACHE` == `VERSION` == v46, clean tree, fast-forward confirmed rather than a
-merge. All three Pages jobs succeeded — `build` 23s, `deploy` 11s — checked at
-the **job** level, not the run badge, per the 2026-08-06 note above.
+**Everything through v48 is deployed.** `main` is at `c425763` and GitHub Pages
+is serving v48 at `https://kezbolino.github.io/JJ-app/`; the Pages run for that
+commit succeeded. Ship gate for that batch: ten suites green (`schedule` under
+UTC, `America/Los_Angeles` and `Australia/Sydney`), `CACHE` == `VERSION`, clean
+tree, fast-forward rather than a merge. Check Pages at the **job** level, not
+the run badge, per the 2026-08-06 note above.
+
+*(Historic, kept for the trail: v45/v46 went out as `37a699b`, fast-forwarded
+from v44 `1eae4c7`.)*
 
 **The live site could not be fetched from this session to double-check** —
 `kezbolino.github.io` is blocked by the agent proxy (403 on CONNECT). The
