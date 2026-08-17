@@ -2472,29 +2472,39 @@ data if forgotten:
 
 ## Parked — pick this up next session
 
-**v49 is merged to `main` (`c425763..2044314`, fast-forward) but the Pages
-deploy was refused by a GitHub outage.** Ship gate was clean: ten suites green,
-`CACHE` == `VERSION` == v49, clean tree, fast-forward not a merge.
+**v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
+is serving it — `deploy` succeeded at 18:42:07Z in run `32056096392`, checked at
+the **job** level. Ship gate was clean: ten suites green (`schedule` under UTC,
+`America/Los_Angeles` and `Australia/Sydney`), `CACHE` == `VERSION` == v49,
+clean tree, fast-forward not a merge.
 
-**This failure is a different animal from the 2026-08-06 one above, and the
-difference is the whole point of that note.** Then, `deploy` polled for ten
-minutes, timed out, and the content went live anyway. Here:
+**It took two attempts, and the first failure is the mirror image of the
+2026-08-06 one above — which is exactly why that note is worth having.** There,
+`deploy` polled for ten minutes, timed out, and the content went live anyway.
+On the first v49 attempt (run `32055744421`):
 
 - `build` — **succeeded**, 28s, artifact uploaded.
 - `deploy` — **failed in 2 seconds**: `HTTP 503, No server is currently
   available to service your request` from the Pages deployment API.
 
-A two-second failure is an immediate rejection, not a slow backend, so **nothing
-was published** — the phone stays on v48 until this is re-run. The rule that
-falls out of it: read the *duration* of a failed `deploy` job, not just its
-conclusion. Seconds means refused and nothing shipped; minutes-then-timeout
-means it may well have shipped anyway.
+A two-second failure is an immediate rejection, not a slow backend, so nothing
+was published by that run. **The rule: read the *duration* of a failed `deploy`
+job, not just its conclusion.** Seconds means refused and nothing shipped;
+minutes-then-timeout means it may well have shipped anyway. The two look
+identical in the run list and mean opposite things.
 
 `rerun_failed_jobs` was accepted (201) and then **sat at `queued` with
-`run_attempt: 1` for over five minutes** — the same stuck-re-run state recorded
-in the 2026-08-06 note, where the fix is a fresh commit rather than waiting.
-**If the site is still on v48, push any commit to `main` to trigger a clean
-run.**
+`run_attempt: 1` and never took a runner** — the same stuck-re-run state
+recorded in the 2026-08-06 note. What cleared it was **pushing a fresh commit**
+(the doc note itself), which started a clean run that built and deployed in
+about 90 seconds. So: a stuck re-run is not worth waiting on, and a Pages 503 is
+worth retrying rather than investigating.
+
+**The visible tells that v49 landed:** the footer reads `JUJI v49`; the strength
+intro leads with **About 1 hr 20 min · 37 sets · 39 min of it resting**; the plan
+list shows four `SUPERSET` brackets; and Nordic curl negatives is replaced by
+Single-leg Romanian deadlift. Close the installed PWA fully and reopen — the
+service worker serves the old shell until it takes the new `CACHE`.
 
 **The live site cannot be fetched from this session to double-check** —
 `kezbolino.github.io` is blocked by the agent proxy (403 on CONNECT). A green
