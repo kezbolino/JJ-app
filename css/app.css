@@ -1572,10 +1572,19 @@ body:has(.st.is-running) .appfoot { display: none; }
    read the next movement's cue. Kept to one compact line for the same reason
    it is sticky at all: a tall bar pinned to the top of a phone screen is a bar
    that sits on top of the thing you are trying to tap. */
+/* The two sticky bars.
+   The tint is layered over an opaque `--surface` rather than used on its own,
+   and that is a fix, not a flourish: in dark mode `--accent-soft` and
+   `--good-soft` are 16% and 12% alpha. That reads fine as a tint *on* a card,
+   but these bars are overlays — at 16% opacity the whole page scrolled visibly
+   through the rest countdown, which had been true in dark mode since v35 and is
+   only obvious once you tap a set with the page scrolled down. Any translucent
+   token used as an overlay background needs this treatment. */
 .sx-rest {
   position: sticky; top: 6px; z-index: 6; margin-bottom: var(--gap);
   padding: 9px 14px; border-radius: var(--r-panel);
-  background: var(--accent-soft); box-shadow: 0 4px 0 var(--accent-edge);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--surface);
+  box-shadow: 0 4px 0 var(--accent-edge);
 }
 .sx-rest-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sx-rest-l {
@@ -1591,10 +1600,139 @@ body:has(.st.is-running) .appfoot { display: none; }
   overflow: hidden; margin: 7px 0 0;
 }
 .sx-rest-rail i { display: block; height: 100%; width: 100%; background: var(--accent); border-radius: 999px; }
-.sx-rest-skip {
+.sx-rest-actions { display: flex; align-items: center; gap: 14px; }
+.sx-rest-skip, .sx-rest-undo {
   border: 0; background: none; cursor: pointer; font-family: inherit;
   padding: 4px 0 0; color: var(--accent-edge); font-size: .74rem; font-weight: 800;
 }
+/* The undo is the destructive half of the pair, so it reads as the one that
+   throws work away — same meaning `--danger` carries on End routine. It is not
+   amber: amber is "waiting on you", and this is "that tap was a mistake". */
+.sx-rest-undo { color: var(--danger); }
+
+/* The hold timer. Green rather than the rest bar's blue, because a hold is work
+   you are doing, not time you are waiting out — the same distinction the
+   rest-day routine draws between its work and rest phases. */
+.sx-hold {
+  position: sticky; top: 6px; z-index: 6; margin-bottom: var(--gap);
+  padding: 9px 14px; border-radius: var(--r-panel);
+  background: linear-gradient(var(--good-soft), var(--good-soft)), var(--surface);
+  box-shadow: 0 4px 0 var(--good);
+}
+.sx-hold-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* Not uppercased, matching `.sx-rest-l` next to it. A CSS transform shouts a
+   whole movement name — "GET SET · HOLLOW BODY HOLD" — and cannot produce mixed
+   case in one string, which is the same trap v28 fixed on the stretch intro. */
+.sx-hold-l {
+  color: var(--good); font-size: .78rem; font-weight: 800;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sx-hold-n {
+  font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--good); white-space: nowrap;
+}
+.sx-hold-rail {
+  height: 6px; border-radius: 999px; background: var(--track);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .08); overflow: hidden; margin-top: 7px;
+}
+.sx-hold-rail i { display: block; height: 100%; width: 100%; background: var(--good); border-radius: 999px; }
+.sx-hold-stop {
+  border: 0; background: none; cursor: pointer; font-family: inherit;
+  padding: 4px 0 0; color: var(--good); font-size: .74rem; font-weight: 800;
+}
+
+/* "Time it" sits in the sets row and is deliberately not a set button — it
+   starts a clock, it does not log anything on its own. Dashed, so it reads as
+   a different kind of thing at a glance rather than a sixth set. */
+.sx-time {
+  flex: 1 1 100%; height: 42px; margin-top: 2px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: 2px dashed var(--good); border-radius: var(--r-tile);
+  background: none; color: var(--good);
+  font-family: inherit; font-size: .84rem; font-weight: 800; cursor: pointer;
+}
+.sx-time svg { width: 15px; height: 15px; }
+.sx-time:active { transform: translateY(2px); }
+
+/* Says what a second tap on a logged set does. Without it the corrections panel
+   — which has existed since v35 — may as well not be there.
+   Hidden until this movement actually has a logged set: ten copies of the same
+   sentence down a session is the kind of help nobody reads, and before you have
+   tapped anything it is answering a question you have not asked yet. */
+.sx-sets-hint {
+  color: var(--muted); font-size: .74rem; font-weight: 700;
+  margin: 9px 0 0; line-height: 1.45; display: none;
+}
+.sx-ex.has-logged .sx-sets-hint { display: block; }
+
+/* Tapping the movement's name says it out loud. Small and inline with the
+   heading: an affordance, not a control competing with Mute. */
+.sx-say {
+  border: 0; background: none; cursor: pointer; padding: 0 0 0 7px;
+  color: var(--muted); vertical-align: middle; line-height: 0;
+}
+.sx-say svg { width: 16px; height: 16px; }
+.sx-say:active { color: var(--accent); }
+
+/* --- supersets ----------------------------------------------------------- */
+.sx-pair { margin-bottom: var(--gap); }
+.sx-pair-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.sx-pair-label {
+  font-size: .72rem; font-weight: 900; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--accent);
+}
+.sx-pair-sub { color: var(--muted); font-size: .74rem; font-weight: 700; }
+.sx-pair-note {
+  color: var(--sub); font-size: .8rem; font-weight: 600;
+  line-height: 1.5; margin: 7px 0 0;
+}
+/* Inside a pair the two movements are plain blocks, divided by a rule rather
+   than each carrying its own card — two cards inside a card reads as clutter
+   and hides the fact that they belong together. */
+.sx-ex.is-paired {
+  margin: 14px 0 0; padding-top: 14px; border-top: 2px solid var(--line);
+}
+.sx-ex.is-paired:first-of-type { border-top: 0; }
+
+/* On the intro, a pair is bracketed by an accent rule down the left. */
+.sx-plan.is-pair { border-left: 3px solid var(--accent-soft); padding-left: 11px; }
+.sx-plan.is-pair-top { border-bottom: 0; padding-bottom: 4px; }
+/* No `text-transform` here on purpose. The tag reads "SUPERSET · 60s between",
+   and a CSS transform cannot produce mixed case in one string — it would render
+   "60S", which is the exact bug v28 fixed on the stretch intro. The word is
+   capitalised in JS and the unit is left as typed. */
+.sx-pair-tag {
+  display: block; font-size: .66rem; font-weight: 900;
+  letter-spacing: .06em; color: var(--accent); margin-bottom: 5px;
+}
+.sx-pair-tag b { font-weight: 900; letter-spacing: .06em; }
+.sx-pair-tag span { font-weight: 700; letter-spacing: 0; color: var(--muted); }
+
+/* How long the session takes, on the intro — the stretch routines have always
+   led with their total and this one never did. */
+.sx-duration {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  margin: 12px 0 0; padding: 9px 12px;
+  border-radius: var(--r-chip); background: var(--surface-2);
+}
+.sx-duration-n { font-size: .95rem; font-weight: 800; }
+.sx-duration-b { color: var(--muted); font-size: .76rem; font-weight: 700; }
+
+/* The dead hang is the one warm-up row with a clock.
+   Selector is `.sx-wu button.sx-wu-time`, not `.sx-wu-time`: the row's own
+   `.sx-wu button` rule is specificity 0,1,1 and would otherwise beat a bare
+   class no matter what order they appear in, laying this out as a second full
+   width row instead of a chip. */
+.sx-wu { position: relative; }
+.sx-wu button.sx-wu-time {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  display: inline-block; width: auto; border: 2px solid var(--good);
+  border-bottom: 2px solid var(--good); background: none; cursor: pointer;
+  font-family: inherit; font-size: .7rem; font-weight: 800; color: var(--good);
+  padding: 5px 10px; border-radius: var(--r-chip); white-space: nowrap; text-align: center;
+}
+.sx-wu:has(.sx-wu-time) > button:first-child { padding-right: 78px; }
+
 /* Anything scrolled to lands below the sticky bar, not tucked under it. */
 .sx-ex { scroll-margin-top: 96px; }
 

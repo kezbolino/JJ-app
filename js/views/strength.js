@@ -36,7 +36,8 @@ import {
   EXERCISES, EXERCISE_BY_ID, WARM_UP, DELOAD_EVERY,
   todaysPlan, isDeloadDue, prescriptionLine, lastLine, historyFor,
   newStrengthSession, sessionProgress, sessionChanges, programmeState,
-  variationOf, restClock,
+  variationOf, restClock, sessionBlocks, restBetween, partnerOf,
+  sessionDuration, durationLine, PAIRED_REST,
 } from '../strength.js';
 
 const pageHead = () => h('div.page-head',
@@ -73,17 +74,36 @@ function createRestTimer(beep, wake, voice, token) {
   // you are going again now, so the 3-2-1 and the "go" tone would land in the
   // middle of your next set.
   const skip = h('button.sx-rest-skip', { type: 'button', onclick: () => stop() }, 'Skip rest');
+  // The undo for the set that just started this rest.
+  //
+  // A mis-tapped set was reported as impossible to undo. It never was: the
+  // corrections panel opens on a second tap and has always had a "Not done".
+  // The problem is that **nothing on screen says so** — a logged set looks
+  // final, and there is no reason to guess that tapping it again does anything
+  // other than log it twice. So the fix is two cues, not a new mechanism: a line
+  // under the sets row saying what a second tap does, and this button, in the
+  // bar that is already sticky to the top of the screen and already appears the
+  // instant a set goes in. That is where the eye is immediately after the tap
+  // that needs undoing, so it is where the undo belongs.
+  const undo = h('button.sx-rest-undo', { type: 'button' }, 'Undo that set');
   const el = h('div.sx-rest', { hidden: true },
     h('div.sx-rest-head', label, count),
     h('div.sx-rest-rail', bar),
-    skip);
+    h('div.sx-rest-actions', undo, skip));
 
-  let deadline = 0, span = 0, timer = null, lastSecs = -1, cue = null;
+  let deadline = 0, span = 0, timer = null, lastSecs = -1, cue = null, onUndo = null;
+
+  undo.addEventListener('click', () => {
+    const fn = onUndo;
+    stop();
+    fn?.();
+  });
 
   const stop = () => {
     clearInterval(timer);
     timer = null;
     el.hidden = true;
+    onUndo = null;
     wake.release();
   };
 
@@ -112,11 +132,13 @@ function createRestTimer(beep, wake, voice, token) {
 
   return {
     el,
-    start(seconds, text, cueId = null) {
+    start(seconds, text, cueId = null, undoFn = null) {
       // Called straight from the tap that logged a set, so this is inside a
       // user gesture — the only place an AudioContext will resume.
       voice.unlock();
       cue = cueId;
+      onUndo = undoFn;
+      undo.hidden = !undoFn;
       // Decode it during the rest, not at the moment it is due to play.
       if (cueId) voice.preload(cueId);
       span = seconds * 1000;
@@ -131,6 +153,133 @@ function createRestTimer(beep, wake, voice, token) {
       tick();
     },
     stop,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The hold timer.
+//
+// A hold is the one thing on this screen you cannot pace yourself: "hang for
+// 20–30 seconds" and "hollow body for 45" both need something outside your head
+// to count, and on the hollow body you are flat on your back looking at the
+// ceiling, so it has to be *audible* rather than visible. That is why there is a
+// spoken 3-2-1 lead-in and a tone at each end, and why the bar is sticky — the
+// screen is a courtesy here, the sound is the feature.
+//
+// Deadline-based, like everything else that counts time in this app. Two phases
+// in one clock: a short lead-in to get set, then the hold itself.
+//
+// Clocked off `performance.now()`, not `Date.now()` like the rest timer above.
+// It is monotonic, so a hold cannot be lengthened or cut short by the system
+// clock moving under it, and it is what the stretch routines already use for
+// exactly this job. It is also what `fastPage()` in the test suite overrides,
+// which is the only way to test a 45-second hold without waiting 45 seconds.
+// ---------------------------------------------------------------------------
+
+/** Seconds of "get into position" before a hold starts. */
+const HOLD_LEAD_SEC = 3;
+/**
+ * Stop under this many seconds into a hold and nothing is logged.
+ *
+ * Nobody holds a hollow body for four seconds on purpose, so a stop that early
+ * is a cancel — you started the wrong one, or you were not ready. Logging it as
+ * a completed four-second set would be worse than logging nothing: a set that
+ * short counts as missed, and two missed sets is what walks the prescription
+ * back down the ladder. Bailing at 30 of 45 is a real result and is kept.
+ */
+const HOLD_MIN_SEC = 5;
+
+function createHoldTimer(beep, voice, wake, token) {
+  const count = h('span.sx-hold-n');
+  const label = h('span.sx-hold-l');
+  const bar = h('i');
+  const stopBtn = h('button.sx-hold-stop', { type: 'button' }, 'Stop');
+  const el = h('div.sx-hold', { hidden: true },
+    h('div.sx-hold-head', label, count),
+    h('div.sx-hold-rail', bar),
+    stopBtn);
+
+  let phase = null, deadline = 0, holdSec = 0, timer = null, lastSecs = -1, finish = null;
+  let name = '';
+
+  const clear_ = () => {
+    clearInterval(timer);
+    timer = null;
+    phase = null;
+    el.hidden = true;
+    wake.release();
+  };
+
+  /** End the hold and report how many seconds were actually held. */
+  const settle = held => {
+    const fn = finish;
+    finish = null;
+    clear_();
+    fn?.(Math.max(0, Math.round(held)));
+  };
+
+  stopBtn.addEventListener('click', () => {
+    // Stopping during the lead-in is a cancel, not a zero-second hold — you
+    // changed your mind before starting, and logging 0s would feed a missed set
+    // into the ladder for something you never attempted.
+    if (phase === 'lead') { finish = null; clear_(); return; }
+    const held = holdSec - Math.max(0, (deadline - performance.now()) / 1000);
+    if (held < HOLD_MIN_SEC) { finish = null; clear_(); toast('Hold cancelled — nothing logged'); return; }
+    settle(held);
+  });
+
+  const tick = () => {
+    if (!isCurrent(token)) { finish = null; clear_(); return; }
+    const left = deadline - performance.now();
+
+    if (phase === 'lead') {
+      if (left <= 0) {
+        phase = 'hold';
+        deadline = performance.now() + holdSec * 1000;
+        lastSecs = -1;
+        label.textContent = name;
+        beep.go();
+        tick();
+        return;
+      }
+      count.textContent = String(Math.ceil(left / 1000));
+      bar.style.width = '100%';
+      const secs = Math.ceil(left / 1000);
+      // The spoken countdown replaces the ticks rather than playing over them,
+      // exactly as it does on the stretch routines — and muted falls back to
+      // ticks, so the last three seconds are never silent.
+      if (secs !== lastSecs) { lastSecs = secs; if (beep.isMuted()) beep.tick(); }
+      return;
+    }
+
+    if (left <= 0) { beep.finish(); settle(holdSec); return; }
+    count.textContent = restClock(left);
+    bar.style.width = `${Math.max(0, Math.min(100, (left / (holdSec * 1000)) * 100))}%`;
+    const secs = Math.ceil(left / 1000);
+    if (secs !== lastSecs) { lastSecs = secs; if (secs <= 3) beep.tick(); }
+  };
+
+  return {
+    el,
+    /** Count into a hold of `seconds`, then time it. Always from a tap. */
+    start({ seconds, name: movement, onFinish }) {
+      beep.unlock();
+      voice.unlock();
+      name = movement;
+      holdSec = seconds;
+      finish = onFinish;
+      phase = 'lead';
+      deadline = performance.now() + HOLD_LEAD_SEC * 1000;
+      lastSecs = -1;
+      label.textContent = `Get set · ${movement}`;
+      el.hidden = false;
+      if (!beep.isMuted()) voice.say('countdown');
+      wake.request();
+      clearInterval(timer);
+      timer = setInterval(tick, 200);
+      tick();
+    },
+    stop() { finish = null; clear_(); },
   };
 }
 
@@ -155,9 +304,13 @@ function mountAudio() {
 // Before you start
 // ---------------------------------------------------------------------------
 
-function planRow(plan) {
+function planRow(plan, pairPos = null) {
   const last = lastLine(plan.last, plan.exercise);
-  return h('li.sx-plan' + (plan.muted ? '.is-muted' : ''),
+  const pairClass = pairPos ? `.is-pair.is-pair-${pairPos}` : '';
+  return h('li.sx-plan' + pairClass + (plan.muted ? '.is-muted' : ''),
+    pairPos === 'top'
+      ? h('span.sx-pair-tag', h('b', 'SUPERSET'), h('span', ` · ${PAIRED_REST}s between`))
+      : null,
     h('div.sx-plan-top',
       h('span.sx-plan-name', plan.exercise.name),
       h('span.sx-plan-target', prescriptionLine(plan))),
@@ -172,6 +325,7 @@ function planRow(plan) {
 function introScreen(mount, ctx) {
   const { sessions, today, plans, deloadDue, bjjToday, load, muted } = ctx;
   const last = sessions[sessions.length - 1] ?? null;
+  const duration = sessionDuration(plans);
 
   // Amber, because this is the one thing on the screen waiting on a decision
   // from you. It is a rule about ordering, not a scolding: a lift before class
@@ -201,16 +355,28 @@ function introScreen(mount, ctx) {
           h('div.sx-intro-n', `${plans.filter(p => !p.muted).length} movements`),
           h('div.sx-intro-l', sinceLine(last, today))),
         h('a.sx-hist-link', { href: '#/strength?view=history' }, 'History ›')),
+      // How long this is going to take, up front, the way the stretch routines
+      // have always shown their total. Derived from the plan on screen — mute a
+      // movement and this number moves with it — so it can never drift the way
+      // the hand-written "60–75 minutes" in docs/STRENGTH.md did.
+      h('p.sx-duration',
+        h('span.sx-duration-n', durationLine(duration)),
+        h('span.sx-duration-b',
+          `${duration.sets} sets · ${Math.round(duration.restSec / 60)} min of it resting`)),
       h('p.sx-week',
         `This week: ${load.classes} ${load.classes === 1 ? 'class' : 'classes'} · ${load.lifts} ${load.lifts === 1 ? 'lift' : 'lifts'}`),
       h('p.sx-warmup', h('strong', 'Warm up first: '), WARM_UP.map(w => w.name).join(' · ')),
       h('button.btn.primary.wide.cta', { type: 'button', onclick: () => ctx.start(false) },
         sessions.length ? 'Start session' : 'Start your first session')),
-    h('ol.sx-plans', plans.map(planRow)),
+    h('ol.sx-plans', sessionBlocks(plans).flatMap(block => block.kind === 'pair'
+      ? [planRow(block.items[0], 'top'), planRow(block.items[1], 'bottom')]
+      : [planRow(block.items[0])])),
     muted.length
       ? h('p.sx-note', `${muted.length} ${muted.length === 1 ? 'movement is' : 'movements are'} muted. Unmute from inside a session.`)
       : null,
-    h('p.sx-note', 'Bodyweight only, once a week. General guidance, not a coach — stop at anything sharp.'),
+    // Not "bodyweight only" any more — that line outlived the kettlebells added
+    // in v44 and the RDL that replaced the Nordic curl in v49.
+    h('p.sx-note', 'Bodyweight and kettlebells, once a week. General guidance, not a coach — stop at anything sharp.'),
   ].filter(Boolean));
 }
 
@@ -302,7 +468,7 @@ function setEditor(logged, ex, { onChange, onClose, repaint }) {
   };
 }
 
-function exerciseCard(logged, ctx) {
+function exerciseCard(logged, ctx, { inPair = false } = {}) {
   const ex = EXERCISE_BY_ID[logged.exerciseId];
   if (!ex) return null;
 
@@ -315,10 +481,31 @@ function exerciseCard(logged, ctx) {
   const last = lastLine(ctx.lastFor(ex.id), ex);
 
   const setsRow = h('div.sx-sets');
-  const card = h('section.card.sx-ex' + (logged.skipped ? '.is-muted' : ''),
+  // Inside a superset the pair wrapper is the card, so the two movements in it
+  // are plain blocks. The `.sx-ex` class stays on both either way: it is what
+  // the tests index by, and more to the point it is what "a movement" means on
+  // this screen regardless of who it is standing next to.
+  const shell = (inPair ? 'section.sx-ex.is-paired' : 'section.card.sx-ex')
+    + (logged.skipped ? '.is-muted' : '');
+
+  // Tapping the name says it out loud.
+  //
+  // The name used to land on the first *set* tap, which is a beat too late —
+  // you log a set after you have done it, so the app was announcing pull-ups
+  // once the pull-ups were over. This is the "I am starting this now" tap, and
+  // it forces the cue even if the movement has already been announced, because
+  // an explicit ask should always be answered.
+  const sayBtn = h('button.sx-say', {
+    type: 'button',
+    title: `Say "${ex.name}"`,
+    'aria-label': `Say ${ex.name} out loud`,
+    onclick: () => ctx.announce(ex.id, { force: true }),
+  }, icon('sound'));
+
+  const card = h(shell,
     h('div.sx-ex-head',
       h('div',
-        h('h3.sx-ex-name', ex.name),
+        h('h3.sx-ex-name', ex.name, sayBtn),
         h('p.sx-ex-var', variation.name)),
       h('button.sx-mute', {
         type: 'button', 'aria-pressed': String(Boolean(logged.skipped)),
@@ -338,37 +525,101 @@ function exerciseCard(logged, ctx) {
 
   if (!logged.skipped) {
     const buttons = [];
+
+    /** The corrections hint only earns its space once there is something to
+     *  correct, so the card carries a flag rather than the sentence always. */
+    const paintLogged = () =>
+      card.classList.toggle('has-logged', logged.sets.some(s => s.completed));
+
     const editor = setEditor(logged, ex, {
       onChange: ctx.save,
       onClose: () => {},
-      repaint: i => buttons[i].repaint(),
+      // The editor's "Not done" un-completes a set, which can empty the card —
+      // so the hint has to be re-evaluated from here too, not just on the way in.
+      repaint: i => { buttons[i].repaint(); paintLogged(); },
     });
+
+    const undoSet = i => {
+      logged.sets[i].completed = false;
+      buttons[i].repaint();
+      paintLogged();
+      ctx.save();
+    };
+
+    /**
+     * What happens after a set goes in, whether it was tapped or timed.
+     *
+     * The rest length is asked for rather than assumed — see `restBetween` — so
+     * grinding a movement out instead of alternating gives you the full two
+     * minutes rather than the superset's sixty seconds.
+     */
+    const afterSet = i => {
+      editor.close();
+      paintLogged();
+      ctx.announce(ex.id);
+      const all = ctx.allLogged();
+      const seconds = restBetween(ex.id, all);
+      const mateId = partnerOf(ex.id);
+      const mate = mateId ? all.find(l => l.exerciseId === mateId) : null;
+      const mateNext = mate && !mate.skipped && mate.sets.some(s => !s.completed);
+      const mineLeft = logged.sets.some(s => !s.completed);
+
+      let label, cue;
+      if (mateNext) {
+        // The alternation is the whole point of the pairing, so the rest names
+        // the *other* movement — this is the moment you would otherwise forget
+        // and start another set of the one you just did.
+        label = `Rest · then ${EXERCISE_BY_ID[mateId].name}`;
+        cue = ctx.cueFor(mateId);
+      } else if (mineLeft) {
+        label = `Rest · ${ex.name}`;
+        cue = ctx.restOverCue();
+      } else {
+        const next = ctx.nextExerciseId(ex.id);
+        label = next ? `Rest · next up after ${ex.name}` : `Rest · that was the last set`;
+        cue = next ? ctx.cueFor(next) : ctx.restOverCue();
+      }
+      ctx.rest(seconds, label, cue, () => undoSet(i));
+    };
+
     buttons.push(...logged.sets.map((_, i) => setButton(logged, i, ex, {
       onChange: ctx.save,
       onEdit: j => editor.open(j),
-      onComplete: () => {
-        editor.close();
-        // First set of this movement → say its name, here, inside the tap.
-        //
-        // The Start tap announces the opener, but a session resumed from a
-        // draft never shows the Start button at all — you land straight in the
-        // session — so that path was silent from beginning to end. Announcing
-        // on the first set covers every route in, and a set tap is always a
-        // user gesture, which is the only place an AudioContext will resume.
-        ctx.announce(logged.exerciseId);
-        const remaining = logged.sets.some(s => !s.completed);
-        // Same movement again → a generic "rest is over". Moving on → the name
-        // of the movement you are moving on to, which is the more useful thing
-        // to hear when the phone is face down.
-        const next = remaining ? null : ctx.nextExerciseId(logged.exerciseId);
-        if (next) ctx.markAnnounced(next);   // the rest will name it; don't say it twice
-        ctx.rest(ex.restSec,
-          remaining ? `Rest · ${ex.name}` : `Rest · next up after ${ex.name}`,
-          next ?? ctx.restOverCue());
-      },
+      onComplete: () => afterSet(i),
     })));
     setsRow.append(...buttons);
+
+    if (ex.isHold) {
+      // A hold is the one thing here you cannot count for yourself while doing
+      // it. Timing it also logs it, at whatever was actually held — stop at 32
+      // seconds of a 45-second target and 32 is what goes in the log, which is
+      // both more honest and less typing than correcting it afterwards.
+      setsRow.append(h('button.sx-time', {
+        type: 'button',
+        onclick: () => {
+          const i = logged.sets.findIndex(s => !s.completed);
+          if (i < 0) { toast('Every set of this one is already logged'); return; }
+          ctx.hold({
+            seconds: logged.sets[i].reps,
+            name: ex.name,
+            onFinish: held => {
+              logged.sets[i].reps = held;
+              logged.sets[i].completed = true;
+              buttons[i].repaint();
+              ctx.save();
+              afterSet(i);
+            },
+          });
+        },
+      }, icon('sound'), 'Time it'));
+    }
+
     card.append(editor.el);
+    // Says out loud what the second tap does. The corrections have worked since
+    // v35 and nothing advertised them, so a mis-tap read as permanent.
+    card.append(h('p.sx-sets-hint', 'Tap a logged set again to change the number or undo it.'));
+    // A session resumed from a draft can already have sets in it.
+    paintLogged();
   } else {
     setsRow.append(h('p.sx-skipped', 'Muted for this session — nothing here counts either way.'));
   }
@@ -377,9 +628,37 @@ function exerciseCard(logged, ctx) {
 }
 
 /**
- * The warm-up: five rows you tap off. No timer, no reps logged, nothing that
- * reaches the progression engine — it is a checklist, and the only thing it
- * owes you is a memory that you have done it.
+ * Two movements you alternate between.
+ *
+ * The pairing is advisory, not enforced: both movements' sets are on screen at
+ * once and you can tap them in any order you like. That is deliberate. The
+ * engine already handles being ignored — rest back to the full two minutes if
+ * the partner has nothing waiting — so enforcing an order would only add a way
+ * to be wrong about which set you just did.
+ */
+function pairCard(items, ctx) {
+  const cards = items.map(logged => exerciseCard(logged, ctx, { inPair: true })).filter(Boolean);
+  if (!cards.length) return null;
+  const names = items.map(l => EXERCISE_BY_ID[l.exerciseId]?.name).filter(Boolean);
+  return h('section.card.sx-pair',
+    h('div.sx-pair-head',
+      h('span.sx-pair-label', 'Superset'),
+      h('span.sx-pair-sub', `Alternate · ${PAIRED_REST}s between`)),
+    h('p.sx-pair-note',
+      `One set of ${names[0]}, rest, one set of ${names[1]}, rest, repeat. Each movement still gets its full recovery — the other one just happens during it.`),
+    ...cards);
+}
+
+/**
+ * The warm-up: five rows you tap off. No reps logged, nothing that reaches the
+ * progression engine — it is a checklist, and the only thing it owes you is a
+ * memory that you have done it.
+ *
+ * It speaks, as of v49. It was the one part of the session with no voice at
+ * all, which made it feel like the bit before the app starts paying attention.
+ * Ticking a row announces the next one, so you can work through the whole thing
+ * without looking at the screen — and four of the five clips were already in
+ * `audio/cues/` from the rest-day routine, so this cost no recording.
  */
 function warmupCard(draft, ctx) {
   const rows = draft.warmup ?? [];
@@ -394,22 +673,50 @@ function warmupCard(draft, ctx) {
     card.classList.toggle('is-done', done === rows.length);
   };
 
+  /** Announce whichever row is next, so the list reads itself out as you go. */
+  const sayNext = () => {
+    const next = rows.find(r => !r.done);
+    const spec = next && WARM_UP.find(w => w.id === next.id);
+    if (spec?.cue) ctx.sayCue(spec.cue);
+  };
+
   const list = h('ul.sx-wu-list', rows.map(row => {
     const spec = WARM_UP.find(w => w.id === row.id);
-    const btn = h('li.sx-wu' + (row.done ? '.is-done' : ''),
-      h('button', { type: 'button', 'aria-pressed': String(Boolean(row.done)) },
-        h('span.sx-wu-tick', row.done ? '✓' : ''),
-        h('span.sx-wu-txt',
-          h('span.sx-wu-name', spec?.name ?? row.id),
-          spec?.dose ? h('span.sx-wu-dose', spec.dose) : null)));
-    btn.querySelector('button').addEventListener('click', () => {
-      row.done = !row.done;
-      btn.classList.toggle('is-done', row.done);
-      btn.querySelector('.sx-wu-tick').textContent = row.done ? '✓' : '';
-      btn.querySelector('button').setAttribute('aria-pressed', String(row.done));
+    const tick = h('span.sx-wu-tick', row.done ? '✓' : '');
+    const toggle = h('button', { type: 'button', 'aria-pressed': String(Boolean(row.done)) },
+      tick,
+      h('span.sx-wu-txt',
+        h('span.sx-wu-name', spec?.name ?? row.id),
+        spec?.dose ? h('span.sx-wu-dose', spec.dose) : null));
+    const btn = h('li.sx-wu' + (row.done ? '.is-done' : ''), toggle);
+
+    const setDone = done => {
+      row.done = done;
+      btn.classList.toggle('is-done', done);
+      tick.textContent = done ? '✓' : '';
+      toggle.setAttribute('aria-pressed', String(done));
       paint();
       ctx.save();
+    };
+
+    toggle.addEventListener('click', () => {
+      setDone(!row.done);
+      if (row.done) sayNext();
     });
+
+    // "Hang for 20–30 seconds" is the one item on this list you cannot pace by
+    // feel, because you are hanging off a bar and cannot see the screen.
+    if (spec?.holdSec) {
+      btn.append(h('button.sx-wu-time', {
+        type: 'button',
+        'aria-label': `Time the ${spec.name.toLowerCase()}`,
+        onclick: () => ctx.hold({
+          seconds: spec.holdSec,
+          name: spec.name,
+          onFinish: () => { setDone(true); sayNext(); },
+        }),
+      }, 'Time it'));
+    }
     return btn;
   }));
 
@@ -451,10 +758,12 @@ function sessionScreen(mount, ctx) {
     ctx.finish();
   });
 
-  const cards = draft.exercises.map(logged => exerciseCard(logged, {
-    ...ctx,
-    save: () => { paintProgress(); ctx.save(); },
-  })).filter(Boolean);
+  const cardCtx = { ...ctx, save: () => { paintProgress(); ctx.save(); } };
+  const cards = sessionBlocks(draft.exercises)
+    .map(block => (block.kind === 'pair'
+      ? pairCard(block.items, cardCtx)
+      : exerciseCard(block.items[0], cardCtx)))
+    .filter(Boolean);
 
   mount.replaceChildren(...[
     offMatTabs('strength'),
@@ -462,8 +771,14 @@ function sessionScreen(mount, ctx) {
       h('span.sx-when', draft.deload ? 'Deload session' : fmtDate(draft.date)),
       countEl),
     rail,
+    // Siblings, not wrapped in a container: both are `position: sticky`, and a
+    // sticky element can only stick within its parent's box — putting the two of
+    // them in a plain wrapper div would confine them to the height of that
+    // wrapper and they would scroll away with it. They never show at once (a
+    // hold stops the rest and vice versa), so sharing a `top` costs nothing.
     ctx.restTimer.el,
-    warmupCard(draft, ctx),
+    ctx.holdTimer.el,
+    warmupCard(draft, cardCtx),
     ...cards,
     h('div.btn-row', { style: 'margin-top:16px' }, finishBtn),
     h('button.sx-abandon', {
@@ -561,14 +876,20 @@ export default async function strength(root, { view } = {}) {
   const { beep, voice } = mountAudio();
   const wake = createWakeLock();
   const restTimer = createRestTimer(beep, wake, voice, token);
+  const holdTimer = createHoldTimer(beep, voice, wake, token);
 
   let lastRestOver = 0;   // never the same "rest is over" take twice running
+  const restOverCue = () => {
+    lastRestOver = pickCue(REST_OVER_CUES, lastRestOver);
+    return `rest-over-${lastRestOver}`;
+  };
   const announced = new Set();   // movements already named aloud this session
   const state = programmeState(sessions);
   const lastSession = sessions[sessions.length - 1] ?? null;
 
   const showIntro = async (deloadDismissed = false) => {
     restTimer.stop();
+    holdTimer.stop();
     introScreen(mount, {
       sessions, today, muted,
       plans: todaysPlan(sessions, { muted }),
@@ -582,13 +903,18 @@ export default async function strength(root, { view } = {}) {
         beep.unlock();
         voice.unlock();
         const fresh = newStrengthSession(today, sessions, { deload, muted });
-        // Deliberately silent. v42 announced the opening lift here, which was
-        // right until v43 put the warm-up first — then Start said "pull-ups"
-        // while the screen showed arm circles, which is worse than saying
-        // nothing. The name now lands on the first set of the movement itself
-        // (see `announce` below), which is both correct and on every route in.
-        // The warm-up gets no cue at all: none is recorded, and a wrong one is
-        // worse than none.
+        // Start speaks again, and this time it says the right thing.
+        //
+        // v42 announced the opening *lift* here, which was correct until v43 put
+        // the warm-up first — then Start said "pull-ups" over a screen showing
+        // arm circles, so v44 silenced it. The reason given was that no warm-up
+        // cue was recorded. Three of them were, in `audio/cues/`, left over from
+        // the rest-day routine; they were simply never wired up. Now they are,
+        // so the opening cue names what is actually on screen. The lift names
+        // still land on their own first set, which covers the routes into a
+        // session that never show this button at all.
+        const first = WARM_UP.find(w => w.cue);
+        if (first) voice.say(first.cue);
         await store.setStrengthDraft(fresh);
         showSession(fresh);
       },
@@ -599,17 +925,35 @@ export default async function strength(root, { view } = {}) {
     sessionScreen(mount, {
       draft: current,
       restTimer,
+      holdTimer,
       stateFor: id => state[id],
       lastFor: id => lastSession?.exercises?.find(e => e.exerciseId === id) ?? null,
+      allLogged: () => current.exercises,
       save: () => { store.setStrengthDraft(current).catch(() => {}); },
-      rest: (seconds, label, cue) => restTimer.start(seconds, label, cue),
+      rest: (seconds, label, cue, undo) => restTimer.start(seconds, label, cue, undo),
+      // A hold and a rest must never run at once — two clocks beeping over each
+      // other is worse than either.
+      hold: opts => { restTimer.stop(); holdTimer.start(opts); },
       // Say a movement's name once per session. The end of a rest already
       // announces whatever is coming next, so this must not repeat it two
-      // minutes later when you actually start the thing.
-      announce: id => {
-        if (announced.has(id)) return;
+      // minutes later when you actually start the thing — unless you asked, by
+      // tapping the speaker on the card, in which case answer every time.
+      announce: (id, { force = false } = {}) => {
+        if (announced.has(id) && !force) return;
         announced.add(id);
         voice.say(id);
+      },
+      /** Play a clip that is not a movement name — the warm-up cues. */
+      sayCue: id => voice.say(id),
+      /**
+       * The cue for a rest that is about to hand over to `id`: its name if it
+       * has not been said yet, a generic "rest is over" if it has. Claiming the
+       * name here is what stops it being repeated when you start the movement.
+       */
+      cueFor: id => {
+        if (announced.has(id)) return restOverCue();
+        announced.add(id);
+        return id;
       },
       markAnnounced: id => announced.add(id),
       // The next movement with work still to do. Skipped ones are not coming.
@@ -619,10 +963,7 @@ export default async function strength(root, { view } = {}) {
         return list.slice(at + 1)
           .find(e => !e.skipped && e.sets.some(x => !x.completed))?.exerciseId ?? null;
       },
-      restOverCue: () => {
-        lastRestOver = pickCue(REST_OVER_CUES, lastRestOver);
-        return `rest-over-${lastRestOver}`;
-      },
+      restOverCue,
       toggleSkip: async logged => {
         logged.skipped = !logged.skipped;
         await store.toggleMutedExercise(logged.exerciseId);
@@ -631,12 +972,14 @@ export default async function strength(root, { view } = {}) {
       },
       abandon: async () => {
         restTimer.stop();
+        holdTimer.stop();
         await store.clearStrengthDraft();
         toast('Session discarded');
         showIntro();
       },
       finish: async () => {
         restTimer.stop();
+        holdTimer.stop();
         beep.finish();
         const changes = sessionChanges(sessions, current);
         await store.saveStrengthSession(current);

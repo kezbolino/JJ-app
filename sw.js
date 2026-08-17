@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v48';
+const CACHE = 'jj-app-v49';
 
 const SHELL = [
   './',
@@ -95,7 +95,6 @@ const SHELL = [
   'audio/cues/split-squat.webm',
   'audio/cues/archer-press-up.webm',
   'audio/cues/inverted-row.webm',
-  'audio/cues/nordic-curl.webm',
   'audio/cues/pike-press-up.webm',
   'audio/cues/hanging-leg-raise.webm',
   'audio/cues/hollow-hold.webm',

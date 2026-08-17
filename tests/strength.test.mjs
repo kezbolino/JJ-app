@@ -15,6 +15,8 @@ import {
   newStrengthSession, sessionProgress, sessionChanges, historyFor, variationOf,
   WARM_UP,
   restClock,
+  PAIRS, PAIRED_REST, partnerOf, sessionBlocks, restBetween,
+  sessionDuration, durationLine,
 } from '../js/strength.js';
 
 let passed = 0;
@@ -410,6 +412,179 @@ test('the rest clock formats mm:ss and never goes negative', () => {
   assert.equal(restClock(9_400), '0:10');
   assert.equal(restClock(0), '0:00');
   assert.equal(restClock(-500), '0:00');
+});
+
+// --- v49: the Nordic curl swap -------------------------------------------
+
+test('the Nordic curl is gone and the hamstring is still trained', () => {
+  // Removed because the user has neither the floor space nor an anchor for it,
+  // so it was simply not being done. A movement nobody performs is worse than
+  // one that is missing: it silently reports as a missed set every week.
+  assert.equal(EXERCISE_BY_ID['nordic-curl'], undefined, 'the Nordic curl is still in the programme');
+
+  const rdl = EXERCISE_BY_ID['single-leg-rdl'];
+  assert.ok(rdl, 'nothing replaced the Nordic curl');
+  assert.equal(rdl.category, 'posterior', 'the replacement does not train the posterior chain');
+  assert.ok(rdl.unilateral, 'the replacement is not single-leg');
+
+  // The id is the audio cue's filename. `single-leg-rdl.webm` already existed
+  // from the rest-day routine, which is why this movement ships with a voice on
+  // day one — rename the id and it goes silent with no error anywhere.
+  assert.equal(rdl.id, 'single-leg-rdl');
+
+  // Load is the ladder here, so the variations have to actually be loads.
+  assert.ok(rdl.noTempo, 'the RDL should climb reps then load, not tempo rungs');
+  assert.ok(rdl.variations.length >= 3, 'no room to add weight');
+  assert.ok(rdl.variations.some(v => /kg/.test(v.name)), 'the variations are not loads');
+});
+
+test('a session logged against the old Nordic curl still replays safely', () => {
+  // Old sessions in storage carry `nordic-curl`. The engine must skip an id it
+  // no longer knows rather than throwing — this data is on the user's phone.
+  const stale = {
+    id: 'sx-old', date: '2026-08-01',
+    exercises: [
+      { exerciseId: 'nordic-curl', variationId: 'nordic-negative',
+        target: { sets: 4, reps: 4 },
+        sets: [{ reps: 4, tempoHeld: true, completed: true }] },
+      { exerciseId: 'pull-up', variationId: 'pull-up-strict',
+        target: { sets: 5, reps: 6 },
+        sets: Array.from({ length: 5 }, () => ({ reps: 6, tempoHeld: true, completed: true })) },
+    ],
+  };
+  const state = programmeState([stale]);
+  assert.ok(state['pull-up'], 'a stale id took the whole replay down with it');
+  assert.equal(state['nordic-curl'], undefined, 'a retired movement came back');
+  assert.equal(historyFor([stale], 'nordic-curl').length, 1,
+    'the old history is unreachable rather than merely unshown');
+});
+
+// --- v49: antagonist pairing ---------------------------------------------
+
+test('every pair is two real movements that do not compete', () => {
+  const seen = new Set();
+  for (const [a, b] of PAIRS) {
+    assert.ok(EXERCISE_BY_ID[a], `${a} is paired but not in the programme`);
+    assert.ok(EXERCISE_BY_ID[b], `${b} is paired but not in the programme`);
+    for (const id of [a, b]) {
+      assert.ok(!seen.has(id), `${id} is in two pairs at once`);
+      seen.add(id);
+    }
+    assert.notEqual(EXERCISE_BY_ID[a].category, EXERCISE_BY_ID[b].category,
+      `${a} and ${b} are both ${EXERCISE_BY_ID[a].category} — resting one does not rest the other`);
+  }
+  assert.equal(partnerOf(PAIRS[0][0]), PAIRS[0][1]);
+  assert.equal(partnerOf(PAIRS[0][1]), PAIRS[0][0]);
+  assert.equal(partnerOf('kb-swing'), null, 'the finisher should work alone');
+});
+
+test('paired movements sit next to each other in the programme order', () => {
+  // `sessionBlocks` walks EXERCISES in order. A pair split across the session
+  // would mean crossing the room between every single set.
+  const order = EXERCISES.map(e => e.id);
+  for (const [a, b] of PAIRS) {
+    assert.equal(Math.abs(order.indexOf(a) - order.indexOf(b)), 1,
+      `${a} and ${b} are paired but not adjacent in EXERCISES`);
+  }
+});
+
+test('a session groups into supersets and singles, losing nothing', () => {
+  const plans = todaysPlan([], { muted: [] });
+  const blocks = sessionBlocks(plans);
+  const flat = blocks.flatMap(b => b.items.map(i => i.exercise.id));
+  assert.deepEqual([...flat].sort(), EXERCISES.map(e => e.id).sort(),
+    'grouping dropped or duplicated a movement');
+  assert.equal(blocks.filter(b => b.kind === 'pair').length, PAIRS.length);
+  assert.ok(blocks.every(b => b.items.length === (b.kind === 'pair' ? 2 : 1)));
+});
+
+test('the short rest applies only while the partner still has a set waiting', () => {
+  // This is what makes the pairing safe to ignore. Grinding a movement out
+  // instead of alternating must never quietly under-rest you, because a missed
+  // rep caused by short rest walks the prescription *down* the ladder.
+  const session = newStrengthSession('2026-08-17', []);
+  const all = session.exercises;
+  const [a, b] = PAIRS[0];
+
+  assert.equal(restBetween(a, all), PAIRED_REST, 'not alternating when it should');
+
+  // Partner finished → back to the movement's own full rest.
+  const partner = all.find(l => l.exerciseId === b);
+  partner.sets.forEach(s => { s.completed = true; });
+  assert.equal(restBetween(a, all), EXERCISE_BY_ID[a].restSec,
+    'kept the short rest after the partner ran out of sets');
+
+  // Partner muted → likewise. Nothing is going to fill the gap.
+  partner.sets.forEach(s => { s.completed = false; });
+  partner.skipped = true;
+  assert.equal(restBetween(a, all), EXERCISE_BY_ID[a].restSec,
+    'kept the short rest with the partner muted');
+
+  // An unpaired movement is always its own full rest.
+  assert.equal(restBetween('kb-swing', all), EXERCISE_BY_ID['kb-swing'].restSec);
+});
+
+test('pairing gives each movement more recovery than it had unpaired', () => {
+  // The honest version of the claim on the intro. Two sets of the same movement
+  // are separated by a short rest, the partner's working set, and another short
+  // rest — and that has to beat the full rest it replaced, or this trades
+  // recovery for time and the ladder pays for it.
+  for (const [a, b] of PAIRS) {
+    const partnerWork = 20;    // a deliberately pessimistic set
+    const gap = PAIRED_REST * 2 + partnerWork;
+    for (const id of [a, b]) {
+      assert.ok(gap >= EXERCISE_BY_ID[id].restSec,
+        `${id} gets ${gap}s between sets, less than its ${EXERCISE_BY_ID[id].restSec}s prescription`);
+    }
+  }
+});
+
+// --- v49: how long it takes ----------------------------------------------
+
+test('the session estimate is derived, and pairing actually shortens it', () => {
+  const plans = todaysPlan([], { muted: [] });
+  const d = sessionDuration(plans);
+
+  assert.equal(d.sets, plans.reduce((n, p) => n + p.sets, 0), 'set count is not the plan');
+  assert.ok(d.totalSec > 0 && d.workSec > 0 && d.restSec > 0);
+  assert.equal(d.totalSec, d.workSec + d.restSec + d.warmupSec, 'the parts do not add up');
+
+  // What the unpaired programme would have cost, same work, full rests.
+  const unpairedRest = plans.reduce((n, p) => n + p.sets * p.exercise.restSec, 0);
+  assert.ok(d.restSec < unpairedRest * 0.75,
+    `pairing saved almost nothing: ${Math.round(d.restSec / 60)} vs ${Math.round(unpairedRest / 60)} min`);
+
+  // The whole point of deriving it: muting movements has to move the number.
+  const fewer = sessionDuration(todaysPlan([], { muted: ['pull-up', 'kb-swing'] }));
+  assert.ok(fewer.totalSec < d.totalSec, 'muting two movements did not shorten the session');
+
+  assert.equal(sessionDuration([]).totalSec, 0, 'an empty plan still books a warm-up');
+});
+
+test('the duration reads as a duration, and never shouts a unit', () => {
+  assert.equal(durationLine({ totalSec: 45 * 60 }), 'About 45 min');
+  assert.equal(durationLine({ totalSec: 60 * 60 }), 'About 1 hr');
+  assert.equal(durationLine({ totalSec: 80 * 60 }), 'About 1 hr 20 min');
+  // Rounded to five minutes — a session estimate accurate to the minute is a
+  // lie, and "About 1 hr 18 min" invites you to believe it.
+  assert.equal(durationLine({ totalSec: 78 * 60 }), 'About 1 hr 20 min');
+});
+
+// --- v49: the warm-up speaks ---------------------------------------------
+
+test('the warm-up cues point at clips, and the dead hang is timed', () => {
+  const cued = WARM_UP.filter(w => w.cue);
+  assert.ok(cued.length >= 4, 'most of the warm-up should be able to announce itself');
+  // A cue id is a filename in audio/cues/. tests/features.test.mjs is what
+  // checks the files exist; this checks nothing invented one with a space or a
+  // capital in it, which would 404 silently forever.
+  for (const w of cued) {
+    assert.match(w.cue, /^[a-z0-9-]+$/, `${w.id} has a cue id that cannot be a filename`);
+  }
+  const hang = WARM_UP.find(w => w.holdSec);
+  assert.ok(hang, 'nothing in the warm-up is timed');
+  assert.match(hang.name.toLowerCase(), /hang/, 'the timed item should be the dead hang');
+  assert.ok(hang.holdSec >= 20 && hang.holdSec <= 60, 'an implausible hold length');
 });
 
 console.log(`\n${passed} passed`);

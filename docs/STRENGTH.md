@@ -240,6 +240,76 @@ grows an eccentric or a pause.
 The `needsLoad` prompt now names a kettlebell rather than only a vest, since
 there is one in the room.
 
+### After the first real session (v49)
+
+The user ran the programme for the first time and reported back. Five things
+came out of it, and one of them was a number that had been wrong for a while.
+
+**The session was 93 minutes, not the 60–75 in the table above.** Nobody could
+see that, because the figure lived in this document as prose. v44 added two
+movements and never revisited it. The real breakdown at ten movements was 37
+sets, ~22 minutes of work and **66 minutes of standing still — 75% of the
+session.**
+
+The rests themselves were not wrong and were deliberately *not* shortened. The
+ladder only advances when you hit the target reps with the tempo held, and
+`applyResult` regresses the prescription after two bad sessions — so
+under-resting feeds missed reps into the engine and walks your numbers
+*backwards*. Cutting 120s to 90s would have bought twenty minutes and paid for
+it in progress.
+
+What shipped instead:
+
+- **`PAIRS` — antagonist supersets.** Four pairs (pull/push ×3, plus legs with
+  core), alternating so the rest for one is the work for the other. Each
+  movement still gets 60s + its partner's set + 60s, which is *more* than the
+  120s it had before, and the session comes down to about 80 minutes. There is
+  a test asserting that inequality holds for every pair, because the whole
+  argument depends on it.
+- **`restBetween()` asks rather than assumes.** The short rest applies only
+  while the partner actually has a set waiting. Mute it, finish it, or ignore
+  the alternation and grind one movement out, and you get the full rest back.
+  That is what makes the pairing safe to ignore — it can never quietly
+  under-rest you.
+- **`sessionDuration()` and `durationLine()`**, shown on the intro. Derived from
+  the same `EXERCISES` the session is built from, so it moves when the
+  programme does. **This is the fix for the stale-number problem, not the 80
+  minutes** — any figure written by hand in this file will go stale again.
+
+**The Nordic curl is gone, replaced by the single-leg Romanian deadlift.** The
+user has neither the floor space to fall forward in nor anything to anchor the
+ankles under, so it was simply not being performed — which is worse than a gap,
+because an un-performed movement reports as a missed set every week and drags
+its own prescription down. The RDL keeps the hamstring loaded at length and adds
+balance and grip. It is `noTempo` for a *different reason* than the swing: a
+slow eccentric on an RDL is correct, it is the point — but with three bells on
+the floor, load is the honest next rung, and adding a 2-second pause to an 8kg
+hinge instead of picking up the 10kg would take four months to do a fortnight's
+work. Its id is `single-leg-rdl` because `audio/cues/single-leg-rdl.webm`
+already existed from the rest-day routine, so it shipped with a voice.
+
+**Old sessions still carry `nordic-curl`.** `programmeState` skips ids it does
+not recognise, so the replay is safe and the history is still reachable through
+`historyFor`; it just is not rendered. There is a test on that, because the data
+is on the user's phone.
+
+**Holds are timed now.** The hollow body hold and the warm-up's dead hang both
+get a spoken 3-2-1 count-in and a clock, because a hold is the one thing on this
+screen you cannot pace yourself — and on the hollow body you are on your back
+looking at the ceiling, so the *sound* is the feature and the bar is a courtesy.
+Stopping early logs what was actually held; stopping in the first five seconds
+logs nothing at all, since a four-second hollow body is a cancel, not a failed
+set, and logging it as a failure would move the ladder.
+
+**The warm-up speaks.** It was the only part of the session with no voice, which
+made it feel like the bit before the app starts paying attention. Four of the
+five cues were already sitting in `audio/cues/` from the rest-day routine and
+had simply never been wired up — which also retires the v44 note claiming Start
+had to stay silent for want of a recording.
+
+**The movement name now lands when you start the movement.** It used to fire on
+the first *set* tap, i.e. after the set was over.
+
 ### Three deliberate departures
 
 1. **No RPE.** The spec lists it as optional. The BJJ side of this app had a

@@ -34,6 +34,17 @@
 // `variations` are the load — 8kg, 10kg, 16kg — so the ladder keeps working
 // with the rung that actually applies.
 //
+// **Antagonist pairing, added v49.** Ten movements at a full two minutes a set
+// is 66 minutes of standing still — 75% of a 93-minute session, which is far
+// past what a once-a-week accessory to jiu jitsu is worth. The fix is not
+// shorter rests: the ladder only moves when you hit the target reps with the
+// tempo held, so under-resting feeds missed reps into the engine and walks the
+// prescription *backwards*. Instead `PAIRS` alternates a pull with a push, so
+// the rest for one is the work for the other. Each movement still gets its full
+// recovery — 60s, plus its partner's set, plus another 60s — and roughly 25
+// minutes comes off the clock. See `restBetween()`, which is what makes it
+// self-correcting if you ignore the alternation and grind one movement out.
+//
 // Everything below is pure: no DOM, no storage, no clock. It is the only part
 // of this module worth unit-testing, and tests/strength.test.mjs does.
 //
@@ -44,10 +55,16 @@ const REP_STEP = 1;
 const HOLD_STEP = 5;
 
 /**
- * The movements, in the order they are done: hardest first, while you are
- * freshest, and the skill-heavy get-up early for the same reason. `variations` is the chain from easiest to hardest and `start`
- * says which one the programme begins on — he is not starting at the bottom of
- * every chain, and pretending otherwise would waste months.
+ * The movements, in the order they are done.
+ *
+ * The order is hardest-first, and from v49 it is also **pair order**: a
+ * movement sits immediately next to the one it supersets with, because the
+ * blocks are built by walking this array (see `sessionBlocks`). The skill-heavy
+ * get-up stays early — it wants a fresh brain — and stays unpaired.
+ *
+ * `variations` is the chain from easiest to hardest and `start` says which one
+ * the programme begins on — he is not starting at the bottom of every chain,
+ * and pretending otherwise would waste months.
  *
  * `needsLoad` on a variation marks the point where bodyweight runs out. The
  * engine will never move you onto one of those on its own; it flags the
@@ -76,10 +93,31 @@ export const EXERCISES = [
     start: 1,
   },
   {
+    id: 'archer-press-up',
+    name: 'Archer press-ups',
+    category: 'push',
+    sets: 4,
+    startReps: 6,
+    repCeiling: 10,
+    restSec: 120,
+    unilateral: true,
+    cue: 'Weight over the bending arm, the other stays straight. Hips level.',
+    variations: [
+      { id: 'press-up-standard', name: 'Standard press-ups' },
+      { id: 'press-up-elevated', name: 'Feet-elevated press-ups' },
+      { id: 'press-up-archer', name: 'Archer press-ups' },
+      { id: 'press-up-one-arm', name: 'One-arm progression' },
+    ],
+    start: 2,
+  },
+  {
     // Added in v44, when the user turned out to own kettlebells. The most
     // grappling-specific thing you can do with one: getting up off your back
     // under load, slowly, without losing the shoulder. Early in the session
     // because it is a skill before it is a lift, and skills want a fresh brain.
+    //
+    // Deliberately unpaired: alternating a skill with something else is how you
+    // stop paying attention to it.
     id: 'kb-getup',
     name: 'Turkish get-up',
     category: 'core',
@@ -89,6 +127,10 @@ export const EXERCISES = [
     restSec: 90,
     unilateral: true,
     noTempo: true,
+    // A get-up rep is half a minute of standing up and lying back down, not the
+    // three seconds every other rep here takes. Without this the estimate on the
+    // intro is out by about eight minutes on this movement alone.
+    repSec: 30,
     cue: 'Slow. Eyes on the bell the whole way up and the whole way down. Stop the moment the shoulder loses its place.',
     variations: [
       { id: 'getup-8', name: '8kg' },
@@ -115,22 +157,16 @@ export const EXERCISES = [
     start: 0,
   },
   {
-    id: 'archer-press-up',
-    name: 'Archer press-ups',
-    category: 'push',
-    sets: 4,
-    startReps: 6,
-    repCeiling: 10,
-    restSec: 120,
-    unilateral: true,
-    cue: 'Weight over the bending arm, the other stays straight. Hips level.',
-    variations: [
-      { id: 'press-up-standard', name: 'Standard press-ups' },
-      { id: 'press-up-elevated', name: 'Feet-elevated press-ups' },
-      { id: 'press-up-archer', name: 'Archer press-ups' },
-      { id: 'press-up-one-arm', name: 'One-arm progression' },
-    ],
-    start: 2,
+    id: 'hanging-leg-raise',
+    name: 'Hanging leg raises',
+    category: 'core',
+    sets: 3,
+    startReps: 10,
+    repCeiling: 12,
+    restSec: 90,
+    cue: 'No swing. Curl the pelvis up rather than just lifting the legs.',
+    variations: [{ id: 'hanging-leg-raise', name: 'Hanging leg raises' }],
+    start: 0,
   },
   {
     id: 'inverted-row',
@@ -145,42 +181,6 @@ export const EXERCISES = [
       { id: 'row-floor', name: 'Feet on the floor' },
       { id: 'row-elevated', name: 'Feet elevated' },
       { id: 'row-archer', name: 'Archer rows' },
-    ],
-    start: 1,
-  },
-  {
-    id: 'nordic-curl',
-    name: 'Nordic curl negatives',
-    category: 'posterior',
-    sets: 4,
-    startReps: 4,
-    repCeiling: 6,
-    restSec: 120,
-    cue: 'Ankles anchored, hips locked out. Lower as slowly as you can, catch with the hands.',
-    variations: [
-      { id: 'nordic-assisted', name: 'Partial, hand assisted' },
-      { id: 'nordic-negative', name: 'Full negative' },
-      { id: 'nordic-slow', name: 'Slow negative' },
-    ],
-    start: 1,
-  },
-  {
-    // The other kettlebell addition. Hip-hinge power and grip endurance, which
-    // is most of what a scramble is — and the one pattern the bodyweight eight
-    // never trained: the Nordic curl is knee flexion, not a hinge.
-    id: 'kb-swing',
-    name: 'Kettlebell swings',
-    category: 'posterior',
-    sets: 4,
-    startReps: 12,
-    repCeiling: 20,
-    restSec: 90,
-    noTempo: true,
-    cue: 'Hinge, do not squat. Snap the hips and let the bell float — the arms are ropes, not levers.',
-    variations: [
-      { id: 'swing-10', name: '10kg, two hands' },
-      { id: 'swing-16', name: '16kg, two hands' },
-      { id: 'swing-16-single', name: '16kg, one hand' },
     ],
     start: 1,
   },
@@ -201,16 +201,34 @@ export const EXERCISES = [
     start: 1,
   },
   {
-    id: 'hanging-leg-raise',
-    name: 'Hanging leg raises',
-    category: 'core',
-    sets: 3,
-    startReps: 10,
+    // Replaced the Nordic curl negative in v49: the user has neither the floor
+    // space to fall forward in nor anything to anchor the ankles under, so the
+    // movement was simply not being done. This keeps the hamstring loaded at
+    // length and adds the balance and grip a Nordic never trained.
+    //
+    // `noTempo` for a different reason than the swing above. A slow eccentric on
+    // an RDL is not wrong — it is the point — but when three bells are sitting
+    // on the floor, **load is the honest next rung**. Adding a 2-second pause to
+    // an 8kg hinge instead of picking up the 10kg one would take four months to
+    // do what a fortnight should, so the ladder climbs reps and then weight and
+    // the slow lowering lives in the cue where it belongs.
+    id: 'single-leg-rdl',
+    name: 'Single-leg Romanian deadlift',
+    category: 'posterior',
+    sets: 4,
+    startReps: 8,
     repCeiling: 12,
-    restSec: 90,
-    cue: 'No swing. Curl the pelvis up rather than just lifting the legs.',
-    variations: [{ id: 'hanging-leg-raise', name: 'Hanging leg raises' }],
-    start: 0,
+    restSec: 120,
+    unilateral: true,
+    noTempo: true,
+    cue: 'Hinge from the hip, back leg straight out behind you as a counterweight. Bell close to the shin, slow down, squeeze the glute at the top. Stop where the back would round.',
+    variations: [
+      { id: 'rdl-bw', name: 'Bodyweight' },
+      { id: 'rdl-8', name: '8kg' },
+      { id: 'rdl-10', name: '10kg' },
+      { id: 'rdl-16', name: '16kg' },
+    ],
+    start: 1,
   },
   {
     id: 'hollow-hold',
@@ -225,9 +243,122 @@ export const EXERCISES = [
     variations: [{ id: 'hollow-hold', name: 'Hollow body hold' }],
     start: 0,
   },
+  {
+    // The other kettlebell addition. Hip-hinge power and grip endurance, which
+    // is most of what a scramble is. Last, and unpaired: it is the one movement
+    // here that is also conditioning, so it goes at the end where being out of
+    // breath costs nothing.
+    id: 'kb-swing',
+    name: 'Kettlebell swings',
+    category: 'posterior',
+    sets: 4,
+    startReps: 12,
+    repCeiling: 20,
+    restSec: 90,
+    noTempo: true,
+    repSec: 1.5,        // ballistic — a swing is a snap, not a grind
+    cue: 'Hinge, do not squat. Snap the hips and let the bell float — the arms are ropes, not levers.',
+    variations: [
+      { id: 'swing-10', name: '10kg, two hands' },
+      { id: 'swing-16', name: '16kg, two hands' },
+      { id: 'swing-16-single', name: '16kg, one hand' },
+    ],
+    start: 1,
+  },
 ];
 
 export const EXERCISE_BY_ID = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
+
+/**
+ * Which movements superset with which.
+ *
+ * Each pair is two things that do not compete for the same muscle, so resting
+ * one while working the other costs nothing. Three are a straight pull/push
+ * antagonist swap; the fourth pairs a lower-body movement with a core one,
+ * which is the same idea by a different route.
+ *
+ * The get-up and the swings are deliberately absent. The get-up is a skill and
+ * alternating it with something else is how you stop paying attention to it;
+ * the swings are the conditioning finisher and there is nothing left to pair
+ * them with by then.
+ *
+ * These must stay adjacent in `EXERCISES` — `sessionBlocks` builds the blocks
+ * by walking that array in order, and a pair split across the session would
+ * mean walking back and forth across the room between every set.
+ */
+export const PAIRS = [
+  ['pull-up', 'archer-press-up'],
+  ['split-squat', 'hanging-leg-raise'],
+  ['inverted-row', 'pike-press-up'],
+  ['single-leg-rdl', 'hollow-hold'],
+];
+
+/**
+ * Rest between two sets of a superset, in seconds.
+ *
+ * Deliberately not "half of 120". What matters is the gap between two sets of
+ * **the same** movement, and that is this number twice over plus the partner's
+ * working set in the middle — 60 + ~30 + 60, so about two and a half minutes,
+ * which is more recovery than the unpaired version gave, not less.
+ */
+export const PAIRED_REST = 60;
+
+/** The partner of an exercise, or null if it works alone. */
+export function partnerOf(exerciseId) {
+  const pair = PAIRS.find(p => p.includes(exerciseId));
+  return pair ? pair.find(id => id !== exerciseId) : null;
+}
+
+/**
+ * Group a session's movements into the blocks they are actually performed in:
+ * either a superset of two, or one movement on its own.
+ *
+ * Takes anything with an `exerciseId` — a plan or a logged entry — so the intro
+ * and the session screen can share it.
+ */
+export function sessionBlocks(items) {
+  const idOf = it => it.exerciseId ?? it.exercise?.id;
+  const out = [];
+  const used = new Set();
+  for (const item of items) {
+    const id = idOf(item);
+    if (used.has(id)) continue;
+    used.add(id);
+    const mate = partnerOf(id);
+    const other = mate && items.find(i => idOf(i) === mate && !used.has(mate));
+    if (other) {
+      used.add(mate);
+      out.push({ kind: 'pair', items: [item, other] });
+    } else {
+      out.push({ kind: 'single', items: [item] });
+    }
+  }
+  return out;
+}
+
+/**
+ * How long to rest after finishing a set of `exerciseId`.
+ *
+ * The short rest is only correct while you are actually alternating, so this
+ * asks rather than assumes: if the partner still has a set waiting, you are
+ * about to go and do it, and 60 seconds is right. If it does not — the partner
+ * is muted, already finished, or you ignored the alternation and ground the
+ * movement out in one block — you get the movement's own full rest, because
+ * nothing is going to fill the gap.
+ *
+ * That is what makes the pairing safe to ignore. Doing it the old way is slower
+ * but never under-rested, so it can never quietly feed missed reps into the
+ * ladder.
+ */
+export function restBetween(exerciseId, loggedList) {
+  const ex = EXERCISE_BY_ID[exerciseId];
+  const full = ex?.restSec ?? 120;
+  const mate = partnerOf(exerciseId);
+  if (!mate) return full;
+  const partner = loggedList.find(l => l.exerciseId === mate);
+  if (!partner || partner.skipped) return full;
+  return partner.sets.some(s => !s.completed) ? PAIRED_REST : full;
+}
 
 /**
  * The warm-up, run before exercise 1.
@@ -243,16 +374,24 @@ export const EXERCISE_BY_ID = Object.fromEntries(EXERCISES.map(e => [e.id, e]));
  * one to the other would leave you warm and still cold on the exact joints
  * about to do the work.
  *
- * Untimed and self-paced, like everything else on this screen — tap each one
- * off. It is a checklist, not a routine: giving it a clock would make it the
- * stretch engine, and this session is a form.
+ * Self-paced, like everything else on this screen — tap each one off. It is a
+ * checklist, not a routine: giving the whole thing a clock would make it the
+ * stretch engine, and this session is a form. The one exception is `holdSec`,
+ * on the dead hang, because "hang for 20–30 seconds" is the one item here you
+ * genuinely cannot pace by feel while hanging off a bar.
+ *
+ * `cue` is the clip in audio/cues/ that names the movement aloud, and four of
+ * the five were **already recorded** — three from the rest-day routine's own
+ * warm-up and one from its dead hang. Press-ups has no clip and stays silent,
+ * which is `createVoice`'s standing contract: a missing clip 404s and the
+ * routine carries on rather than breaking over a sound.
  */
 export const WARM_UP = [
-  { id: 'wu-arm-circles', name: 'Arm circles', dose: '20 forward, 20 back' },
-  { id: 'wu-leg-swings', name: 'Leg swings', dose: '10 each leg, each way' },
-  { id: 'wu-squats', name: 'Bodyweight squats', dose: '10 reps, full depth' },
-  { id: 'wu-press-ups', name: 'Press-ups', dose: '10 reps' },
-  { id: 'wu-dead-hang', name: 'Dead hang', dose: '20–30 seconds' },
+  { id: 'wu-arm-circles', name: 'Arm circles', dose: '20 forward, 20 back', cue: 'warmup-arm-circle' },
+  { id: 'wu-leg-swings', name: 'Leg swings', dose: '10 each leg, each way', cue: 'warmup-leg-swing' },
+  { id: 'wu-squats', name: 'Bodyweight squats', dose: '10 reps, full depth', cue: 'warmup-squat' },
+  { id: 'wu-press-ups', name: 'Press-ups', dose: '10 reps', cue: null },
+  { id: 'wu-dead-hang', name: 'Dead hang', dose: '20–30 seconds', cue: 'dead-hang', holdSec: 30 },
 ];
 
 /** How many sessions between deload prompts. */
@@ -440,6 +579,82 @@ export function todaysPlan(sessions = [], { deload = false, muted = [] } = {}) {
 export function lastSessionFor(sessions = []) {
   const ordered = [...sessions].sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
   return ordered[ordered.length - 1] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// How long this is going to take
+// ---------------------------------------------------------------------------
+
+/** Getting set up for a movement: dragging the chair over, chalking up. */
+export const SETUP_SEC = 30;
+/** A controlled rep, top to top, before any prescribed tempo is added. */
+export const REP_SEC = 3;
+/** The warm-up checklist, which is four untimed items and one 30s hang. */
+export const WARM_UP_SEC = 5 * 60;
+
+/** Planning-time rest: if the partner is in today's session, you alternate. */
+const plannedRest = (exerciseId, liveIds) => {
+  const mate = partnerOf(exerciseId);
+  if (mate && liveIds.has(mate)) return PAIRED_REST;
+  return EXERCISE_BY_ID[exerciseId]?.restSec ?? 120;
+};
+
+/**
+ * Roughly how long a session will take, in seconds, broken down.
+ *
+ * This exists because the number was wrong and nobody could see it.
+ * `docs/STRENGTH.md` budgeted 60–75 minutes for eight movements; v44 added two
+ * more and the real figure quietly became 93. A hand-written number in a doc
+ * cannot notice that. This one is derived from the same `EXERCISES` the session
+ * is built from, so adding a movement moves the label on the intro by itself —
+ * the same discipline as `routineMs()` on the stretch routines.
+ *
+ * It is an estimate and says so on screen. The rest is exact — it is a timer —
+ * and the working time is modelled from reps, prescribed tempo, whether the
+ * movement is done on both sides, and `repSec` where a rep is not about three
+ * seconds. What it cannot know is how long you spend finding your other sock.
+ */
+export function sessionDuration(plans = []) {
+  const live = plans.filter(p => !p.muted);
+  const liveIds = new Set(live.map(p => p.exercise.id));
+  let workSec = 0, restSec = 0, sets = 0;
+
+  for (const plan of live) {
+    const ex = plan.exercise;
+    const perRep = ex.repSec ?? REP_SEC;
+    let perSet = plan.isHold
+      ? plan.reps                                   // a hold's "reps" are seconds
+      : plan.reps * (perRep + (plan.eccentricSec || 0) + (plan.pauseSec || 0));
+    if (ex.unilateral) perSet *= 2;                 // both sides, every set
+    workSec += perSet * plan.sets + SETUP_SEC;
+    restSec += plan.sets * plannedRest(ex.id, liveIds);
+    sets += plan.sets;
+  }
+
+  // You do not rest after the last set of the day, and at two minutes that is
+  // not a rounding error.
+  if (live.length) restSec -= plannedRest(live[live.length - 1].exercise.id, liveIds);
+  restSec = Math.max(0, restSec);
+
+  const warmupSec = live.length ? WARM_UP_SEC : 0;
+  return {
+    sets,
+    workSec: Math.round(workSec),
+    restSec: Math.round(restSec),
+    warmupSec,
+    totalSec: Math.round(workSec + restSec + warmupSec),
+  };
+}
+
+/**
+ * "About 1 hr 10 min" — the headline on the intro. Rounded to five minutes,
+ * because a session estimate accurate to the minute would be a lie.
+ */
+export function durationLine(duration) {
+  const mins = Math.round(duration.totalSec / 60 / 5) * 5;
+  if (mins < 60) return `About ${mins} min`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return m ? `About ${h} hr ${m} min` : `About ${h} hr`;
 }
 
 /**

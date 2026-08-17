@@ -264,13 +264,18 @@ picture stays right as you climb the ladder.
 > are back past the ribs. The body is in one straight line from head to heels
 > with the heels on the floor. The bar is a plain horizontal line.
 
-## `nordic-curl`
+## `single-leg-rdl`
 
-> Side view. A person kneeling upright with the **ankles held down by a fixed
-> anchor at the floor**, lowering forward under control with the hips locked
-> straight so the body is one line from knees to head, caught about halfway down.
-> Both hands are up and ready in front of the chest to catch. The straight line
-> from knee to shoulder — no hip bend — is the point.
+Replaced `nordic-curl` in v49 — the user has neither the floor space nor an
+ankle anchor for a Nordic, so it was never being performed. The old prompt is in
+this file's git history if it is ever wanted back.
+
+> Side view. A person balanced on one straight leg, hinged forward at the hip so
+> the torso and the free back leg form **one straight horizontal line** from head
+> to heel. A **kettlebell** hangs from the hand on the side of the lifted leg,
+> close to the standing shin. Back flat, not rounded. The horizontal line
+> through the body, and the hinge coming from the hip rather than the waist, is
+> the point.
 
 ## `kb-swing`
 

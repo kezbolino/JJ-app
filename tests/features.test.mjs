@@ -1369,38 +1369,273 @@ await test('the lift speaks when a rest ends — the next movement, or "go again
   await page.click('.sx-intro .btn.cta');
   await page.waitForSelector('.sx-set');
 
-  // Start is silent on purpose: the warm-up comes first and has no clip, and
-  // naming the first lift while the screen shows arm circles is worse than
-  // saying nothing (v43).
+  // Start names the first *warm-up* item, which is what is on screen.
+  //
+  // This assertion used to require silence. That was right for v44–v48: the
+  // warm-up comes first, and naming the opening lift over a screen showing arm
+  // circles is worse than saying nothing. The reason given was that no warm-up
+  // clip existed — but three already did, from the rest-day routine, and were
+  // simply never wired up. v49 wires them, so the correct behaviour is now to
+  // announce, and what still must never happen is naming a *lift* here.
   await page.waitForTimeout(250);
-  assert.deepEqual(cues, [], `starting the session should be silent, heard: ${cues.join(', ')}`);
+  assert.deepEqual(cues, ['warmup-arm-circle.webm'],
+    `Start should name the first warm-up item, heard: ${cues.join(', ') || 'silence'}`);
+  const lifts = await page.evaluate(async () => (await import('/js/strength.js')).EXERCISES.map(e => e.id));
+  for (const cue of cues) {
+    assert.ok(!lifts.includes(cue.replace('.webm', '')),
+      `Start announced the lift "${cue}" while the screen shows the warm-up`);
+  }
+  cues.length = 0;
 
-  // The first set of a movement names it, inside the tap. Sets remain, so the
-  // rest that follows ends on a generic "go again" rather than naming a
-  // movement you are already on.
+  // The first set of a movement names it, inside the tap. Pull-ups are
+  // supersetted with archer press-ups, so the rest that follows hands over to
+  // the *partner* — which is the one thing you would otherwise forget, and the
+  // reason the alternation works at all.
   const first = page.locator('.sx-ex').first().locator('.sx-set');
+  const partner = page.locator('.sx-ex').nth(1).locator('.sx-set');
   await first.first().click();
   await page.waitForTimeout(250);
   assert.ok(cues.includes('pull-up.webm'), `the first set did not name the lift (${cues.join(', ')})`);
-  assert.ok(cues.some(c => /^rest-over-[1-5]\.webm$/.test(c)), `no rest-over cue queued (${cues.join(', ')})`);
+  assert.ok(cues.includes('archer-press-up.webm'),
+    `the rest did not hand over to the partner (${cues.join(', ')})`);
 
-  // Finish the movement. Now the rest before the next one announces *that* —
-  // the thing worth hearing with the phone face down.
+  // Second time round, the partner has already been named — repeating it every
+  // sixty seconds for an hour would be unbearable — so it falls back to a
+  // generic "go again".
   cues.length = 0;
-  const nextId = await page.evaluate(async () => (await import('/js/strength.js')).EXERCISES[1].id);
-  for (const set of (await first.all()).slice(1)) { await set.click(); await page.waitForTimeout(120); }
+  await page.click('.sx-rest-skip');
+  await partner.first().click();
+  await page.waitForTimeout(250);
+  assert.ok(cues.some(c => /^rest-over-[1-5]\.webm$/.test(c)),
+    `no rest-over cue once both movements had been named (${cues.join(', ')})`);
+
+  // Clear the whole superset. The rest after the last set of the block
+  // announces the movement the *next* block opens with.
+  cues.length = 0;
+  const nextId = await page.evaluate(async () => {
+    const m = await import('/js/strength.js');
+    const paired = new Set(m.PAIRS[0]);
+    return m.EXERCISES.find(e => !paired.has(e.id)).id;
+  });
+  for (const set of [...(await first.all()).slice(1), ...(await partner.all()).slice(1)]) {
+    await page.click('.sx-rest-skip').catch(() => {});
+    await set.click();
+    await page.waitForTimeout(120);
+  }
   assert.ok(cues.includes(`${nextId}.webm`),
-    `the rest after the last set did not announce ${nextId} (heard: ${cues.join(', ')})`);
+    `the rest after the block did not announce ${nextId} (heard: ${cues.join(', ')})`);
+  await page.context().close();
+});
+
+// --- v49: the feedback from the first real session ------------------------
+
+await test('the intro says how long the session takes, derived from the plan', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.waitForSelector('.sx-duration');
+  const line = await page.locator('.sx-duration').innerText();
+  assert.match(line, /About \d+ hr( \d+ min)?|About \d+ min/, `duration read "${line}"`);
+  // The number that mattered was wrong for four versions because it was written
+  // in a doc by hand. Check it is coming from the engine, not a string.
+  const expected = await page.evaluate(async () => {
+    const m = await import('/js/strength.js');
+    return m.durationLine(m.sessionDuration(m.todaysPlan([], { muted: [] })));
+  });
+  assert.ok(line.includes(expected), `screen says "${line}", engine says "${expected}"`);
+  assert.match(line, /\d+s? sets/, 'the breakdown does not mention sets');
+  // Lowercase unit, per the v28 lesson: a CSS uppercase transform would shout
+  // "60S BETWEEN" and cannot make mixed case out of one string.
+  const tag = await page.locator('.sx-pair-tag').first().innerText();
+  assert.ok(tag.includes('60s'), `the superset tag shouted its unit: "${tag}"`);
+  await page.context().close();
+});
+
+await test('supersets group two movements and shorten the rest between them', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  const pairs = await page.evaluate(async () => (await import('/js/strength.js')).PAIRS.length);
+  assert.equal(await page.locator('.sx-pair').count(), pairs, 'the supersets are not grouped');
+
+  // Pull-ups are paired with archer press-ups, so the rest after a pull-up set
+  // is the short one and it must name the movement you are going to next —
+  // that hand-off is the entire reason the pairing works.
+  const first = page.locator('.sx-ex').first();
+  await first.locator('.sx-set').first().click();
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.sx-rest-n').innerText(), '1:00',
+    'the superset rest is not the short one');
+  assert.match(await page.locator('.sx-rest-l').innerText(), /then Archer press-ups/,
+    'the rest does not say which movement is next');
+
+  // Grinding one movement out instead of alternating must give the full rest
+  // back rather than quietly under-resting you.
+  await page.click('.sx-rest-skip');
+  const partner = page.locator('.sx-ex').nth(1);
+  for (const s of await partner.locator('.sx-set').all()) { await s.click(); await page.waitForTimeout(80); }
+  await page.click('.sx-rest-skip');
+  await first.locator('.sx-set').nth(1).click();
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.sx-rest-n').innerText(), '2:00',
+    'kept the short rest after the partner had no sets left');
+  await page.context().close();
+});
+
+await test('a mis-tapped set can be undone from the rest bar', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  const first = page.locator('.sx-ex').first().locator('.sx-set').first();
+  // Nothing advertises the corrections panel until there is something to
+  // correct, so the hint must not be shouting before the first tap.
+  assert.equal(await page.locator('.sx-ex').first().locator('.sx-sets-hint').isVisible(), false,
+    'the corrections hint is on screen before anything is logged');
+
+  await first.click();
+  await page.waitForTimeout(150);
+  assert.equal(await first.getAttribute('aria-pressed'), 'true');
+  assert.ok(await page.locator('.sx-ex').first().locator('.sx-sets-hint').isVisible(),
+    'nothing tells you a logged set can be corrected');
+  assert.ok(await page.locator('.sx-rest-undo').isVisible(), 'no undo on the rest bar');
+
+  await page.click('.sx-rest-undo');
+  await page.waitForTimeout(150);
+  assert.equal(await first.getAttribute('aria-pressed'), 'false', 'undo did not unlog the set');
+  assert.equal(await page.locator('.sx-rest:visible').count(), 0, 'undo left the rest running');
+  assert.match(await page.locator('.sx-progress').innerText(), /0 of \d+ sets/);
+  await page.context().close();
+});
+
+await test('tapping a movement name says it, straight away', async () => {
+  const page = await newPage();
+  const cues = [];
+  page.on('request', r => {
+    if (r.url().includes('/audio/cues/')) cues.push(r.url().split('/').pop());
+  });
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  // The name used to land on the first *set* tap, which is after the set is
+  // done — the app announced pull-ups once the pull-ups were over.
+  cues.length = 0;
+  await page.locator('.sx-ex').first().locator('.sx-say').click();
+  await page.waitForTimeout(250);
+  assert.ok(cues.includes('pull-up.webm'),
+    `tapping the name said nothing (heard: ${cues.join(', ') || 'silence'})`);
+  await page.context().close();
+});
+
+await test('the warm-up announces itself and the dead hang is timed', async () => {
+  const page = await newPage();
+  const cues = [];
+  page.on('request', r => {
+    if (r.url().includes('/audio/cues/')) cues.push(r.url().split('/').pop());
+  });
+  await go(page, '/strength');
+
+  // Start names the first warm-up item. v44 silenced this on the grounds that
+  // no warm-up cue was recorded; three of them already were.
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-wu');
+  await page.waitForTimeout(250);
+  assert.ok(cues.includes('warmup-arm-circle.webm'),
+    `Start did not announce the warm-up (heard: ${cues.join(', ') || 'silence'})`);
+
+  // Ticking a row announces the next one, so the list reads itself out.
+  cues.length = 0;
+  await page.locator('.sx-wu button').first().click();
+  await page.waitForTimeout(250);
+  assert.ok(cues.includes('warmup-leg-swing.webm'),
+    `ticking a row did not announce the next (heard: ${cues.join(', ') || 'silence'})`);
+
+  // Exactly one row is timed, and it is the hang.
+  assert.equal(await page.locator('.sx-wu-time').count(), 1);
+  const hangRow = page.locator('.sx-wu').filter({ has: page.locator('.sx-wu-time') });
+  assert.match(await hangRow.locator('.sx-wu-name').innerText(), /hang/i);
+  await page.context().close();
+});
+
+await test('a hold counts you in by voice, and bailing early logs nothing', async () => {
+  // Real time, not fastPage: the lead-in is only three seconds, so a sped-up
+  // clock races past the "Get set" phase before it can be asserted on.
+  const page = await newPage();
+  const cues = [];
+  page.on('request', r => {
+    if (r.url().includes('/audio/cues/')) cues.push(r.url().split('/').pop());
+  });
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  const hollow = page.locator('.sx-ex').filter({ hasText: 'Hollow body hold' }).first();
+  assert.equal(await hollow.locator('.sx-time').count(), 1, 'the hold has no timer');
+  assert.equal(await hollow.locator('.sx-set').first().innerText(), '45s');
+
+  cues.length = 0;
+  await hollow.locator('.sx-time').click();
+  await page.waitForTimeout(200);
+  assert.ok(await page.locator('.sx-hold').isVisible(), 'the hold timer did not start');
+  // Counted in by voice, not left to a silent three seconds — you are on your
+  // back looking at the ceiling and cannot see any of this.
+  assert.ok(cues.includes('countdown.webm'),
+    `no spoken countdown (heard: ${cues.join(', ') || 'silence'})`);
+  // Not uppercased. A CSS transform would shout the whole movement name and
+  // cannot make mixed case out of one string — the v28 lesson.
+  assert.equal(await page.locator('.sx-hold-l').innerText(), 'Get set · Hollow body hold');
+
+  // Stop during the lead-in: a cancel, not a zero-second hold. Logging it would
+  // count as a missed set, and two of those walk the prescription back down.
+  await page.locator('.sx-hold-stop').click();
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.sx-hold:visible').count(), 0);
+  assert.equal(await hollow.locator('.sx-set').first().getAttribute('aria-pressed'), 'false',
+    'cancelling the count-in still logged a set');
+  assert.match(await page.locator('.sx-progress').innerText(), /0 of \d+ sets/);
+  await page.context().close();
+});
+
+await test('a hold that runs to the end logs its set at the target', async () => {
+  // 3s lead-in plus a 45s hold is 48s of app time; fastPage runs the hold
+  // timer's `performance.now()` clock 40x, so this takes about a second.
+  const page = await fastPage(40);
+  await go(page, '/strength');
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+
+  const hollow = page.locator('.sx-ex').filter({ hasText: 'Hollow body hold' }).first();
+  await hollow.locator('.sx-time').click();
+  await page.waitForFunction(() => {
+    const el = document.querySelector('.sx-hold');
+    return !el || el.hidden;
+  }, null, { timeout: 15000 });
+
+  assert.equal(await hollow.locator('.sx-set').first().getAttribute('aria-pressed'), 'true',
+    'a completed hold did not log its set');
+  assert.equal(await hollow.locator('.sx-set').first().innerText(), '45s',
+    'a full hold logged something other than the target');
   await page.context().close();
 });
 
 await test('every strength cue is a real clip with sound in it', async () => {
   const page = await newPage();
-  const names = [
-    'pull-up', 'split-squat', 'archer-press-up', 'inverted-row',
-    'nordic-curl', 'pike-press-up', 'hanging-leg-raise', 'hollow-hold',
-    ...Array.from({ length: 5 }, (_, i) => `rest-over-${i + 1}`),
-  ];
+  // Derived, not hand-listed. A hard-coded list goes stale the moment the
+  // programme changes — this one still named `nordic-curl` a version after it
+  // was replaced. The two kettlebell movements have no clip recorded yet and
+  // stay out until they do; `createVoice` treats a missing clip as silence by
+  // design, so their absence is a known gap rather than a failure.
+  const noClipYet = new Set(['kb-getup', 'kb-swing']);
+  const names = await page.evaluate(async missing => {
+    const m = await import('/js/strength.js');
+    return [
+      ...m.EXERCISES.map(e => e.id).filter(id => !missing.includes(id)),
+      ...m.WARM_UP.map(w => w.cue).filter(Boolean),
+    ];
+  }, [...noClipYet]);
   const report = await page.evaluate(async list => {
     const ctx = new AudioContext();
     const out = [];

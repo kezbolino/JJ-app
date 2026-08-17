@@ -2366,33 +2366,140 @@ data if forgotten:
 
   Ten suites green. sw `CACHE` → v48, `VERSION` → v48.
 
+- 2026-08-17 — **v49: the strength module after its first real session.** The
+  user lifted the whole programme for the first time and came back with six
+  things. Five were small; one was a number that had been wrong for four
+  versions and that nothing in the app could have caught.
+
+  **The session was 93 minutes, and `docs/STRENGTH.md` said 60–75.** Measured
+  off `EXERCISES` rather than guessed: 37 sets, ~22 min of work, and **66 min of
+  standing still — 75% of the session.** The brief's figure was written by hand
+  when there were eight movements; v44 added two and nobody recomputed. **The
+  fix is not the new number, it is that the number is now derived** —
+  `sessionDuration()` / `durationLine()` are pure, tested, and rendered on the
+  intro the way the stretch routines have always led with their total. Mute a
+  movement and the estimate moves. Any figure typed into a doc will go stale
+  again; this one cannot.
+
+  **Rests were not shortened, and that was the whole judgement call.** 120s
+  looks like the obvious thing to cut, but the ladder only advances when you hit
+  the target reps *with the tempo held*, and two bad sessions regress the
+  prescription — so under-resting feeds missed reps into the engine and walks
+  your numbers backwards. Cutting rest buys twenty minutes and pays in progress.
+  Instead **`PAIRS`**: four antagonist supersets (pull/push ×3, plus legs with
+  core), alternating so the rest for one is the work for the other. Each
+  movement gets 60s + partner's set + 60s, which is *more* recovery than the
+  120s it replaced — there is a test asserting that inequality for every pair,
+  because the entire argument rests on it. Session: ~93 → ~80 min.
+
+  **`restBetween()` asks instead of assuming, and that is what makes the pairing
+  safe.** The short rest applies only while the partner actually has a set
+  waiting. Mute it, finish it, or ignore the alternation and grind one movement
+  out, and you get the full rest back. A user who never notices the supersets is
+  slower and never under-rested. Verified by breaking it: forcing the short rest
+  unconditionally drops the suite to 38.
+
+  **The Nordic curl is gone — replaced by the single-leg RDL.** No floor space,
+  no ankle anchor, so it was simply not being done, which is *worse* than a
+  missing movement: an un-performed exercise logs as missed sets every week and
+  drags its own prescription down. `noTempo`, but for a different reason than
+  the swing — a slow RDL is correct, it is the point; it is just that with three
+  bells on the floor, **load is the honest next rung**, and adding a 2s pause to
+  an 8kg hinge instead of picking up the 10kg turns a fortnight into four
+  months. The id is `single-leg-rdl` because `audio/cues/single-leg-rdl.webm`
+  already existed from the rest-day routine, so it shipped with a voice.
+  `nordic-curl.webm` was deleted and dropped from `SHELL` — dead weight in a
+  precache is exactly what rots.
+
+  **Old sessions still carry `nordic-curl` and must keep replaying.**
+  `programmeState` already skips unknown ids; there is now a test on it, because
+  that data is on the user's phone and a throw there takes the whole screen out.
+
+  **Holds are timed.** Hollow body and the warm-up's dead hang get a spoken
+  3-2-1 count-in and a clock. On a hollow body you are on your back looking at
+  the ceiling, so the **sound is the feature and the screen is a courtesy**.
+  Stopping early logs what was held; stopping inside five seconds logs *nothing*
+  — a four-second hollow body is a cancel, and recording it as a failed set
+  would move the ladder over a mis-tap.
+
+  **The warm-up speaks, and four of the five clips already existed.** v44
+  silenced the Start cue on the grounds that no warm-up clip was recorded. Three
+  were, sitting in `audio/cues/` from the rest-day routine, plus `dead-hang`.
+  They had just never been wired. Start now names the first item, and ticking a
+  row announces the next, so the list reads itself out.
+
+  **The movement name lands when you start the movement.** It used to fire on
+  the first *set* tap — i.e. after the set was over. Tapping the name now says it
+  on demand.
+
+  **The mis-tapped set was never un-undoable, and that is the lesson.** Driven
+  in a browser: the corrections panel opens on a second tap and has always had a
+  working "Not done". **Nothing on screen said so.** A logged set looks final and
+  there is no reason to guess a second tap does anything but log it twice. Two
+  cues, no new mechanism — a hint under the sets row (hidden until that card has
+  something to correct; ten copies of one sentence is help nobody reads) and an
+  **Undo that set** in the rest bar, which is where the eye already is a second
+  after the tap.
+
+  **Two bugs found by looking rather than by testing.** (1) In dark mode
+  `--accent-soft` is `rgba(…, .16)` and `--good-soft` `.12`. Fine as a tint *on*
+  a card; `.sx-rest` is a **sticky overlay**, so at 16% opacity the whole page
+  scrolled visibly through the rest countdown. True since v35, only visible once
+  you tap a set with the page scrolled down. Both bars now layer the tint over an
+  opaque `--surface` via a `linear-gradient(...)` — **any translucent token used
+  as an overlay background needs that.** (2) The intro's superset tag rendered
+  `60S BETWEEN`: a CSS `text-transform: uppercase` shouting the unit, which is
+  the *exact* bug v28 fixed on the stretch intro. Casing belongs in JS, since one
+  transform cannot make mixed case out of one string. Also caught the footer note
+  still reading "Bodyweight only" three versions after the kettlebells landed.
+
+  **A CSS specificity trap worth remembering:** the warm-up row's own
+  `.sx-wu button` rule is 0,1,1, so a new `.sx-wu-time` class (0,1,0) lost to it
+  no matter what order the rules appeared in, and the timer button rendered as a
+  second full-width row. Needed `.sx-wu button.sx-wu-time`.
+
+  **The hold timer is clocked off `performance.now()`, not `Date.now()` like the
+  rest timer.** Monotonic, so the system clock cannot stretch a hold — and it is
+  what `fastPage()` overrides, which is the only way to test a 45-second hold
+  without waiting 45 seconds.
+
+  **Test hygiene:** the clip-integrity list was hand-written and still named
+  `nordic-curl` a version after it was replaced. It derives from `EXERCISES` and
+  `WARM_UP` now, with `kb-getup`/`kb-swing` named as the known-missing pair.
+
+  sw `CACHE` → v49, `VERSION` → v49; `audio/cues/nordic-curl.webm` removed from
+  `SHELL` and from disk. No files added.
+
 ## Parked — pick this up next session
 
-**v45 and v46 are deployed.** `main` fast-forwarded from v44 (`1eae4c7`) to
-`37a699b` and pushed, so GitHub Pages is serving v46 at
-`https://kezbolino.github.io/JJ-app/`. Ship gate before pushing: ten suites
-green (`schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`),
-`CACHE` == `VERSION` == v46, clean tree, fast-forward confirmed rather than a
-merge. All three Pages jobs succeeded — `build` 23s, `deploy` 11s — checked at
-the **job** level, not the run badge, per the 2026-08-06 note above.
+**v45–v48 are deployed; v49 is built and not yet pushed.** `origin/main` is at
+`c425763` (v48) and all four Pages runs since v45 came back green at the **job**
+level, not just the run badge — per the 2026-08-06 note above, that distinction
+is the whole point. So `ankle-rock` and the eleven contact-sheet figures are
+live. **v49 is committed on `claude/whats-next-23n7su` and has not been merged
+to `main`.**
 
-**The live site could not be fetched from this session to double-check** —
-`kezbolino.github.io` is blocked by the agent proxy (403 on CONNECT). The
-green deploy job is the evidence; the footer on the phone is the confirmation.
+**The live site cannot be fetched from this session to double-check** —
+`kezbolino.github.io` is blocked by the agent proxy (403 on CONNECT). A green
+deploy job is the evidence; the footer on the phone is the confirmation.
 
-**Expect one new file in `jj-app-data` on the first sync after v46** —
-`app-state.md`, holding the deck, starred moves, promotions and the off-mat
-logs. Nothing else churns: neither version touches `js/markdown.js` or the entry
-model.
+**No churn expected in `jj-app-data` from v49** — it touches neither
+`js/markdown.js` nor the entry model. Strength sessions are settings rows and
+ride in `app-state.md`, which has existed since v46.
 
-**The visible tells that the deploy landed:** the footer reads `JUJI v46`; the
-Map carries two new cards below "Your game" (*Classes by month* and *Attention
-drift*); and Settings → How this works mentions the deck travelling.
+**The visible tells that v49 landed:** the footer reads `JUJI v49`; the strength
+intro leads with **About 1 hr 20 min**; the plan list shows four `SUPERSET`
+brackets; and Nordic curl negatives is replaced by Single-leg Romanian deadlift.
 
-**Two voice clips are outstanding** — `kb-getup` and `kb-swing`, added in v44.
-They 404 and stay silent, which is the contract, so nothing is broken. The
-script lines are: *"Turkish get-up, nephew. Slow, eyes on that bell."* and
-*"Kettlebell swings. Snap them hips, bitch."*
+**Three voice clips are outstanding** — `kb-getup` and `kb-swing` from v44, plus
+`single-leg-rdl`'s *lift* line if a Snoop-voiced one is wanted (the movement
+already speaks, using the rest-day routine's existing clip). They 404 and stay
+silent, which is the contract, so nothing is broken. The script lines are:
+*"Turkish get-up, nephew. Slow, eyes on that bell."* and *"Kettlebell swings.
+Snap them hips, bitch."*
+
+**One warm-up cue is missing:** `wu-press-ups` has no clip, so the warm-up
+announces four of its five items. A line for it would complete the set.
 
 **The `art-inbox` branch is live and unmerged**, waiting for raster figures.
 Images attached in chat are rendered into context but never written to disk, so
