@@ -2472,12 +2472,29 @@ data if forgotten:
 
 ## Parked — pick this up next session
 
-**v45–v48 are deployed; v49 is built and not yet pushed.** `origin/main` is at
-`c425763` (v48) and all four Pages runs since v45 came back green at the **job**
-level, not just the run badge — per the 2026-08-06 note above, that distinction
-is the whole point. So `ankle-rock` and the eleven contact-sheet figures are
-live. **v49 is committed on `claude/whats-next-23n7su` and has not been merged
-to `main`.**
+**v49 is merged to `main` (`c425763..2044314`, fast-forward) but the Pages
+deploy was refused by a GitHub outage.** Ship gate was clean: ten suites green,
+`CACHE` == `VERSION` == v49, clean tree, fast-forward not a merge.
+
+**This failure is a different animal from the 2026-08-06 one above, and the
+difference is the whole point of that note.** Then, `deploy` polled for ten
+minutes, timed out, and the content went live anyway. Here:
+
+- `build` — **succeeded**, 28s, artifact uploaded.
+- `deploy` — **failed in 2 seconds**: `HTTP 503, No server is currently
+  available to service your request` from the Pages deployment API.
+
+A two-second failure is an immediate rejection, not a slow backend, so **nothing
+was published** — the phone stays on v48 until this is re-run. The rule that
+falls out of it: read the *duration* of a failed `deploy` job, not just its
+conclusion. Seconds means refused and nothing shipped; minutes-then-timeout
+means it may well have shipped anyway.
+
+`rerun_failed_jobs` was accepted (201) and then **sat at `queued` with
+`run_attempt: 1` for over five minutes** — the same stuck-re-run state recorded
+in the 2026-08-06 note, where the fix is a fresh commit rather than waiting.
+**If the site is still on v48, push any commit to `main` to trigger a clean
+run.**
 
 **The live site cannot be fetched from this session to double-check** —
 `kezbolino.github.io` is blocked by the agent proxy (403 on CONNECT). A green
