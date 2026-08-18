@@ -83,6 +83,19 @@ const go = async (page, hash) => {
 const localISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const daysAgo = n => localISO(new Date(Date.now() - n * 864e5));
 
+// Days since this week's Monday — js/dates.js counts weeks Monday-first.
+const sinceMonday = () => (new Date().getDay() + 6) % 7;
+/**
+ * A date `weeksBack` whole weeks ago, `dayOffset` days after that week's Monday.
+ *
+ * Anchoring to the week grid rather than counting raw days back is what makes a
+ * streak fixture mean the same thing on every weekday. `daysAgo(1)` and
+ * `daysAgo(3)` straddle a Monday if today is a Tuesday or a Wednesday, so a seed
+ * meant to be "two classes a week for three weeks" silently became four weeks
+ * and the assertion failed two days in seven.
+ */
+const inWeek = (weeksBack, dayOffset) => daysAgo(sinceMonday() + weeksBack * 7 - dayOffset);
+
 // ---------------------------------------------------------------------------
 // 1. The regression that mattered: a late async re-render must not destroy the
 //    screen the user has since navigated to.
@@ -129,11 +142,12 @@ await test('a sync settling after you navigate away cannot wipe the log form', a
 
 await test('the strip shows a week streak, and the calendar is not on screen until asked', async () => {
   const page = await newPage();
-  // Two classes a week for three weeks, so the streak is unambiguous.
+  // Two classes in each of the three completed weeks — Monday and Wednesday of
+  // each — so the streak is exactly 3 whatever day this test runs on.
   await seed(page, [
-    { date: daysAgo(1), gi: 'gi' }, { date: daysAgo(3), gi: 'nogi' },
-    { date: daysAgo(8), gi: 'gi' }, { date: daysAgo(10), gi: 'nogi' },
-    { date: daysAgo(15), gi: 'gi' }, { date: daysAgo(17), gi: 'nogi' },
+    { date: inWeek(1, 0), gi: 'gi' }, { date: inWeek(1, 2), gi: 'nogi' },
+    { date: inWeek(2, 0), gi: 'gi' }, { date: inWeek(2, 2), gi: 'nogi' },
+    { date: inWeek(3, 0), gi: 'gi' }, { date: inWeek(3, 2), gi: 'nogi' },
   ]);
   await go(page, '/');
   await page.waitForSelector('.sbit-total');

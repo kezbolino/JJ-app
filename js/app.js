@@ -3,6 +3,7 @@
 import { clear, h } from './ui.js';
 import { VERSION } from './version.js';
 import { beginRender } from './render.js';
+import { createUpdateGate } from './swupdate.js';
 import { purgeTrash } from './store.js';
 import * as appearance from './appearance.js';
 import home from './views/home.js';
@@ -103,6 +104,25 @@ route();
 purgeTrash().catch(() => { /* the trash can wait for the next launch */ });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // Whether a worker was already driving this page when it loaded. Captured
+  // *now*, before registering, because registration is what changes it — and it
+  // is the difference between "you just installed the app" and "a new version
+  // has landed", which want opposite behaviour.
+  const hadController = Boolean(navigator.serviceWorker.controller);
+
+  const gate = createUpdateGate({ apply: () => location.reload() });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    gate.controllerChanged({ hadController, elapsedMs: performance.now() });
+  });
+
+  // The two moments where a reload cannot cost anything: the screen is being
+  // rebuilt anyway, or you have just come back to the app.
+  window.addEventListener('hashchange', () => gate.safeMoment());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') gate.safeMoment();
+  });
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
   });

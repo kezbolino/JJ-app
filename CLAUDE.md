@@ -78,6 +78,7 @@ node tests/stretches.test.mjs   # pure node, fast — routine data + timing math
 node tests/schedule.test.mjs    # pure node, fast — dates, SRS, attendance
 node tests/strength.test.mjs   # pure node, fast — the progression engine
 node tests/appstate.test.mjs   # pure node, fast — synced-settings merge rules
+node tests/swupdate.test.mjs   # pure node, fast — when a new version may reload
 python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
@@ -85,16 +86,12 @@ node tests/features.test.mjs    # Playwright; calendar, deck, trash, links,
                                 # stretch, strength
 ```
 
-**Run all ten after touching anything in `js/`.** Between them they cover the
+**Run all eleven after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
 including user corrections, backup format fidelity, multi-device sync including
 deletions, the move-suggestion engine, the stretch routines, the strength
 progression ladder, the synced-settings merge rules, and everything added in
 v17.
-
-**One known flake, unrelated to anything:** `the strip shows a week streak…` in
-`tests/features.test.mjs` is date-dependent and fails identically on unmodified
-code. It has been failing since v28. Don't chase it as a regression.
 
 `tests/schedule.test.mjs` is worth running under a couple of timezones —
 `TZ=America/Los_Angeles` and `TZ=Australia/Sydney` — because the date bugs it
@@ -2469,6 +2466,78 @@ data if forgotten:
 
   sw `CACHE` → v49, `VERSION` → v49; `audio/cues/nordic-curl.webm` removed from
   `SHELL` and from disk. No files added.
+
+- 2026-08-17 — **v50: the app updates itself.** User, after the v49 deploy went
+  green: *"bro it's still v48 for me."* It was, and the cause was mine, not the
+  deploy's.
+
+  **How it was diagnosed, because the shortcut would have been wrong.** The live
+  site cannot be fetched from this session (`kezbolino.github.io` is 403 on the
+  agent proxy, on `curl` and WebFetch alike), so "it's just your cache" would
+  have been a guess — and the last time this repo guessed that, in v10, it was a
+  real layout bug. What settles it in ten seconds is **opening the site in an
+  Incognito tab**: no worker is registered there, so the page comes straight off
+  the network. It read v49, which localises the fault to the installed PWA and
+  rules out the deploy. Worth remembering as the standard first move.
+
+  Also worth knowing: **you cannot cache-bust this app by hand.** `sw.js` is
+  cache-first, and the `ignoreSearch` fallback added in v29 for the share target
+  means `?v=2` still resolves to the cached copy. Incognito, or clearing site
+  data, are the only ways past it from a phone.
+
+  **The actual bug.** `js/app.js` registered the worker and then never listened
+  to it. Opening the app serves the old shell from cache while the new worker
+  installs behind it — `skipWaiting()` and `clients.claim()` do run, but the page
+  on screen was already built from the old files. So a new version only appeared
+  on the **second** open. That is why every deploy note in this file since v10
+  says "check the footer first": a design fault was being treated as a ritual,
+  version after version.
+
+  **The fix is not `location.reload()`, and the reason is the one rule this app
+  guards above everything.** The log form is not autosaved — unlike the strength
+  draft, which is written on every tap — so reloading while somebody is midway
+  through "What we drilled" loses it. Running yesterday's build for another
+  minute is much cheaper than eating a class writeup. So `js/swupdate.js` gates
+  it: apply immediately if the worker takes over **within 3 seconds of load**
+  (nothing can have been typed yet, and this is the common case), otherwise hold
+  it and apply at the next **route change or return to the foreground** — both
+  points where the screen is about to be rebuilt anyway.
+
+  A first-ever install is explicitly excluded: there was no previous worker, the
+  shell came off the network, and reloading would be a flash for nothing.
+
+  **`js/swupdate.js` is pure** — no DOM, no `location`, no clock; the caller
+  passes `elapsedMs` and an `apply` callback. That is what makes the rules
+  testable, and they are exactly the rules that regress in silence: too eager
+  eats a note, too shy and the app never updates. `tests/swupdate.test.mjs` is 8
+  assertions and **the suite count is now eleven.** Both failure modes were
+  verified by breaking the module first — ignoring `hadController` drops it to
+  5 passed, dropping the deferral drops it to 5.
+
+  **Proved end to end, not just unit-tested.** A throwaway harness serves a copy
+  of the site, installs the worker, rewrites `version.js` and `sw.js` on disk the
+  way a real release does, and reopens the page. Old code: still v50 after the
+  "deploy", forever. New code: v50 on reopen, then v51 by itself a moment later.
+  The same harness run against a neutered gate is what confirms the test can
+  actually fail.
+
+  **What this means for future deploys:** the "close it fully and reopen, twice,
+  and check the footer before judging anything" dance is over from v51 onward.
+  v50 itself still needs one manual reopen, because the worker doing the
+  updating is the old one that does not know how.
+
+  **The week-streak test is fixed, and it was never a flake.** It has been
+  failing since v28 and was written off as "date-dependent". It is a bad
+  fixture: the seed used `daysAgo(1)` and `daysAgo(3)`, which **straddle a
+  Monday** if today is a Tuesday or a Wednesday, so a fixture meaning "two
+  classes a week for three weeks" silently became four weeks and the assertion
+  read `4 wk`. Exactly two days in seven, which is why it looked random. It is
+  now anchored to the week grid via `inWeek(weeksBack, dayOffset)` — Monday and
+  Wednesday of each of the three completed weeks — and simulated green across
+  all seven weekdays. `weekStreak` itself was always correct; nothing in `js/`
+  changed. The "one known flake" note at the top of this file is gone with it.
+
+  sw `CACHE` → v50, `VERSION` → v50; `js/swupdate.js` added and in `SHELL`.
 
 ## Parked — pick this up next session
 
