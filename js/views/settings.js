@@ -2,6 +2,7 @@
 
 import { h, card, toast, empty, tagChip, fmtDate, BELT_RANKS } from '../ui.js';
 import * as sync from '../sync.js';
+import { VERSION } from '../version.js';
 import * as store from '../store.js';
 import * as backup from '../backup.js';
 import * as overrides from '../overrides.js';
@@ -130,6 +131,90 @@ function correctionsCard(corrections, reload) {
     h('label', 'Words you have muted'), mutedList);
 }
 
+/**
+ * The escape hatch for a stuck service worker.
+ *
+ * The worker is cache-first, so a wedged one serves yesterday's app forever and
+ * nothing on screen says why. On Chrome you can drop it from
+ * `chrome://serviceworker-internals`; **this user is on Firefox, where the only
+ * reliable route also wipes IndexedDB** — the source of truth *and* the sync
+ * token. So the app has to offer the way out itself, or the answer is "export,
+ * clear site data, reinstall, mint a new token", which is what it was.
+ *
+ * Three things, in order of how much they help:
+ *   - say which version is running, so "am I stale?" is answerable at all;
+ *   - `registration.update()` on demand, rather than waiting on the browser's
+ *     own schedule;
+ *   - if a new worker is waiting, take it and reload.
+ */
+function updateCard() {
+  const status = h('p.small.muted', `Running ${VERSION}.`);
+  const btn = h('button.btn.wide', { type: 'button' }, 'Check for updates');
+
+  btn.addEventListener('click', async () => {
+    if (!('serviceWorker' in navigator)) {
+      status.textContent = 'This browser has no service worker, so there is nothing cached to update.';
+      return;
+    }
+    btn.disabled = true;
+    status.textContent = 'Checking…';
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        status.textContent = 'No worker registered — you are already loading straight from the network.';
+        btn.disabled = false;
+        return;
+      }
+      // Ask now rather than waiting for the browser to get round to it.
+      await reg.update();
+
+      // `waiting` is a new worker held back; `installing` is one still
+      // downloading. Either means an update is really there.
+      const pending = reg.waiting ?? reg.installing;
+      if (!pending) {
+        status.textContent = `Running ${VERSION}. No update waiting — this is the latest.`;
+        btn.disabled = false;
+        return;
+      }
+      let fallback;
+      status.textContent = 'Update found. Applying…';
+      // `redundant` means the new worker was discarded — almost always because
+      // `cache.addAll(SHELL)` rejected, which is what pins a phone on an old
+      // version indefinitely. Say so: silently reloading back to the same
+      // number is the behaviour that made this impossible to diagnose.
+      pending.addEventListener('statechange', () => {
+        if (pending.state === 'redundant') {
+          clearTimeout(fallback);
+          status.textContent =
+            'An update downloaded but failed to install, so the old version is still being served. '
+            + 'That is a bug worth reporting, not something you can clear from here.';
+          btn.disabled = false;
+        }
+      });
+      // The page is about to be replaced, so anything half-typed elsewhere is
+      // already gone by the user's own choice in tapping this.
+      const go = () => location.reload();
+      if (reg.waiting) { navigator.serviceWorker.addEventListener('controllerchange', go, { once: true }); reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }
+      pending.addEventListener('statechange', () => { if (pending.state === 'activated') go(); });
+      // A worker that installs and claims without ever going through `waiting`
+      // fires controllerchange instead; and if neither lands, reload anyway
+      // rather than leaving "Applying…" on screen forever.
+      navigator.serviceWorker.addEventListener('controllerchange', go, { once: true });
+      fallback = setTimeout(go, 4000);
+    } catch (err) {
+      status.textContent = `Could not check — ${err.message}`;
+      btn.disabled = false;
+    }
+  });
+
+  return card('App version',
+    h('p.small.muted',
+      'If the version here is behind what is deployed, the offline cache is stuck. ' +
+      'This forces it to look for a new one and reload.'),
+    h('div.btn-row', btn),
+    status);
+}
+
 export default async function settings(root) {
   const config = await sync.getConfig();
   const lastSync = await sync.getLastSync();
@@ -219,6 +304,8 @@ export default async function settings(root) {
         ? h('p.small.muted', 'Pulls first, then pushes. Newer always wins.')
         : empty('Fill in the repo details above first.'),
       h('div.btn-row', h('button.btn.primary.wide', { onclick: runSync }, 'Sync now'))),
+
+    updateCard(),
 
     beltCard(promotions, standing, reload),
 

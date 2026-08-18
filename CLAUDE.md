@@ -25,10 +25,33 @@ Part of the Project Hub → `github.com/kezbolino/project-hub`.
 
 A **static offline PWA**, same model as `kezbolino/social-media-app` (Wingman) —
 *not* a localhost Node tool like Distill. Phone-first, and the phone is
-**Android/Chrome** — don't assume iOS or Safari when reasoning about storage
-limits, PWA install behaviour, mic access or OS automation. The user builds remotely
-via browser and phone, so **don't assume a local dev setup**: anything requiring
-`npm run` on their machine is the wrong choice.
+**Android (CalyxOS), running Firefox** — don't assume iOS or Safari when
+reasoning about storage limits, PWA install behaviour, mic access or OS
+automation. The user builds remotely via browser and phone, so **don't assume a
+local dev setup**: anything requiring `npm run` on their machine is the wrong
+choice.
+
+**The browser is Firefox, not Chrome** (corrected 2026-08-18; this line said
+"Android/Chrome" for the repo's whole life and it was never checked). It matters
+more than it looks:
+
+- **No `chrome://serviceworker-internals`,** so there is no surgical way to drop
+  a stuck service worker. In Firefox the only reliable route also clears
+  IndexedDB — which is the source of truth *and* holds the sync token. That is
+  why the in-app "Check for updates" control exists: it is the only escape hatch
+  this user actually has.
+- Autoplay and `AudioContext` gesture rules differ from Chrome's. The v30/v31
+  notes below reason explicitly about "Chrome is free to silently reject" a bare
+  `Audio().play()` — the conclusion (route everything through one unlocked
+  `AudioContext`) is right either way, but don't cite Chrome's policy as if it
+  were the one in force.
+- The web-push analysis in `docs/ENHANCEMENTS.md` §7 assumes Chrome→FCM. Firefox
+  uses Mozilla's own push service, which does **not** need Google Play Services —
+  so the "push probably won't work on CalyxOS" conclusion may simply be wrong.
+  Re-check it before building on that assumption either way.
+- Playwright drives Chromium, so **the test suite is not running the user's
+  engine.** It never has been. Treat a green browser suite as evidence the logic
+  works, not that it works on their phone.
 
 **No build step, no dependencies, no framework.** Plain ES modules loaded
 straight from disk. Keep it that way — it's what makes the app deployable to
@@ -2538,6 +2561,52 @@ data if forgotten:
   changed. The "one known flake" note at the top of this file is gone with it.
 
   sw `CACHE` → v50, `VERSION` → v50; `js/swupdate.js` added and in `SHELL`.
+
+- 2026-08-18 — **v51: a "Check for updates" button, and the browser was never
+  Chrome.** The user's phone sat on v48 for a day of reopens while the site
+  served v50. v50's auto-update could not help: it ships *in* the version you
+  cannot reach.
+
+  **The finding that reframes a lot of this file: the phone runs Firefox.** Line
+  28 has said "Android/Chrome" since the repo began and nobody ever checked. It
+  is not cosmetic:
+
+  - There is **no `chrome://serviceworker-internals`**, so there is no surgical
+    way to drop a stuck worker. Firefox's per-site "clear cookies and site data"
+    takes IndexedDB with it — the source of truth *and* the sync token. The only
+    recovery was export, wipe, reinstall, mint a new PAT.
+  - The v30/v31 audio notes reason about "Chrome is free to silently reject" a
+    bare `Audio().play()`. The fix (one unlocked `AudioContext`) is right either
+    way, but the cited policy was the wrong browser's.
+  - `docs/ENHANCEMENTS.md` §7 concluded push probably fails on CalyxOS because
+    Chrome web push goes via FCM. **Firefox uses Mozilla's own push service and
+    does not need Play Services, so that conclusion may simply be wrong.**
+  - Playwright drives Chromium, so **the suite has never run the user's engine.**
+    Green means the logic works, not that it works on their phone.
+
+  **The button.** Settings → App version: shows what is actually running, calls
+  `registration.update()` on demand instead of waiting on the browser, and if a
+  worker is waiting takes it and reloads. Proved against a real update rather
+  than just wired up — installed v51, rewrote `version.js`/`sw.js` on disk the
+  way a release does, tapped once, footer came back v52.
+
+  **It also reports a failed install, which is the case that was invisible.** If
+  a new worker downloads but `cache.addAll(SHELL)` rejects, the worker is
+  discarded and the old one serves forever; every reopen retries and fails
+  identically. The button watches for `redundant` and says so instead of
+  reloading back to the same number. That is the difference between "this is a
+  bug, report it" and two days of guessing at caches.
+
+  `sw.js` gained a `SKIP_WAITING` message handler. `install` already calls
+  `skipWaiting()` so a waiting worker is rare, but without the handler the
+  button's `postMessage` is silently ignored and it appears to hang.
+
+  **A note for the next stuck-version report:** check `SHELL` against the
+  *committed tree*, not local disk — `os.path.isfile` happily finds untracked
+  files that were never deployed. It was clean here, which is what ruled out the
+  usual cause.
+
+  sw `CACHE` → v51, `VERSION` → v51. No files added.
 
 ## Parked — pick this up next session
 

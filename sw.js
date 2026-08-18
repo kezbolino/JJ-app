@@ -3,7 +3,7 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v50';
+const CACHE = 'jj-app-v51';
 
 const SHELL = [
   './',
@@ -127,6 +127,14 @@ self.addEventListener('install', event => {
       .then(cache => cache.addAll(SHELL))
       .then(() => self.skipWaiting())
   );
+});
+
+// Let the page ask a waiting worker to take over — the "Check for updates"
+// button in Settings. `install` already calls skipWaiting(), so a worker should
+// rarely be left waiting; this covers the case where it is, because without a
+// handler that postMessage is silently ignored and the button appears to hang.
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
