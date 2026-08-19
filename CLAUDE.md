@@ -2782,20 +2782,30 @@ ride in `app-state.md`, which has existed since v46.
 intro leads with **About 1 hr 20 min**; the plan list shows four `SUPERSET`
 brackets; and Nordic curl negatives is replaced by Single-leg Romanian deadlift.
 
-**Three voice clips are outstanding, and now only in Snoop.** `kb-getup`,
-`kb-swing` and `wu-press-ups` were recorded for Arnold in v52 and ship; the
-Snoop folder has never had them, so a Snoop session is silent on the two
-kettlebell lifts and the warm-up press-ups while an Arnold one is not. They 404
-and stay silent, which is the contract, so nothing is broken — but the two
-voices no longer match, and that is the only thing between them. The Snoop
-script lines are: *"Turkish get-up, nephew. Slow, eyes on that bell."*,
-*"Kettlebell swings. Snap them hips, bitch."* and a press-ups line to write.
-`single-leg-rdl`'s *lift* line is still optional — the movement already speaks,
-using the rest-day routine's existing clip.
+**Three voice clips are outstanding, and now only in Snoop** — `kb-getup`,
+`kb-swing` and `wu-press-ups`, all in the strength module. Arnold got them in
+v52; Snoop has never had them, so a Snoop session is silent where an Arnold one
+speaks. Silence is the contract, so nothing is broken — but it is the only thing
+between the two voices. The lines are written down in **`docs/VOICE-SCRIPTS.md`
+→ Snoop — still to record**; two are drafted from v44 and the press-ups one
+still needs writing.
 
-**Five Arnold finish lines are recorded and unused** — see the section in
-`docs/VOICE-SCRIPTS.md`. The app has no spoken finish cue; giving it one is a
-feature, and it would want a Snoop counterpart.
+**`wu-press-ups` is not wired at all, in either voice.** `WARM_UP` in
+`js/strength.js` carries `cue: null` for it, from when no clip existed, so
+nothing ever requests the file — Arnold's is on disk and in the precache,
+unreachable. One line to fix, and it belongs in the same commit as the Snoop
+recording or the warm-up starts speaking in one voice and not the other. This is
+the same shape of bug as the v41 finding that four v39 clips were written to
+disk and never added to `SHELL`: the file existing is not the same as the app
+being able to reach it.
+
+**Five Arnold finish lines are recorded and unused** — `docs/VOICE-SCRIPTS.md`
+→ *Arnold — session complete*, transcribed there with the caveat that they are
+reconstructed from the filename slugs plus a rough `pocketsphinx` pass, not from
+a script. The app has no spoken finish cue at all: routines end on the chime,
+lifts on the summary screen. Giving it one is a feature — it needs a slot, and
+Snoop counterparts, or finishing a session speaks in one voice and is silent in
+the other. Ids `finish-1..5` would drop straight into `pickCue`.
 
 **The `art-inbox` branch is live and unmerged**, waiting for raster figures.
 Images attached in chat are rendered into context but never written to disk, so

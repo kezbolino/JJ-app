@@ -4,13 +4,13 @@ Every spoken cue in the app, per voice.
 
 **Status.** Arnold is recorded and shipped — all 62 lines below, cut one per
 file and verified against their own script text before encoding. Snoop is the
-original set and is three lines short of it: `kb-getup`, `kb-swing` and
-`wu-press-ups` have never been recorded in that voice, so a Snoop session is
-silent on the two kettlebell lifts and the warm-up press-ups. That is the
-standing contract for a missing clip, not a bug — but those three lines are the
-only thing keeping the two voices from matching. The **id is the filename** —
-`audio/cues/<voice>/<id>.webm` — and the app asks for a cue by movement id, so
-a line recorded under the wrong name is silent rather than wrong.
+original set and is three lines short of it — see **Snoop — still to record**
+below. A missing clip is silence by design, not a bug, but those three lines are
+the only thing keeping the two voices from matching.
+
+The **id is the filename** — `audio/cues/<voice>/<id>.webm` — and the app asks
+for a cue by movement id, so a line recorded under the wrong name is silent
+rather than wrong.
 
 Two ids are deliberately shared between sections: `single-leg-rdl` is both a
 rest-day movement and a strength lift, and `dead-hang` is both a rest-day
@@ -129,16 +129,57 @@ back, and the cue's whole job is to tell you what is coming.
 
 ---
 
-## Five lines with nowhere to play
+## Snoop — still to record (3)
 
-The Arnold take also included five finish lines — "Session complete, you did
-good", "The workout is over", "Finished, everybody out of the pool", "Done, you
-have earned it", "That is it, we are done". They are **not shipped**, because
-the app has no spoken finish cue: a routine ends on the synthesised three-note
-chime from `js/beeps.js` and a lift ends on its summary screen. Adding one is a
-feature, not a wiring job — it needs a slot, a Snoop counterpart, and a decision
-about whether the end of a session wants a voice at all. The recordings are in
-the source zip if it is ever wanted.
+The two voices are otherwise identical. These three ids exist in Arnold and have
+never existed in Snoop, so a Snoop session is silent where an Arnold one speaks.
+All three are in the strength module.
+
+| id | where it plays | line |
+|---|---|---|
+| `kb-getup` | Turkish get-up — the lift name, on its first set and at the end of a rest | Turkish get-up, nephew. Slow, eyes on that bell. |
+| `kb-swing` | Kettlebell swings — same two moments | Kettlebell swings. Snap them hips, bitch. |
+| `wu-press-ups` | The strength warm-up checklist, announced by ticking the row above it | *(to write)* |
+
+**`wu-press-ups` is not wired in either voice.** `WARM_UP` in `js/strength.js`
+carries `cue: null` for it, from when no clip existed, so nothing ever requests
+the file — Arnold's is on disk and precached but unreachable. Wiring it is one
+line; do that in the same commit as the Snoop recording, or the warm-up starts
+speaking in one voice and not the other.
+
+`single-leg-rdl` is deliberately *not* on this list. It is a lift and a rest-day
+movement sharing one id, and the rest-day clip already covers both.
+
+---
+
+## Arnold — session complete (5, recorded, not wired)
+
+Five finish lines came with the v52 Arnold batch and are **not shipped**. The
+app has no spoken finish cue: a routine ends on the synthesised three-note chime
+in `js/beeps.js` and a lift ends on its summary screen. Wiring them is a
+feature — it needs a slot, a picker (these are a pool, like `hype-N`), and Snoop
+counterparts, or finishing a session would speak in one voice and be silent in
+the other. The recordings are in the source zip.
+
+Ids follow the `rest-over-N` / `hype-N` convention, so `pickCue(FINISH_CUES, …)`
+in `js/stretches.js` would drive them with no new mechanism.
+
+| id | line |
+|---|---|
+| `finish-1` | Session complete. You did it. Well done. |
+| `finish-2` | That is it. We are all finished. Now go and eat. |
+| `finish-3` | Done. You have earned that. I am proud of you. |
+| `finish-4` | The workout is over. I'll be back tomorrow. |
+| `finish-5` | Finished. Everybody out of the pool. Go! |
+
+**These five lines are reconstructed, not transcribed cleanly.** There was no
+script for them — they arrived as extra files beyond the 62 in
+`voice-record-list.txt`. Each line above is the filename's slug (which is only
+the first four words) plus a `pocketsphinx` pass over the audio, which is rough:
+it heard "That is it" as "others it's" and "the workout is over" as "would
+produce over". The *sense* of each is certain and the opening words are exact;
+the tails are best-effort. Correct them against the source before recording
+Snoop versions to match.
 
 ## Recording notes
 
