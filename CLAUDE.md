@@ -2744,7 +2744,15 @@ data if forgotten:
   *were* wired, so it passed on the bug it was named for — verified by
   reintroducing `cue: null` before keeping it.
 
-  Eleven suites green (69 browser assertions in `features`, 30 in `stretches`;
+  **Postscript, same day again: the finish cue is wired.** The five "session
+  complete" lines went in with both voices complete, on the user's call that the
+  chime should come first and the voice follow it. The browser test asserts the
+  *order*, not just that a line played — it fails both ways, verified by firing
+  the voice at 0ms (caught: "played before the screen even said it was done")
+  and by removing it (caught: "heard no finish line"). Ordering is exactly the
+  kind of thing that regresses without anything looking wrong.
+
+  Eleven suites green (70 browser assertions in `features`, 31 in `stretches`;
   `schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`),
   screenshot-checked the new picker in light and dark with no overflow at 390px.
   `audio/cues/` is now 121 clips, 2.1 MB, all precached — the biggest single
@@ -2815,14 +2823,23 @@ v41 lesson pointed the other way. v41 was a file on disk missing from `SHELL`
 neither the SHELL/disk test nor the "does the clip have sound in it" test can
 see it. **A cue needs a file, a precache entry *and* a caller.**
 
-**Five "session complete" lines are recorded in both voices and still unwired.**
-`docs/VOICE-SCRIPTS.md` → *Session complete*. The app has no spoken finish cue
-at all: routines end on the synthesised chime, lifts on the summary screen. The
-"both voices or neither" blocker is gone; what is left is a design call —
-whether the voice replaces the chime or follows it. Ids `finish-1..5` would drop
-straight into `pickCue`. The clips are not in `audio/cues/`, deliberately: the
-reachability test above would fail them as dead weight, which is the test doing
-its job.
+**The spoken finish cue shipped in v52.** A completed routine or lift chimes,
+then speaks one of five "session complete" lines, in whichever voice the session
+is running. **Chime first, voice after** — the chime is the signal that the
+session is over, the same three notes every time and readable without looking;
+the line is the flourish on top, and one arriving *instead* of the chime would
+be a worse signal. It lands at 900ms, just past the chime's last note.
+
+Two things in it are worth keeping. `voice.say` now returns the clip's length,
+and the routine's teardown waits that long before closing its audio contexts —
+a fixed timeout would have to suit the longest line in the longest voice and
+would go stale the moment one is re-recorded, and closing early cuts the line
+off mid-sentence. And `pickFinish()` carries **no** no-repeat state, unlike the
+hype and other-side pickers: a session finishes exactly once, so there is no
+previous take within it to avoid, and threading one through would be dead state.
+
+Ending a session early plays neither the chime nor the line — that is not a
+session you finished.
 
 **The `art-inbox` branch is live and unmerged**, waiting for raster figures.
 Images attached in chat are rendered into context but never written to disk, so

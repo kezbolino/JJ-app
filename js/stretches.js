@@ -463,8 +463,19 @@ export function pickCue(count, last, rand = Math.random) {
   return n >= last ? n + 1 : n;                     // skip over `last`
 }
 
+/**
+ * "Session complete" lines — `audio/cues/<voice>/finish-N.webm`.
+ *
+ * These follow the finish chime rather than replacing it. The chime is the
+ * signal that the routine is over and it is the same three notes every time,
+ * which is what makes it readable without looking; the voice is the flourish
+ * on top, and a flourish that arrives instead of the signal is a worse signal.
+ */
+export const FINISH_CUES = 5;
+
 export const pickOtherSide = (last, rand) => pickCue(OTHER_SIDE_CUES, last, rand);
 export const pickHype = (last, rand) => pickCue(HYPE_CUES, last, rand);
+export const pickFinish = (last, rand) => pickCue(FINISH_CUES, last, rand);
 
 /** Does this item have a drawing yet? See PENDING_ART in stretch-art.js. */
 export function hasArt(item) {

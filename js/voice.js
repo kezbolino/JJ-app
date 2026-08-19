@@ -65,17 +65,28 @@ export function createVoice(voice = DEFAULT_VOICE) {
      * cache is exactly the moment you are not looking at the screen.
      */
     preload: id => { const c = ensure(); if (c) load(c, id); },
+    /**
+     * Play a clip. Resolves with its length in seconds, or 0 if there was
+     * nothing to play.
+     *
+     * The length is returned because the finish cue needs it: the routine
+     * tears its audio contexts down once the session ends, and closing them
+     * mid-sentence cuts the clip off. A fixed timeout would have to be long
+     * enough for the longest line in the longest voice, and would go stale the
+     * moment a line is re-recorded — asking the buffer cannot.
+     */
     say: async id => {
       const c = ensure();
-      if (!c) return;
+      if (!c) return 0;
       const buf = await load(c, id);
-      if (!buf || closed) return;   // torn down while the clip was still decoding
+      if (!buf || closed) return 0;   // torn down while the clip was still decoding
       stop();
       const src = c.createBufferSource();
       src.buffer = buf;
       src.connect(c.destination);
       src.start();
       current = src;
+      return buf.duration;
     },
     stop,
     close: () => { stop(); closed = true; if (ctx) { ctx.close().catch(() => {}); ctx = null; } },

@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
   ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
-  READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, HYPE_CUES, pickOtherSide, pickHype,
+  READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, HYPE_CUES, FINISH_CUES,
+  pickOtherSide, pickHype, pickFinish,
   phasesFor, segmentAt,
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
@@ -239,6 +240,14 @@ test('the picker is uniform over the takes it is allowed to choose', () => {
   assert.deepEqual([0, 0.99].map(v => pickOtherSide(0, at(v))), [1, 6]);
 });
 
+test('the finish picker reaches every take', () => {
+  // No no-repeat guarantee to test: a session finishes once, so pickFinish is
+  // always called with no previous take and draws from all five.
+  const seen = new Set();
+  for (let i = 0; i < 400; i++) seen.add(pickFinish());
+  assert.equal(seen.size, FINISH_CUES, `only reached ${[...seen].sort().join()}`);
+});
+
 test('the hype picker behaves the same way, over its own count', () => {
   let last = 0;
   for (let i = 0; i < 3000; i++) {
@@ -306,6 +315,7 @@ test('there is a recorded take behind every number a picker can return', () => {
   const want = [
     ...Array.from({ length: OTHER_SIDE_CUES }, (_, i) => `other-side-${i + 1}`),
     ...Array.from({ length: HYPE_CUES }, (_, i) => `hype-${i + 1}`),
+    ...Array.from({ length: FINISH_CUES }, (_, i) => `finish-${i + 1}`),
     'countdown',
   ];
   for (const [voice, ids] of Object.entries(swCues())) {
@@ -401,6 +411,7 @@ test('every precached clip is one the app can actually ask for', () => {
     ...Array.from({ length: OTHER_SIDE_CUES }, (_, i) => `other-side-${i + 1}`),
     ...Array.from({ length: HYPE_CUES }, (_, i) => `hype-${i + 1}`),
     ...Array.from({ length: restOverCues() }, (_, i) => `rest-over-${i + 1}`),
+    ...Array.from({ length: FINISH_CUES }, (_, i) => `finish-${i + 1}`),
   ]);
 
   for (const [voice, ids] of Object.entries(swCues())) {

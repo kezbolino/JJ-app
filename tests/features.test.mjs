@@ -987,6 +987,7 @@ await test('the rest-day warm-up flows straight through — no get-ready, no res
 async function fastPage(factor) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   context.setDefaultTimeout(8000);
+  await context.addInitScript(v => { localStorage.setItem('jj-voice', v); }, TEST_VOICE);
   await context.addInitScript(f => {
     const orig = performance.now.bind(performance);
     const t0 = orig();
@@ -1015,6 +1016,34 @@ await test('during rest the screen shows what is next, not what you just did', a
   // The counter still belongs to the set that is resting; the picture does not.
   assert.match(await page.locator('.st-step').innerText(), /work 6 of 23/i);
   assert.match(await page.locator('.st-phase').innerText(), /rest/i);
+  await page.context().close();
+});
+
+await test('a finished routine chimes, then speaks', async () => {
+  // Order matters and is the whole of the design: the chime is the signal that
+  // the routine is over — same three notes every time, readable without
+  // looking — and the voice is the flourish after it. A line that arrives
+  // *instead* of the chime is a worse signal.
+  //
+  // The clock is sped up but `setTimeout` is not, so the gap between the two is
+  // a real 900ms however fast the routine ran.
+  const page = await fastPage(400);
+  const cues = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/audio/cues/')[1]);
+  });
+
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-done', { timeout: 20000 });
+  assert.ok(!cues.some(c => c.includes('finish-')),
+    'the finish line played before the screen even said it was done');
+
+  await page.waitForFunction(() => true);
+  await page.waitForTimeout(1500);          // past CHIME_MS, into the spoken line
+  const spoken = cues.filter(c => c.includes('finish-'));
+  assert.equal(spoken.length, 1, `heard ${spoken.join() || 'no finish line'}`);
+  assert.match(spoken[0], /^snoop\/finish-[1-5]\.webm$/);
   await page.context().close();
 });
 

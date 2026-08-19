@@ -8,8 +8,8 @@ v52; Snoop's last three (`kb-getup`, `kb-swing`, `wu-press-ups`) landed with it.
 There is a test asserting every voice can name everything the app speaks, so a
 future movement cannot quietly ship in one voice and not the other.
 
-Still unwired: the five **session complete** lines, now recorded in both voices.
-The app has no spoken finish cue to put them in — see that section below.
+That includes the five **session complete** lines, wired in v52: a finished
+routine or lift chimes, then speaks.
 
 The **id is the filename** — `audio/cues/<voice>/<id>.webm` — and the app asks
 for a cue by movement id, so a line recorded under the wrong name is silent
@@ -156,19 +156,28 @@ movement sharing one id, and the rest-day clip already covers both.
 
 ---
 
-## Session complete (5, recorded in both voices, not wired)
+## Session complete (5, shipped)
 
-Five finish lines came with the Arnold batch and Snoop counterparts followed.
-Both sets are recorded; neither is **shipped**, and they are not in
-`audio/cues/`. The
-app has no spoken finish cue: a routine ends on the synthesised three-note chime
-in `js/beeps.js` and a lift ends on its summary screen. Wiring them is a
-feature — it needs a slot and a decision about whether the voice replaces the
-chime or follows it. The "both voices or neither" blocker is gone; what is left
-is the design. The recordings are in the source zips.
+**The chime comes first, then the voice.** The three-note chime in `js/beeps.js`
+is the signal that the session is over — the same notes every time, readable
+without looking at the phone — and the spoken line is the flourish on top. A
+line arriving *instead* of the chime would be a worse signal, so it lands 900ms
+later, just after the chime's last note ends at ~840ms.
 
-Ids follow the `rest-over-N` / `hype-N` convention, so `pickCue(FINISH_CUES, …)`
-in `js/stretches.js` would drive them with no new mechanism.
+They play at the end of a completed routine and at the end of a lift. Ending
+early plays neither: that is not a session you finished. Muting silences both,
+as it always has.
+
+`pickFinish()` in `js/stretches.js` draws from all five with no no-repeat state,
+unlike the hype and other-side pickers — a session finishes exactly once, so
+there is no previous take within it to avoid.
+
+**Teardown waits for the clip to actually end.** `voice.say` returns the buffer
+length and the routine holds its audio contexts open for that long plus a
+margin; closing them underneath would cut the line off mid-sentence, and the
+takes differ by seconds between the two voices (Snoop 1.7–3.1s, Arnold
+2.9–5.4s). A fixed timeout would have to suit the longest line in the longest
+voice and would go stale the moment one is re-recorded.
 
 | id | Arnold | Snoop |
 |---|---|---|

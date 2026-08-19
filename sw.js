@@ -20,7 +20,8 @@ const CUES = {
   snoop: [
     'ankle-rock', 'archer-press-up', 'bear-crawl', 'childs-pose',
     'copenhagen', 'cossack-squat', 'countdown', 'dead-hang',
-    'deep-squat-hold', 'frog', 'glute-bridge-single', 'hanging-leg-raise',
+    'deep-squat-hold', 'finish-1', 'finish-2', 'finish-3', 'finish-4',
+    'finish-5', 'frog', 'glute-bridge-single', 'hanging-leg-raise',
     'hip-flexor-lunge', 'hollow-hold', 'hype-1', 'hype-10', 'hype-2',
     'hype-3', 'hype-4', 'hype-5', 'hype-6', 'hype-7', 'hype-8', 'hype-9',
     'inverted-row', 'jefferson-curl', 'kb-getup', 'kb-swing',
@@ -36,7 +37,8 @@ const CUES = {
   arnold: [
     'ankle-rock', 'archer-press-up', 'bear-crawl', 'childs-pose',
     'copenhagen', 'cossack-squat', 'countdown', 'dead-hang',
-    'deep-squat-hold', 'frog', 'glute-bridge-single', 'hanging-leg-raise',
+    'deep-squat-hold', 'finish-1', 'finish-2', 'finish-3', 'finish-4',
+    'finish-5', 'frog', 'glute-bridge-single', 'hanging-leg-raise',
     'hip-flexor-lunge', 'hollow-hold', 'hype-1', 'hype-10', 'hype-2',
     'hype-3', 'hype-4', 'hype-5', 'hype-6', 'hype-7', 'hype-8', 'hype-9',
     'inverted-row', 'jefferson-curl', 'kb-getup', 'kb-swing',

@@ -31,6 +31,7 @@ import { createBeeper } from '../beeps.js';
 import { createWakeLock } from '../wakelock.js';
 import { createVoice } from '../voice.js';
 import { pickVoice, VOICE_IDS } from '../voices.js';
+import { pickFinish } from '../stretches.js';
 import { getVoicePref } from '../appearance.js';
 import { pickCue } from '../stretches.js';
 import * as store from '../store.js';
@@ -67,6 +68,9 @@ function sinceLine(last, today) {
 
 /** How many generic "rest is over" takes are recorded in audio/cues/. */
 const REST_OVER_CUES = 5;
+
+/** How long the finish chime rings for, so the spoken line lands after it. */
+const CHIME_MS = 900;
 
 function createRestTimer(beep, wake, voice, token) {
   const count = h('span.sx-rest-n');
@@ -1003,6 +1007,11 @@ export default async function strength(root, { view } = {}) {
         restTimer.stop();
         holdTimer.stop();
         beep.finish();
+        // Chime first, voice after — same order as a routine's finish, and the
+        // same reason: the chime is the signal, the line is the flourish. No
+        // teardown to time here, because this screen keeps its audio alive for
+        // as long as it is mounted; the summary renders underneath it.
+        if (!beep.isMuted()) setTimeout(() => voice.say(`finish-${pickFinish()}`), CHIME_MS);
         const changes = sessionChanges(sessions, current);
         await store.saveStrengthSession(current);
         // Rebuilding the whole view is what refreshes the plan off the log that

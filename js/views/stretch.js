@@ -53,7 +53,7 @@ import { createWakeLock } from '../wakelock.js';
 import { logMobilitySession } from '../store.js';
 import {
   DEFAULT_ROUTINE, getRoutine, segments, routineMs,
-  clock, stretchFigure, pickOtherSide, pickHype, segmentAt,
+  clock, stretchFigure, pickOtherSide, pickHype, pickFinish, segmentAt,
 } from '../stretches.js';
 
 // ---------------------------------------------------------------------------
@@ -201,7 +201,18 @@ function startSession(routine) {
   engineTick();
 }
 
-/** The routine ran its full length. Let the finish chime ring out, then clean up. */
+/**
+ * The routine ran its full length. Chime, then the voice, then clean up.
+ *
+ * The chime's last note ends around 840ms in, so the spoken line starts at
+ * CHIME_MS and lands just after it rather than over it — the chime is the
+ * signal that the routine is over, the voice is the flourish on top. Teardown
+ * then waits for however long that clip actually runs, because closing the
+ * audio contexts underneath it would cut it off mid-sentence, and the lines
+ * differ by seconds between the two voices.
+ */
+const CHIME_MS = 900;
+
 function finishSession() {
   const s = session;
   if (!s || s.finished) return;
@@ -214,7 +225,17 @@ function finishSession() {
   s.timer = null;
   s.beep.finish();
   for (const paint of s.renderers) paint({ done: true });
-  setTimeout(() => { if (session === s) endSession(); }, 900);
+
+  setTimeout(async () => {
+    if (session !== s) return;               // ended by hand while the chime rang
+    // Muted covers the voice as well as the beeps, and has since v29 — there is
+    // one mute button and it means "no sound", not "no tones".
+    const secs = s.beep.isMuted() ? 0 : await s.voice.say(`finish-${pickFinish()}`);
+    // No "don't repeat the last one" state here, unlike the hype and
+    // other-side pickers: a session finishes exactly once, so there is no
+    // previous take within it to avoid. Every session draws from all five.
+    if (session === s) setTimeout(() => { if (session === s) endSession(); }, secs * 1000 + 200);
+  }, CHIME_MS);
 }
 
 /** The only way the engine actually stops: End routine, or the timeout above. */
