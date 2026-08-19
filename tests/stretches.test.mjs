@@ -11,6 +11,7 @@ import {
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
 import { VOICE_IDS, VOICES, pickVoice } from '../js/voices.js';
+import { EXERCISES, WARM_UP } from '../js/strength.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -355,15 +356,57 @@ test('every recorded clip is precached, and every precached clip exists', () => 
   }
 });
 
-test('every voice names every movement in both routines', () => {
+test('every voice names every movement the app can speak', () => {
   // A voice is chosen per session, so a movement one voice cannot name is a
   // cue that vanishes on half your sessions — much harder to notice than one
-  // that is always missing. Ragged *extras* are fine (Arnold carries three
-  // cues Snoop has never had); a ragged *routine* is not.
-  const items = ROUTINES.flatMap(r => r.items.map(i => i.id));
+  // that is always missing, and it is what the two voices were ragged on until
+  // the Snoop kettlebell and press-up lines were recorded.
+  //
+  // Both routines *and* the strength module: the lifts are cues too, and they
+  // were the three that were missing.
+  const spoken = [
+    ...ROUTINES.flatMap(r => r.items.map(i => i.id)),
+    ...EXERCISES.map(e => e.id),
+    ...WARM_UP.map(w => w.cue).filter(Boolean),
+  ];
   for (const [voice, ids] of Object.entries(swCues())) {
-    for (const id of items) {
+    for (const id of spoken) {
       assert.ok(ids.includes(id), `${voice} cannot say "${id}" — it is silent on that movement`);
+    }
+  }
+});
+
+// REST_OVER_CUES is module-local to js/views/strength.js, which imports the DOM
+// and so cannot be pulled into node. Read the number rather than copying it: a
+// copy is a second place to update and it would go stale silently.
+function restOverCues() {
+  const view = readFileSync(new URL('../js/views/strength.js', import.meta.url), 'utf8');
+  const m = view.match(/const REST_OVER_CUES = (\d+);/);
+  assert.ok(m, 'js/views/strength.js no longer declares REST_OVER_CUES');
+  return Number(m[1]);
+}
+
+test('every precached clip is one the app can actually ask for', () => {
+  // The gap this closes is not a missing file — it is a file nobody requests.
+  // `wu-press-ups` sat wired as `cue: null` in WARM_UP for two versions after
+  // its clip was on disk and in the precache: downloaded on every update,
+  // unreachable, and silent in a way no other test could see. A clip that
+  // nothing can name is dead weight at best and a wiring bug at worst.
+  const reachable = new Set([
+    ...ROUTINES.flatMap(r => r.items.map(i => i.id)),
+    ...EXERCISES.map(e => e.id),
+    ...WARM_UP.map(w => w.cue).filter(Boolean),
+    // The generic pools, chosen by number rather than named by a movement.
+    'countdown',
+    ...Array.from({ length: OTHER_SIDE_CUES }, (_, i) => `other-side-${i + 1}`),
+    ...Array.from({ length: HYPE_CUES }, (_, i) => `hype-${i + 1}`),
+    ...Array.from({ length: restOverCues() }, (_, i) => `rest-over-${i + 1}`),
+  ]);
+
+  for (const [voice, ids] of Object.entries(swCues())) {
+    for (const id of ids) {
+      assert.ok(reachable.has(id),
+        `${voice}/${id}.webm is precached but nothing in the app requests it`);
     }
   }
 });

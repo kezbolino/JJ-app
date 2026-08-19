@@ -390,7 +390,7 @@ export const WARM_UP = [
   { id: 'wu-arm-circles', name: 'Arm circles', dose: '20 forward, 20 back', cue: 'warmup-arm-circle' },
   { id: 'wu-leg-swings', name: 'Leg swings', dose: '10 each leg, each way', cue: 'warmup-leg-swing' },
   { id: 'wu-squats', name: 'Bodyweight squats', dose: '10 reps, full depth', cue: 'warmup-squat' },
-  { id: 'wu-press-ups', name: 'Press-ups', dose: '10 reps', cue: null },
+  { id: 'wu-press-ups', name: 'Press-ups', dose: '10 reps', cue: 'wu-press-ups' },
   { id: 'wu-dead-hang', name: 'Dead hang', dose: '20–30 seconds', cue: 'dead-hang', holdSec: 30 },
 ];
 

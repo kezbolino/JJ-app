@@ -2726,7 +2726,25 @@ data if forgotten:
   length, which is exactly the per-item special-casing the segment engine has
   resisted since v27.
 
-  Eleven suites green (69 browser assertions in `features`, 29 in `stretches`;
+  **Postscript, same day: Snoop's last three landed too**, so both voices ship
+  complete at 62 clips. Encoded −6.3 dB to match the rest of the Snoop set,
+  which the new take overshot by the same margin Arnold's did. The three cue
+  lines verified by slug against the script exactly; two of the five finish
+  lines were reworded at the mic, which does not matter — finish lines are a
+  pool, any one plays in any slot — but the doc says so rather than pretending
+  the script was followed.
+
+  **And a bug came out of it that no existing test could see.** `wu-press-ups`
+  was wired as `cue: null` in `WARM_UP`, so its Arnold clip shipped to disk and
+  to `SHELL` and was never requested by anything. The SHELL/disk test passed
+  (the file is in both), and the clip-integrity test passed (it decodes and has
+  sound). A cue needs a file, a precache entry **and** a caller, and only the
+  third was missing. `every precached clip is one the app can actually ask for`
+  is the test for it; the first version of that test checked only cues that
+  *were* wired, so it passed on the bug it was named for — verified by
+  reintroducing `cue: null` before keeping it.
+
+  Eleven suites green (69 browser assertions in `features`, 30 in `stretches`;
   `schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`),
   screenshot-checked the new picker in light and dark with no overflow at 390px.
   `audio/cues/` is now 121 clips, 2.1 MB, all precached — the biggest single
@@ -2782,30 +2800,29 @@ ride in `app-state.md`, which has existed since v46.
 intro leads with **About 1 hr 20 min**; the plan list shows four `SUPERSET`
 brackets; and Nordic curl negatives is replaced by Single-leg Romanian deadlift.
 
-**Three voice clips are outstanding, and now only in Snoop** — `kb-getup`,
-`kb-swing` and `wu-press-ups`, all in the strength module. Arnold got them in
-v52; Snoop has never had them, so a Snoop session is silent where an Arnold one
-speaks. Silence is the contract, so nothing is broken — but it is the only thing
-between the two voices. The lines are written down in **`docs/VOICE-SCRIPTS.md`
-→ Snoop — still to record**; two are drafted from v44 and the press-ups one
-still needs writing.
+**Both voices are complete as of v52.** 62 clips each; every movement in both
+routines and every strength lift is nameable in either. The last three
+(`kb-getup`, `kb-swing`, `wu-press-ups`) were recorded in Snoop and shipped in
+the same version. A test now asserts every voice can name everything the app
+speaks, so a movement added later cannot quietly ship in one voice only.
 
-**`wu-press-ups` is not wired at all, in either voice.** `WARM_UP` in
-`js/strength.js` carries `cue: null` for it, from when no clip existed, so
-nothing ever requests the file — Arnold's is on disk and in the precache,
-unreachable. One line to fix, and it belongs in the same commit as the Snoop
-recording or the warm-up starts speaking in one voice and not the other. This is
-the same shape of bug as the v41 finding that four v39 clips were written to
-disk and never added to `SHELL`: the file existing is not the same as the app
-being able to reach it.
+**`wu-press-ups` was wired to `cue: null` and nothing ever asked for it** — its
+Arnold clip sat on disk and in the precache, unreachable, for the length of that
+version. Now wired, and pinned by a new test: *every precached clip is one the
+app can actually ask for*. Worth remembering as its own failure mode — it is the
+v41 lesson pointed the other way. v41 was a file on disk missing from `SHELL`
+(silent offline); this is a file in both, wired to nothing (silent always), and
+neither the SHELL/disk test nor the "does the clip have sound in it" test can
+see it. **A cue needs a file, a precache entry *and* a caller.**
 
-**Five Arnold finish lines are recorded and unused** — `docs/VOICE-SCRIPTS.md`
-→ *Arnold — session complete*, transcribed there with the caveat that they are
-reconstructed from the filename slugs plus a rough `pocketsphinx` pass, not from
-a script. The app has no spoken finish cue at all: routines end on the chime,
-lifts on the summary screen. Giving it one is a feature — it needs a slot, and
-Snoop counterparts, or finishing a session speaks in one voice and is silent in
-the other. Ids `finish-1..5` would drop straight into `pickCue`.
+**Five "session complete" lines are recorded in both voices and still unwired.**
+`docs/VOICE-SCRIPTS.md` → *Session complete*. The app has no spoken finish cue
+at all: routines end on the synthesised chime, lifts on the summary screen. The
+"both voices or neither" blocker is gone; what is left is a design call —
+whether the voice replaces the chime or follows it. Ids `finish-1..5` would drop
+straight into `pickCue`. The clips are not in `audio/cues/`, deliberately: the
+reachability test above would fail them as dead weight, which is the test doing
+its job.
 
 **The `art-inbox` branch is live and unmerged**, waiting for raster figures.
 Images attached in chat are rendered into context but never written to disk, so

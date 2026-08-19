@@ -2,11 +2,14 @@
 
 Every spoken cue in the app, per voice.
 
-**Status.** Arnold is recorded and shipped — all 62 lines below, cut one per
-file and verified against their own script text before encoding. Snoop is the
-original set and is three lines short of it — see **Snoop — still to record**
-below. A missing clip is silence by design, not a bug, but those three lines are
-the only thing keeping the two voices from matching.
+**Status.** Both voices are complete and shipped: 62 clips each, every movement
+in both routines and every strength lift nameable in either. Arnold landed in
+v52; Snoop's last three (`kb-getup`, `kb-swing`, `wu-press-ups`) landed with it.
+There is a test asserting every voice can name everything the app speaks, so a
+future movement cannot quietly ship in one voice and not the other.
+
+Still unwired: the five **session complete** lines, now recorded in both voices.
+The app has no spoken finish cue to put them in — see that section below.
 
 The **id is the filename** — `audio/cues/<voice>/<id>.webm` — and the app asks
 for a cue by movement id, so a line recorded under the wrong name is silent
@@ -129,11 +132,10 @@ back, and the cue's whole job is to tell you what is coming.
 
 ---
 
-## Snoop — still to record (3)
+## Snoop — the last three (recorded)
 
-The two voices are otherwise identical. These three ids exist in Arnold and have
-never existed in Snoop, so a Snoop session is silent where an Arnold one speaks.
-All three are in the strength module.
+These three existed in Arnold before Snoop and were the only gap between the
+voices. All three are in the strength module.
 
 | id | where it plays | line |
 |---|---|---|
@@ -141,48 +143,52 @@ All three are in the strength module.
 | `kb-swing` | Kettlebell swings — same two moments | Kettlebell swings. Snap them hips, bitch. |
 | `wu-press-ups` | The strength warm-up checklist, announced by ticking the row above it | Press-ups. Ten of 'em. Chest to the floor, young'n. |
 
-**`wu-press-ups` is not wired in either voice.** `WARM_UP` in `js/strength.js`
-carries `cue: null` for it, from when no clip existed, so nothing ever requests
-the file — Arnold's is on disk and precached but unreachable. Wiring it is one
-line; do that in the same commit as the Snoop recording, or the warm-up starts
-speaking in one voice and not the other.
+**`wu-press-ups` was wired to nothing until this batch.** `WARM_UP` in
+`js/strength.js` carried `cue: null` for it from when no clip existed, so after
+Arnold's clip shipped in v52 it was on disk and in the precache and still never
+requested — downloaded on every update, unreachable, silent. There is now a test
+(`every precached clip is one the app can actually ask for`) that fails on
+exactly that: a clip nothing can name. **The file existing is not the same as
+the app being able to reach it** — the same lesson as v41.
 
-`single-leg-rdl` is deliberately *not* on this list. It is a lift and a rest-day
+`single-leg-rdl` is deliberately not on this list. It is a lift and a rest-day
 movement sharing one id, and the rest-day clip already covers both.
-
-Snoop counterparts for the five finish lines below are written too, since those
-cannot be wired until both voices have them. **All eight are in
-`docs/voice-record-list-snoop.txt`** as a flat paste list, in the order of this
-section then the next — same shape as `voice-record-list.txt`, one line per
-file, no ids and no numbering, because that is what fed the Arnold batch and it
-is what makes the mapping checkable afterwards.
 
 ---
 
-## Arnold — session complete (5, recorded, not wired)
+## Session complete (5, recorded in both voices, not wired)
 
-Five finish lines came with the v52 Arnold batch and are **not shipped**. The
+Five finish lines came with the Arnold batch and Snoop counterparts followed.
+Both sets are recorded; neither is **shipped**, and they are not in
+`audio/cues/`. The
 app has no spoken finish cue: a routine ends on the synthesised three-note chime
 in `js/beeps.js` and a lift ends on its summary screen. Wiring them is a
-feature — it needs a slot, a picker (these are a pool, like `hype-N`), and Snoop
-counterparts, or finishing a session would speak in one voice and be silent in
-the other. The recordings are in the source zip.
+feature — it needs a slot and a decision about whether the voice replaces the
+chime or follows it. The "both voices or neither" blocker is gone; what is left
+is the design. The recordings are in the source zips.
 
 Ids follow the `rest-over-N` / `hype-N` convention, so `pickCue(FINISH_CUES, …)`
 in `js/stretches.js` would drive them with no new mechanism.
 
-| id | Arnold (recorded) | Snoop (to record) |
+| id | Arnold | Snoop |
 |---|---|---|
 | `finish-1` | Session complete. You did it. Well done. | Session complete. You did that, nephew. Respect. |
-| `finish-2` | That is it. We are all finished. Now go and eat. | That's it, we done. Go get your eat on. |
+| `finish-2` | That is it. We are all finished. Now go and eat. | Good job, we done. Go eat, bitch. |
 | `finish-3` | Done. You have earned that. I am proud of you. | Done. You earned that one, fo shizzle. |
 | `finish-4` | The workout is over. I'll be back tomorrow. | Workout's over. Catch you tomorrow, young'n. |
-| `finish-5` | Finished. Everybody out of the pool. Go! | Finished. Everybody up out the pool. Go on. |
+| `finish-5` | Finished. Everybody out of the pool. Go! | Finished. Now go sit down. |
 
 The Snoop column carries the same *function*, not the same catchphrases — a
 Snoop line quoting Predator would be a worse impression, not a matching one.
 
-**These five lines are reconstructed, not transcribed cleanly.** There was no
+**Snoop's `finish-2` and `finish-5` were reworded at the mic** — the recorded
+takes do not match the script that was written for them, and the text above is
+read off the filename slug plus a rough transcription, so their tails are
+approximate. The other three match their script exactly. It does not matter for
+wiring — finish lines are a pool, any one can play in any slot, like `hype-N` —
+but correct them here if they are ever put on screen.
+
+**The Arnold five are reconstructed too, not transcribed cleanly.** There was no
 script for them — they arrived as extra files beyond the 62 in
 `voice-record-list.txt`. Each line above is the filename's slug (which is only
 the first four words) plus a `pocketsphinx` pass over the audio, which is rough:
