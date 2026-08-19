@@ -2760,6 +2760,34 @@ data if forgotten:
   be another megabyte on every update. sw `CACHE` → v52, `VERSION` → v52;
   `js/voices.js` added to `SHELL`.
 
+- 2026-08-19 — **v52 deployed.** `main` fast-forwarded `6af437c..07da907` and
+  pushed; GitHub Pages is serving it. Checked at the **job** level, per the
+  2026-08-06 note: `build` succeeded in 20s, `deploy` succeeded in 11s
+  (14:19:32→14:19:43Z, run `32263282591`). No 503, no ten-minute poll — the
+  first clean deploy in a while.
+
+  Ship gate: eleven suites green (`schedule` under UTC, `America/Los_Angeles`
+  and `Australia/Sydney`), `CACHE` == `VERSION` == v52, clean tree,
+  fast-forward confirmed rather than a merge.
+
+  **This is the first deploy the auto-updater from v50 should handle by
+  itself** — the phone was on v51, which knows how to take a new worker, so it
+  should land without the close-fully-and-reopen dance. If it does not, the
+  Settings → **Check for updates** button (v51) is the second thing to reach
+  for, and **force-stopping Firefox** is the first: see the top of this file.
+
+  **The visible tells that v52 landed:** the footer reads `JUJI v52`; Settings →
+  Appearance has a fourth picker, **Off mat voice** (Mix / Snoop / Arnold); and
+  finishing a stretch routine chimes and then *speaks*.
+
+  **No churn expected in `jj-app-data`** — nothing in v52 touches
+  `js/markdown.js`, the entry model or `js/appstate.js`. The voice preference is
+  `localStorage` and deliberately does not sync.
+
+  **The first open will want a moment on wifi.** `audio/cues/` went 808 KB →
+  2.3 MB in this version (121 clips → 134, two voices), and the service worker
+  precaches all of it before the new shell is usable offline.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
