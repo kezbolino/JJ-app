@@ -33,7 +33,7 @@
 //    app. The context can only be created from a user gesture, so it is built
 //    when you tap Start — see js/beeps.js, shared with the strength session's
 //    rest timer. The spoken move names are the one exception — real
-//    audio clips under audio/cues/<id>.webm — because there is no synthesising
+//    audio clips under audio/cues/<voice>/<id>.webm — because there is no synthesising
 //    a name; muting the sound stops both.
 // 4. **A phase of length 0 is not special-cased.** The cool-down simply has a
 //    rest of 0, and a warm-up movement a get-ready of 0, so those phases never
@@ -47,6 +47,8 @@ import { h, icon, offMatTabs } from '../ui.js';
 import { renderToken, isCurrent } from '../render.js';
 import { createBeeper } from '../beeps.js';
 import { createVoice } from '../voice.js';
+import { pickVoice } from '../voices.js';
+import { getVoicePref } from '../appearance.js';
 import { createWakeLock } from '../wakelock.js';
 import { logMobilitySession } from '../store.js';
 import {
@@ -172,7 +174,10 @@ function engineTick() {
 function startSession(routine) {
   endSession(); // defensive: replace, don't stack, if one is somehow still live
   const beep = createBeeper();
-  const voice = createVoice();
+  // One voice for the whole routine, rolled here and nowhere else. Picking per
+  // cue would put two people inside one hold; picking on each screen mount
+  // would re-roll every time you left and came back mid-routine.
+  const voice = createVoice(pickVoice(getVoicePref()));
   const wake = createWakeLock();
   beep.unlock();           // must happen inside the tap
   voice.unlock();          // same reason — an AudioContext resumes from a gesture or not at all

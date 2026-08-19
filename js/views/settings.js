@@ -7,6 +7,7 @@ import * as store from '../store.js';
 import * as backup from '../backup.js';
 import * as overrides from '../overrides.js';
 import * as appearance from '../appearance.js';
+import { VOICES } from '../voices.js';
 
 // A segmented picker over [value, label] pairs; taps apply immediately so the
 // change is visible on the buttons/text on this very screen.
@@ -32,7 +33,9 @@ function appearanceCard() {
     pickerCard('Button style', 'Chunky pressable buttons, or an iOS-flat feel.',
       appearance.BUTTON_STYLES, appearance.getButtonStyle, appearance.setButtonStyle),
     pickerCard('Theme', 'Auto follows your phone. Light and dark pin it either way.',
-      appearance.THEMES, appearance.getTheme, appearance.setTheme));
+      appearance.THEMES, appearance.getTheme, appearance.setTheme),
+    pickerCard('Off mat voice', 'Who calls the stretches and the lifts. Mix picks one at random each session; a change lands on the next one you start.',
+      VOICES, appearance.getVoicePref, appearance.setVoicePref));
 }
 
 /**

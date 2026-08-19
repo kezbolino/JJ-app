@@ -10,6 +10,7 @@ import {
   phasesFor, segmentAt,
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
+import { VOICE_IDS, VOICES, pickVoice } from '../js/voices.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -250,20 +251,78 @@ test('the hype picker behaves the same way, over its own count', () => {
   assert.equal(seen.size, HYPE_CUES, `only reached ${[...seen].sort().join()}`);
 });
 
+test('a named voice is returned as-is, whatever the coin says', () => {
+  // Changing the picker in Settings has to land, and it lands by this being
+  // deterministic: no stickiness, no roll, no state.
+  for (const voice of VOICE_IDS) {
+    assert.equal(pickVoice(voice, () => 0), voice);
+    assert.equal(pickVoice(voice, () => 0.999), voice);
+  }
+});
+
+test('Mix reaches every voice, and only real ones', () => {
+  const seen = new Set();
+  for (let i = 0; i < 400; i++) seen.add(pickVoice('', Math.random));
+  assert.deepEqual([...seen].sort(), [...VOICE_IDS].sort());
+});
+
+test('an unrecognised preference still yields a usable voice', () => {
+  // This is read out of localStorage, which an older version wrote and a user
+  // can edit. It must never return undefined — that would build a player
+  // fetching audio/cues/undefined/, i.e. every cue silent, with no error.
+  for (const junk of [undefined, null, '', 'mix', 'snoopdogg', 42]) {
+    assert.ok(VOICE_IDS.includes(pickVoice(junk, () => 0.5)),
+      `pickVoice(${JSON.stringify(junk)}) returned something with no clips behind it`);
+  }
+});
+
+test('the voice picker offers a default plus every recorded voice', () => {
+  // The '' entry is Mix and must stay first: js/appearance.js treats '' as
+  // "unset" for all four pickers, and Settings paints the pressed state off it.
+  assert.equal(VOICES[0][0], '');
+  assert.deepEqual(VOICES.slice(1).map(([v]) => v), VOICE_IDS);
+});
+
+// sw.js builds its cue paths from a per-voice map rather than spelling out a
+// hundred-odd strings, so the tests read that map back out instead of scraping
+// literals.
+function swCues() {
+  const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const block = sw.match(/const CUES = \{[\s\S]*?\n\};/);
+  assert.ok(block, 'sw.js no longer declares a CUES map');
+  const out = {};
+  for (const m of block[0].matchAll(/(\w+): \[([\s\S]*?)\]/g)) {
+    out[m[1]] = [...m[2].matchAll(/'([^']+)'/g)].map(x => x[1]);
+  }
+  return out;
+}
+
 test('there is a recorded take behind every number a picker can return', () => {
-  // The clips are precached in sw.js by name; a picker that can return a
-  // number with no file behind it is a silent cue offline. The spoken
-  // countdown has no picker, but it has the same failure mode.
-  const shell = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  // A picker that can return a number with no file behind it is a silent cue.
+  // The spoken countdown has no picker, but it has the same failure mode.
+  // Every voice has to answer for all of them: these are chosen at random, so
+  // a gap here is a cue that goes missing on some sessions and not others.
   const want = [
     ...Array.from({ length: OTHER_SIDE_CUES }, (_, i) => `other-side-${i + 1}`),
     ...Array.from({ length: HYPE_CUES }, (_, i) => `hype-${i + 1}`),
     'countdown',
   ];
-  for (const name of want) {
-    assert.ok(shell.includes(`audio/cues/${name}.webm`),
-      `${name}.webm is not in the service worker's SHELL`);
+  for (const [voice, ids] of Object.entries(swCues())) {
+    for (const name of want) {
+      assert.ok(ids.includes(name), `${voice} has no ${name}.webm`);
+    }
   }
+});
+
+test('every shipped voice is a voice the app can pick', () => {
+  // sw.js precaches folders; js/voices.js is what can choose them. A folder
+  // precached but unreachable is dead download weight on every update.
+  for (const voice of Object.keys(swCues())) {
+    assert.ok(VOICE_IDS.includes(voice), `sw.js ships '${voice}', which js/voices.js cannot pick`);
+  }
+  // The reverse is allowed and is the state a voice sits in while it is being
+  // recorded: pickable, no clips, every cue silent. That is createVoice's
+  // standing contract, the same as PENDING_ART for figures.
 });
 
 test('every recorded clip is precached, and every precached clip exists', () => {
@@ -271,18 +330,41 @@ test('every recorded clip is precached, and every precached clip exists', () => 
   // warm-up clips to disk and never added them to SHELL, so they 404'd offline
   // with nothing on screen to show for it. A name in SHELL with no file behind
   // it is worse — `cache.addAll` rejects, and the whole install fails.
-  const shell = new Set(
-    [...readFileSync(new URL('../sw.js', import.meta.url), 'utf8')
-      .matchAll(/'audio\/cues\/([^']+)\.webm'/g)].map(m => m[1]));
-  const disk = new Set(
-    readdirSync(new URL('../audio/cues', import.meta.url))
-      .filter(f => f.endsWith('.webm')).map(f => f.slice(0, -5)));
+  const cues = swCues();
+  const root = new URL('../audio/cues/', import.meta.url);
+  const folders = readdirSync(root, { withFileTypes: true })
+    .filter(e => e.isDirectory()).map(e => e.name);
 
-  for (const name of disk) {
-    assert.ok(shell.has(name), `${name}.webm is recorded but not precached — it 404s offline`);
+  // A folder of clips nobody precaches is the v39 bug with a directory around
+  // it: the voice works online and goes silent the moment the phone does not.
+  for (const folder of folders) {
+    assert.ok(folder in cues,
+      `audio/cues/${folder}/ exists but sw.js does not precache it — it 404s offline`);
   }
-  for (const name of shell) {
-    assert.ok(disk.has(name), `${name}.webm is precached but does not exist — install will fail`);
+  for (const [voice, ids] of Object.entries(cues)) {
+    assert.ok(folders.includes(voice),
+      `sw.js precaches audio/cues/${voice}/, which does not exist — install will fail`);
+    const disk = new Set(readdirSync(new URL(`${voice}/`, root))
+      .filter(f => f.endsWith('.webm')).map(f => f.slice(0, -5)));
+    for (const id of ids) {
+      assert.ok(disk.has(id), `${voice}/${id}.webm is precached but missing — install will fail`);
+    }
+    for (const id of disk) {
+      assert.ok(ids.includes(id), `${voice}/${id}.webm is recorded but not precached`);
+    }
+  }
+});
+
+test('every voice names every movement in both routines', () => {
+  // A voice is chosen per session, so a movement one voice cannot name is a
+  // cue that vanishes on half your sessions — much harder to notice than one
+  // that is always missing. Ragged *extras* are fine (Arnold carries three
+  // cues Snoop has never had); a ragged *routine* is not.
+  const items = ROUTINES.flatMap(r => r.items.map(i => i.id));
+  for (const [voice, ids] of Object.entries(swCues())) {
+    for (const id of items) {
+      assert.ok(ids.includes(id), `${voice} cannot say "${id}" — it is silent on that movement`);
+    }
   }
 });
 

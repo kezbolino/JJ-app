@@ -1,6 +1,14 @@
 # Voice scripts
 
-Every spoken cue in the app, per voice. The **id is the filename** —
+Every spoken cue in the app, per voice.
+
+**Status.** Arnold is recorded and shipped — all 62 lines below, cut one per
+file and verified against their own script text before encoding. Snoop is the
+original set and is three lines short of it: `kb-getup`, `kb-swing` and
+`wu-press-ups` have never been recorded in that voice, so a Snoop session is
+silent on the two kettlebell lifts and the warm-up press-ups. That is the
+standing contract for a missing clip, not a bug — but those three lines are the
+only thing keeping the two voices from matching. The **id is the filename** —
 `audio/cues/<voice>/<id>.webm` — and the app asks for a cue by movement id, so
 a line recorded under the wrong name is silent rather than wrong.
 
@@ -121,7 +129,30 @@ back, and the cue's whole job is to tell you what is coming.
 
 ---
 
+## Five lines with nowhere to play
+
+The Arnold take also included five finish lines — "Session complete, you did
+good", "The workout is over", "Finished, everybody out of the pool", "Done, you
+have earned it", "That is it, we are done". They are **not shipped**, because
+the app has no spoken finish cue: a routine ends on the synthesised three-note
+chime from `js/beeps.js` and a lift ends on its summary screen. Adding one is a
+feature, not a wiring job — it needs a slot, a Snoop counterpart, and a decision
+about whether the end of a session wants a voice at all. The recordings are in
+the source zip if it is ever wanted.
+
 ## Recording notes
+
+- **Already-cut files are worth far more than one long take.** The Arnold batch
+  arrived as 67 numbered wavs, one line each, with the line's own text slugged
+  into the filename — so the mapping could be *verified* (each file's slug had
+  to be a prefix of its script line's slug) rather than inferred from gap widths
+  or reconstructed with a transcriber. That check is two minutes and it is the
+  whole of the v39 problem, gone. Ask for one file per line.
+- **Match the level of what is already there.** The Arnold take came in at
+  −15 dB mean against Snoop's −24 dB — roughly twice as loud, and the beeps were
+  tuned against Snoop in v31. A flat `volume=-9dB` on encode put it at −24.4 dB,
+  the same average, with the take's own dynamics intact. Measure both before
+  assuming they match.
 
 - **Leave a clear second of silence between lines.** The v39 take had pauses
   *inside* lines longer than the gaps *between* them (0.74s vs 0.33s), which made

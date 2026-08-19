@@ -30,6 +30,8 @@ import { renderToken, isCurrent } from '../render.js';
 import { createBeeper } from '../beeps.js';
 import { createWakeLock } from '../wakelock.js';
 import { createVoice } from '../voice.js';
+import { pickVoice, VOICE_IDS } from '../voices.js';
+import { getVoicePref } from '../appearance.js';
 import { pickCue } from '../stretches.js';
 import * as store from '../store.js';
 import {
@@ -293,10 +295,30 @@ function createHoldTimer(beep, voice, wake, token) {
  * previous pair here bounds it at one.
  */
 let audio = null;
-function mountAudio() {
+
+/**
+ * The voice for the day's lift, held across screen mounts.
+ *
+ * A lift is one session even though the screen is not: you leave it and come
+ * back between movements, and `mountAudio` runs each time. Rolling there would
+ * change who is talking to you halfway through. Keyed by the date, so
+ * tomorrow's lift rolls again — and a named voice needs no key at all, since
+ * `pickVoice` returns it whatever is remembered here.
+ */
+let voicePick = { day: null, voice: null };
+function sessionVoice(day) {
+  const pref = getVoicePref();
+  // A named voice needs no memory: it is already the answer, and reading it
+  // fresh is what makes a change in Settings land on the very next mount.
+  if (VOICE_IDS.includes(pref)) return pref;
+  if (voicePick.day !== day) voicePick = { day, voice: pickVoice(pref) };
+  return voicePick.voice;
+}
+
+function mountAudio(day) {
   audio?.beep.close();
   audio?.voice.close();
-  audio = { beep: createBeeper(), voice: createVoice() };
+  audio = { beep: createBeeper(), voice: createVoice(sessionVoice(day)) };
   return audio;
 }
 
@@ -658,7 +680,7 @@ function pairCard(items, ctx) {
  * all, which made it feel like the bit before the app starts paying attention.
  * Ticking a row announces the next one, so you can work through the whole thing
  * without looking at the screen — and four of the five clips were already in
- * `audio/cues/` from the rest-day routine, so this cost no recording.
+ * `audio/cues/<voice>/` from the rest-day routine, so this cost no recording.
  */
 function warmupCard(draft, ctx) {
   const rows = draft.warmup ?? [];
@@ -873,7 +895,7 @@ export default async function strength(root, { view } = {}) {
 
   if (view === 'history') { historyScreen(mount, sessions); return; }
 
-  const { beep, voice } = mountAudio();
+  const { beep, voice } = mountAudio(today);
   const wake = createWakeLock();
   const restTimer = createRestTimer(beep, wake, voice, token);
   const holdTimer = createHoldTimer(beep, voice, wake, token);

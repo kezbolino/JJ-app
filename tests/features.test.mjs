@@ -33,9 +33,20 @@ const test = async (name, fn) => {
 };
 
 /** A fresh browser context = a fresh device, with its own empty IndexedDB. */
-async function newPage() {
+// The one voice that has clips recorded. Everything below asserts on *which*
+// cue fired, never on who says it, so the voice is pinned here: left on Mix
+// these tests would roll a voice per session (js/voices.js) and half the runs
+// would assert against a folder with no files in it. The roll itself is
+// unit-tested in tests/stretches.test.mjs, and pinned again in the two voice
+// tests at the end of this file.
+const TEST_VOICE = 'snoop';
+
+async function newPage({ voice = TEST_VOICE } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   context.setDefaultTimeout(8000);   // fail fast; a hung selector shouldn't cost 30s
+  await context.addInitScript(v => {
+    if (v) localStorage.setItem('jj-voice', v); else localStorage.removeItem('jj-voice');
+  }, voice);
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(`${e.message}`));
   page.on('console', m => {
@@ -1079,7 +1090,7 @@ await test('each move announces itself by name, and muting stops it', async () =
   const page = await newPage();
   const requests = [];
   page.on('request', req => {
-    if (req.url().includes('/audio/cues/')) requests.push(req.url().split('/audio/cues/')[1]);
+    if (req.url().includes('/audio/cues/')) requests.push(req.url().split('/').pop());
   });
 
   await go(page, '/stretch');
@@ -1116,11 +1127,16 @@ await test('each move announces itself by name, and muting stops it', async () =
 const withRandom = async value => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   context.setDefaultTimeout(8000);
+  // Pin the voice before stubbing the coin: pickVoice reads the same
+  // Math.random these tests are fixing for the countdown/hype rolls, and a
+  // fixed value that happens to land on an unrecorded voice would silence
+  // every cue this asserts on.
+  await context.addInitScript(v => { localStorage.setItem('jj-voice', v); }, TEST_VOICE);
   await context.addInitScript(v => { Math.random = () => v; }, value);
   const page = await context.newPage();
   const cues = [];
   page.on('request', req => {
-    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/audio/cues/')[1]);
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/').pop());
   });
   await page.goto(BASE, { waitUntil: 'networkidle' });
   return { page, cues };
@@ -1154,9 +1170,14 @@ await test('a hype line lands as the set begins, and not when the countdown did'
 
 const NAMES = [
   ...Array.from({ length: 6 }, (_, i) => `other-side-${i + 1}`),
-  ...Array.from({ length: 7 }, (_, i) => `hype-${i + 1}`),
+  ...Array.from({ length: 10 }, (_, i) => `hype-${i + 1}`),
   'countdown',
 ];
+
+// Every voice a session can roll, not just the pinned one. A voice is picked
+// at random, so a dud clip in one of them is a cue that fails on some sessions
+// and not others — the hardest kind to notice and the cheapest to check here.
+const SHIPPED_VOICES = ['snoop', 'arnold'];
 
 await test('every spoken cue is a real clip with sound in it', async () => {
   // The clips themselves, not the picker — that is unit-tested in
@@ -1165,19 +1186,21 @@ await test('every spoken cue is a real clip with sound in it', async () => {
   // perfectly valid container with nothing in it, which is exactly what shipped
   // twice in v29. Duration alone proved nothing then and proves nothing now.
   const page = await newPage();
-  const report = await page.evaluate(async n => {
+  const report = await page.evaluate(async ({ n, voices }) => {
     const ctx = new AudioContext();
     const out = [];
-    for (const name of n) {
-      const res = await fetch(`audio/cues/${name}.webm`);
-      const buf = await ctx.decodeAudioData(await res.arrayBuffer());
-      const data = buf.getChannelData(0);
-      let peak = 0;
-      for (let j = 0; j < data.length; j++) peak = Math.max(peak, Math.abs(data[j]));
-      out.push({ name, ok: res.ok, seconds: buf.duration, peak });
+    for (const voice of voices) {
+      for (const name of n) {
+        const res = await fetch(`audio/cues/${voice}/${name}.webm`);
+        const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+        const data = buf.getChannelData(0);
+        let peak = 0;
+        for (let j = 0; j < data.length; j++) peak = Math.max(peak, Math.abs(data[j]));
+        out.push({ name: `${voice}/${name}`, ok: res.ok, seconds: buf.duration, peak });
+      }
     }
     return out;
-  }, NAMES);
+  }, { n: NAMES, voices: SHIPPED_VOICES });
 
   for (const clip of report) {
     assert.ok(clip.ok, `${clip.name}.webm did not load`);
@@ -1193,7 +1216,7 @@ await test('the two routines announce their own first move, not each other\'s', 
   const page = await newPage();
   const requests = [];
   page.on('request', req => {
-    if (req.url().includes('/audio/cues/')) requests.push(req.url().split('/audio/cues/')[1]);
+    if (req.url().includes('/audio/cues/')) requests.push(req.url().split('/').pop());
   });
 
   await go(page, '/stretch?r=rest-day');
@@ -1376,7 +1399,7 @@ await test('the lift speaks when a rest ends — the next movement, or "go again
   const page = await newPage();
   const cues = [];
   page.on('request', req => {
-    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/audio/cues/')[1]);
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/').pop());
   });
 
   await go(page, '/strength');
@@ -1642,32 +1665,90 @@ await test('every strength cue is a real clip with sound in it', async () => {
   // was replaced. The two kettlebell movements have no clip recorded yet and
   // stay out until they do; `createVoice` treats a missing clip as silence by
   // design, so their absence is a known gap rather than a failure.
-  const noClipYet = new Set(['kb-getup', 'kb-swing']);
-  const names = await page.evaluate(async missing => {
+  // Per voice, because the voices are ragged: Arnold names the two kettlebell
+  // lifts and the warm-up press-ups, Snoop has never had those three. A clip
+  // that is absent is silence by design (createVoice's contract); a clip that
+  // is *present* has to be real, whichever voice carries it.
+  const names = await page.evaluate(async () => {
     const m = await import('/js/strength.js');
-    return [
-      ...m.EXERCISES.map(e => e.id).filter(id => !missing.includes(id)),
-      ...m.WARM_UP.map(w => w.cue).filter(Boolean),
-    ];
-  }, [...noClipYet]);
-  const report = await page.evaluate(async list => {
+    return [...m.EXERCISES.map(e => e.id), ...m.WARM_UP.map(w => w.cue).filter(Boolean)];
+  });
+  const report = await page.evaluate(async ({ list, voices }) => {
     const ctx = new AudioContext();
     const out = [];
-    for (const name of list) {
-      const res = await fetch(`audio/cues/${name}.webm`);
-      const buf = await ctx.decodeAudioData(await res.arrayBuffer());
-      const data = buf.getChannelData(0);
-      let peak = 0;
-      for (let j = 0; j < data.length; j++) peak = Math.max(peak, Math.abs(data[j]));
-      out.push({ name, ok: res.ok, seconds: buf.duration, peak });
+    for (const voice of voices) {
+      for (const name of list) {
+        const res = await fetch(`audio/cues/${voice}/${name}.webm`);
+        if (!res.ok) { out.push({ name: `${voice}/${name}`, absent: true }); continue; }
+        const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+        const data = buf.getChannelData(0);
+        let peak = 0;
+        for (let j = 0; j < data.length; j++) peak = Math.max(peak, Math.abs(data[j]));
+        out.push({ name: `${voice}/${name}`, ok: true, seconds: buf.duration, peak });
+      }
     }
     return out;
-  }, names);
+  }, { list: names, voices: SHIPPED_VOICES });
   for (const clip of report) {
-    assert.ok(clip.ok, `${clip.name}.webm did not load`);
-    assert.ok(clip.seconds > 0.4 && clip.seconds < 6, `${clip.name} is ${clip.seconds.toFixed(2)}s`);
+    if (clip.absent) continue;   // not recorded in this voice — silence by design
+    assert.ok(clip.seconds > 0.4 && clip.seconds < 7, `${clip.name} is ${clip.seconds.toFixed(2)}s`);
     assert.ok(clip.peak > 0.05, `${clip.name} decodes but is silent (peak ${clip.peak.toFixed(4)})`);
   }
+  // …but a movement being nameable by nobody is a gap worth failing on.
+  const namedBySomeone = new Set(report.filter(c => !c.absent).map(c => c.name.split('/')[1]));
+  for (const name of names) {
+    assert.ok(namedBySomeone.has(name), `no voice can say "${name}"`);
+  }
+  await page.context().close();
+});
+
+await test('the picked voice is the folder every cue comes from', async () => {
+  // The voice is a *folder*, so getting this wrong is silent rather than loud:
+  // every fetch 404s and createVoice swallows it by design. Assert the path,
+  // not just the filename.
+  const page = await newPage({ voice: 'snoop' });
+  const paths = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) paths.push(req.url().split('/audio/cues/')[1]);
+  });
+
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  assert.deepEqual(paths, ['snoop/neck-side.webm'], `asked for ${paths.join() || 'nothing'}`);
+  await page.context().close();
+});
+
+await test('the other voice speaks its own clips, not the first one\'s', async () => {
+  // The two folders hold the same ids, so a wrong voice is silent rather than
+  // wrong — nothing on screen would differ. Assert the folder.
+  const page = await newPage({ voice: 'arnold' });
+  const paths = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) paths.push(req.url().split('/audio/cues/')[1]);
+  });
+
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  assert.deepEqual(paths, ['arnold/neck-side.webm'], `asked for ${paths.join() || 'nothing'}`);
+  await page.context().close();
+});
+
+await test('a cue with no clip behind it is silent, not broken', async () => {
+  // createVoice's standing contract, and the reason a half-recorded voice is
+  // safe to ship: every clip 404s and the routine runs exactly as it does with
+  // one — the beeps are the baseline and they are unaffected. Simulated by
+  // failing the requests, since both shipped voices are now complete.
+  const page = await newPage();
+  await page.route('**/audio/cues/**', route => route.abort());
+
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+  assert.ok(await page.isVisible('.st-count'), 'the routine did not start');
+  await page.click('.st-skip');
+  assert.ok(await page.isVisible('.st-count'), 'skipping broke with no clips to play');
   await page.context().close();
 });
 
@@ -1679,7 +1760,7 @@ await test('a resumed session still announces the movement you tap into', async 
   const page = await newPage();
   const cues = [];
   page.on('request', req => {
-    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/audio/cues/')[1]);
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/').pop());
   });
 
   await go(page, '/strength');

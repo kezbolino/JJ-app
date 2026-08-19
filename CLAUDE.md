@@ -90,6 +90,8 @@ js/ui.js              h() element builder and shared bits
 js/stretches.js       two routines (cool-down, rest day): items, phases, segments
 js/stretch-art.js     ~47 KB of figure paths — data only, don't hand-edit
 js/strength.js        the once-a-week lift: programme + progression engine (pure)
+js/voice.js           spoken cue playback, one voice per session
+js/voices.js          which voices exist and how one is chosen
 js/beeps.js           synthesised tones, shared by the routines and the rest timer
 js/wakelock.js        best-effort screen wake lock, same two callers
 js/views/*.js         home, log, map, position, library, search, settings,
@@ -2632,6 +2634,106 @@ data if forgotten:
 
   sw `CACHE` → v51, `VERSION` → v51. No files added.
 
+- 2026-08-19 — **v52: a second voice, and the cues moved into per-voice folders.**
+  User: add Arnold alongside Snoop and alternate between them, *not* replace him.
+
+  **The clips arrived already cut, and that changed the whole job.** Every
+  previous batch was one long take that had to be split — v39's needed a
+  transcriber, because the pauses *inside* a line ran longer than the breaks
+  *between* them. This one was 67 numbered wavs, one line each, with the line's
+  own words slugged into the filename. So the mapping was **verified rather than
+  inferred**: slugify each script line, assert the file's slug is a prefix of it,
+  62 for 62. That is the audit the v39 entry demands, done from text instead of
+  from `pocketsphinx`. **Ask for one file per line every time.**
+
+  **The v32 trap was still paid attention to even though it could not fire.**
+  There is no `-ss`/`-t` here — whole files in, so `afade` has a PTS-0 input by
+  construction. The fade-out is still done by `areverse,afade=t=in,areverse`
+  rather than `afade=t=out:st=…`, because the `st=` form is the thing that
+  silently zeroed 24 clips and there is no reason to go near it again. And
+  `volumedetect` was run on all 62 outputs regardless: −22 to −28 dB, none
+  silent. Decoding and duration still prove nothing.
+
+  **The take was 9 dB louder than Snoop, and that was fixed on encode.** Arnold
+  came in at −15.4 dB mean against Snoop's −24.4 — about twice as loud, and the
+  beeps were tuned against Snoop in v31. A flat `volume=-9dB` lands it at
+  −24.4 dB exactly, preserving the take's own dynamics rather than flattening
+  them the way `loudnorm` would. Voices alternate *between* sessions, never
+  within one, so the mismatch would not have been jarring in the moment — it
+  would have quietly unbalanced the voice against the beeps for half of them.
+
+  **`audio/cues/<id>.webm` is now `audio/cues/<voice>/<id>.webm`.** Same ids in
+  each folder, so the app asks for a cue by movement id exactly as before and
+  the voice is a prefix. The layout was already specified in
+  `docs/VOICE-SCRIPTS.md`; this is it being built.
+
+  **A voice is chosen once per session and held.** `pickVoice` in the new pure
+  `js/voices.js` resolves the Settings preference: a named voice is returned
+  as-is, so changing the picker lands on the next session with no state at all;
+  only Mix rolls. Rolling **per cue** was considered and rejected — one voice
+  naming a movement and another shouting three seconds into the same hold reads
+  as a bug, not as variety. Mix rolls a plain coin rather than never repeating:
+  with exactly two voices a never-repeat rule *is* strict alternation, which is
+  a different thing wearing the same word, and "random per session" is what was
+  asked for.
+
+  **The strength screen needed a memory and the routines did not.** A routine
+  has one `startSession`, so the roll goes there. A lift does not: you leave the
+  screen and come back between movements and `mountAudio` runs each time, so
+  rolling there would change who is talking to you halfway through. `voicePick`
+  is keyed by the date. A *named* voice skips that cache entirely, which is what
+  makes a change in Settings land immediately instead of tomorrow.
+
+  **The preference is `localStorage`, next to theme and font, and deliberately
+  does not sync.** It is the same shape as the other three pickers — how the app
+  looks and sounds in the hand holding it — and syncing it would mean touching
+  the merge rules in `js/appstate.js`, which is the highest-risk module in this
+  repo, for a taste setting. Written down in `js/appearance.js` so it reads as a
+  decision rather than an oversight; if it is ever wanted, it is a `'whole'` key.
+
+  **The voices are ragged, and the precache had to learn that.** Arnold names
+  `kb-getup`, `kb-swing` and `wu-press-ups` — the three clips this file has
+  listed as outstanding since v44. Snoop still does not, so `SHELL` is built
+  from a **per-voice map** in `sw.js` rather than voices × ids: a name in
+  `SHELL` with no file behind it makes `cache.addAll` reject, which fails the
+  whole install and leaves the old worker serving forever. The test asserts the
+  map and `audio/cues/` agree exactly in both directions, and separately that
+  **every voice can name every movement in both routines** — a ragged extra is
+  fine, a ragged routine is not, because a cue missing from one voice vanishes
+  on some sessions and not others, which is the hardest kind of gap to notice.
+
+  **The browser tests pin the voice.** Left on Mix they would roll per run and
+  half of them would assert against whichever folder the coin picked; the cue
+  assertions are about *which* cue fired, not who said it. `newPage({ voice })`
+  sets it, `withRandom` sets it before stubbing `Math.random` — which
+  `pickVoice` also reads — and two tests assert the folder in the request path,
+  since a wrong voice is silent rather than wrong and nothing on screen differs.
+  The clip-integrity tests now sweep **both** voices for real decoded sample
+  peaks.
+
+  **Five lines were left on the floor**, and `docs/VOICE-SCRIPTS.md` says why:
+  the take included finish lines ("the workout is over", and four more) and the
+  app has no spoken finish cue — a routine ends on the synthesised chime, a lift
+  on its summary screen. Wiring one is a feature with a Snoop counterpart to
+  record, not a place to quietly put spare audio.
+
+  **One interaction worth knowing before it surprises someone.** Arnold's lines
+  are longer — up to 8.5s against Snoop's 4.8s — and the spoken "3, 2, 1" fires
+  with 3s of a 10s get-ready left, calling `voice.say`, which stops whatever is
+  playing. So on the ~18% of sets that draw a countdown, Arnold's longest names
+  get clipped at 7s. Nothing overruns into the work phase, and it was left
+  alone rather than special-cased: the fix would be timing logic keyed to clip
+  length, which is exactly the per-item special-casing the segment engine has
+  resisted since v27.
+
+  Eleven suites green (69 browser assertions in `features`, 29 in `stretches`;
+  `schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`),
+  screenshot-checked the new picker in light and dark with no overflow at 390px.
+  `audio/cues/` is now 121 clips, 2.1 MB, all precached — the biggest single
+  jump in shell size this app has taken, and worth watching: a third voice would
+  be another megabyte on every update. sw `CACHE` → v52, `VERSION` → v52;
+  `js/voices.js` added to `SHELL`.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
@@ -2680,15 +2782,20 @@ ride in `app-state.md`, which has existed since v46.
 intro leads with **About 1 hr 20 min**; the plan list shows four `SUPERSET`
 brackets; and Nordic curl negatives is replaced by Single-leg Romanian deadlift.
 
-**Three voice clips are outstanding** — `kb-getup` and `kb-swing` from v44, plus
-`single-leg-rdl`'s *lift* line if a Snoop-voiced one is wanted (the movement
-already speaks, using the rest-day routine's existing clip). They 404 and stay
-silent, which is the contract, so nothing is broken. The script lines are:
-*"Turkish get-up, nephew. Slow, eyes on that bell."* and *"Kettlebell swings.
-Snap them hips, bitch."*
+**Three voice clips are outstanding, and now only in Snoop.** `kb-getup`,
+`kb-swing` and `wu-press-ups` were recorded for Arnold in v52 and ship; the
+Snoop folder has never had them, so a Snoop session is silent on the two
+kettlebell lifts and the warm-up press-ups while an Arnold one is not. They 404
+and stay silent, which is the contract, so nothing is broken — but the two
+voices no longer match, and that is the only thing between them. The Snoop
+script lines are: *"Turkish get-up, nephew. Slow, eyes on that bell."*,
+*"Kettlebell swings. Snap them hips, bitch."* and a press-ups line to write.
+`single-leg-rdl`'s *lift* line is still optional — the movement already speaks,
+using the rest-day routine's existing clip.
 
-**One warm-up cue is missing:** `wu-press-ups` has no clip, so the warm-up
-announces four of its five items. A line for it would complete the set.
+**Five Arnold finish lines are recorded and unused** — see the section in
+`docs/VOICE-SCRIPTS.md`. The app has no spoken finish cue; giving it one is a
+feature, and it would want a Snoop counterpart.
 
 **The `art-inbox` branch is live and unmerged**, waiting for raster figures.
 Images attached in chat are rendered into context but never written to disk, so

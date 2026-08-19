@@ -1,9 +1,15 @@
-// Spoken cues, played as short clips from audio/cues/<id>.webm — a lift on top
-// of the beeps in js/beeps.js, never a replacement for them.
+// Spoken cues, played as short clips from audio/cues/<voice>/<id>.webm — a lift
+// on top of the beeps in js/beeps.js, never a replacement for them.
 //
 // Shared by both Off mat screens: the routines announce each movement, and the
 // strength session announces what is coming when a rest ends.
 //
+// The voice is fixed for the life of this player, because it is fixed for the
+// life of a session — see js/voices.js. Each player caches its own decoded
+// buffers, so a voice's clips are never mixed with another's.
+
+import { DEFAULT_VOICE } from './voices.js';
+
 /**
  * This plays clips through Web Audio, the same as the beeps, rather than a
  * plain `Audio` element — deliberately. A bare `Audio().play()` called from
@@ -15,7 +21,7 @@
  * never hit this — so voice clips are decoded once and played as buffers
  * through that same kind of context instead.
  */
-export function createVoice() {
+export function createVoice(voice = DEFAULT_VOICE) {
   let ctx = null;
   let closed = false;
   let current = null;
@@ -33,11 +39,15 @@ export function createVoice() {
   const load = async (c, id) => {
     if (buffers.has(id)) return buffers.get(id);
     try {
-      const res = await fetch(`audio/cues/${id}.webm`);
+      const res = await fetch(`audio/cues/${voice}/${id}.webm`);
       const buf = await c.decodeAudioData(await res.arrayBuffer());
       buffers.set(id, buf);
       return buf;
-    } catch { return null; } // no clip recorded yet — stay silent, don't break the routine
+    } catch { return null; }
+    // No clip recorded yet in *this* voice — stay silent, don't break the
+    // routine, and deliberately don't fall back to the other one. A voice that
+    // quietly borrows another's lines mid-session is worse than a gap: the gap
+    // is the standing contract every missing cue has always had.
   };
 
   const stop = () => {

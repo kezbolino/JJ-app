@@ -3,7 +3,52 @@
 // Cache-first for the app's own files so it opens on gym wifi or none at all.
 // Bump CACHE when shipping changes, or browsers will serve the old app.
 
-const CACHE = 'jj-app-v51';
+const CACHE = 'jj-app-v52';
+
+// The clips that exist on disk, per voice. See js/voices.js.
+//
+// The voices are deliberately allowed to be ragged: Arnold has three cues
+// Snoop has never had (the two kettlebell lifts and the warm-up press-ups),
+// and a voice missing a cue is silent for it — createVoice's standing
+// contract, the same one PENDING_ART gives an undrawn figure. What is *not*
+// allowed is a name here with no file behind it: `cache.addAll` rejects the
+// whole install on a single 404, the old worker then serves forever, and every
+// reopen fails identically. Add a clip here in the same commit as its bytes.
+// tests/stretches.test.mjs asserts this map and audio/cues/ agree exactly, in
+// both directions.
+const CUES = {
+  snoop: [
+    'ankle-rock', 'archer-press-up', 'bear-crawl', 'childs-pose',
+    'copenhagen', 'cossack-squat', 'countdown', 'dead-hang',
+    'deep-squat-hold', 'frog', 'glute-bridge-single', 'hanging-leg-raise',
+    'hip-flexor-lunge', 'hollow-hold', 'hype-1', 'hype-10', 'hype-2',
+    'hype-3', 'hype-4', 'hype-5', 'hype-6', 'hype-7', 'hype-8', 'hype-9',
+    'inverted-row', 'jefferson-curl', 'neck-isometric', 'neck-side',
+    'ninety-ninety', 'ninety-ninety-liftoff', 'other-side-1', 'other-side-2',
+    'other-side-3', 'other-side-4', 'other-side-5', 'other-side-6', 'pigeon',
+    'pike-press-up', 'pull-up', 'quad-kneel', 'rest-over-1', 'rest-over-2',
+    'rest-over-3', 'rest-over-4', 'rest-over-5', 'seated-fold', 'side-plank',
+    'single-leg-rdl', 'sphinx', 'split-squat', 'supine-twist',
+    'thoracic-press-up', 'thread-needle', 'wall-slide', 'warmup-arm-circle',
+    'warmup-leg-swing', 'warmup-march', 'warmup-squat', 'wrist-floor',
+  ],
+  arnold: [
+    'ankle-rock', 'archer-press-up', 'bear-crawl', 'childs-pose',
+    'copenhagen', 'cossack-squat', 'countdown', 'dead-hang',
+    'deep-squat-hold', 'frog', 'glute-bridge-single', 'hanging-leg-raise',
+    'hip-flexor-lunge', 'hollow-hold', 'hype-1', 'hype-10', 'hype-2',
+    'hype-3', 'hype-4', 'hype-5', 'hype-6', 'hype-7', 'hype-8', 'hype-9',
+    'inverted-row', 'jefferson-curl', 'kb-getup', 'kb-swing',
+    'neck-isometric', 'neck-side', 'ninety-ninety', 'ninety-ninety-liftoff',
+    'other-side-1', 'other-side-2', 'other-side-3', 'other-side-4',
+    'other-side-5', 'other-side-6', 'pigeon', 'pike-press-up', 'pull-up',
+    'quad-kneel', 'rest-over-1', 'rest-over-2', 'rest-over-3', 'rest-over-4',
+    'rest-over-5', 'seated-fold', 'side-plank', 'single-leg-rdl', 'sphinx',
+    'split-squat', 'supine-twist', 'thoracic-press-up', 'thread-needle',
+    'wall-slide', 'warmup-arm-circle', 'warmup-leg-swing', 'warmup-march',
+    'warmup-squat', 'wrist-floor', 'wu-press-ups',
+  ],
+};
 
 const SHELL = [
   './',
@@ -17,6 +62,7 @@ const SHELL = [
   'js/swupdate.js',
   'js/beeps.js',
   'js/voice.js',
+  'js/voices.js',
   'js/wakelock.js',
   'js/dates.js',
   'js/ui.js',
@@ -50,75 +96,12 @@ const SHELL = [
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable.png',
-  // Spoken move names for the stretch routines — see js/views/stretch.js.
-  // Small opus clips, one per item id in js/stretches.js; a routine run on
-  // gym wifi or offline still gets the voice cues, not just the beeps.
-  'audio/cues/ankle-rock.webm',
-  'audio/cues/bear-crawl.webm',
-  'audio/cues/childs-pose.webm',
-  'audio/cues/copenhagen.webm',
-  'audio/cues/cossack-squat.webm',
-  'audio/cues/dead-hang.webm',
-  'audio/cues/deep-squat-hold.webm',
-  'audio/cues/frog.webm',
-  'audio/cues/glute-bridge-single.webm',
-  'audio/cues/hip-flexor-lunge.webm',
-  'audio/cues/jefferson-curl.webm',
-  'audio/cues/neck-isometric.webm',
-  'audio/cues/neck-side.webm',
-  'audio/cues/ninety-ninety-liftoff.webm',
-  'audio/cues/ninety-ninety.webm',
-  // The six "now the other side" takes, played instead of the move's own
-  // name on the second half of a two-sided movement (see cueFor in
-  // js/views/stretch.js). Picked at random, so all six have to be here.
-  'audio/cues/other-side-1.webm',
-  'audio/cues/other-side-2.webm',
-  'audio/cues/other-side-3.webm',
-  'audio/cues/other-side-4.webm',
-  'audio/cues/other-side-5.webm',
-  'audio/cues/other-side-6.webm',
-  // Spoken "3, 2, 1, let's go", and the hype lines that land on some sets.
-  // Both are picked at random, so all of them have to be cached.
-  'audio/cues/countdown.webm',
-  'audio/cues/hype-1.webm',
-  'audio/cues/hype-2.webm',
-  'audio/cues/hype-3.webm',
-  'audio/cues/hype-4.webm',
-  'audio/cues/hype-5.webm',
-  'audio/cues/hype-6.webm',
-  'audio/cues/hype-7.webm',
-  'audio/cues/hype-8.webm',
-  'audio/cues/hype-9.webm',
-  'audio/cues/hype-10.webm',
-  // The strength session: one clip per lift, announced when the rest before
-  // it ends, plus generic "rest is over" takes for a repeat of the same one.
-  'audio/cues/pull-up.webm',
-  'audio/cues/split-squat.webm',
-  'audio/cues/archer-press-up.webm',
-  'audio/cues/inverted-row.webm',
-  'audio/cues/pike-press-up.webm',
-  'audio/cues/hanging-leg-raise.webm',
-  'audio/cues/hollow-hold.webm',
-  'audio/cues/rest-over-1.webm',
-  'audio/cues/rest-over-2.webm',
-  'audio/cues/rest-over-3.webm',
-  'audio/cues/rest-over-4.webm',
-  'audio/cues/rest-over-5.webm',
-  'audio/cues/pigeon.webm',
-  'audio/cues/quad-kneel.webm',
-  'audio/cues/seated-fold.webm',
-  'audio/cues/side-plank.webm',
-  'audio/cues/single-leg-rdl.webm',
-  'audio/cues/sphinx.webm',
-  'audio/cues/supine-twist.webm',
-  'audio/cues/thoracic-press-up.webm',
-  'audio/cues/thread-needle.webm',
-  'audio/cues/wall-slide.webm',
-  'audio/cues/warmup-arm-circle.webm',
-  'audio/cues/warmup-leg-swing.webm',
-  'audio/cues/warmup-march.webm',
-  'audio/cues/warmup-squat.webm',
-  'audio/cues/wrist-floor.webm',
+  // Spoken cues — see js/voices.js. One folder per voice, the same ids in
+  // each, so a session speaks in one voice throughout and a routine run on gym
+  // wifi or offline still gets the voice, not just the beeps.
+  //
+  ...Object.entries(CUES).flatMap(([voice, ids]) =>
+    ids.map(id => `audio/cues/${voice}/${id}.webm`)),
 ];
 
 self.addEventListener('install', event => {
