@@ -35,11 +35,24 @@ choice.
 "Android/Chrome" for the repo's whole life and it was never checked). It matters
 more than it looks:
 
+- **A stuck version is fixed by force-stopping Firefox, and that is the FIRST
+  thing to try — before anything else, every time.** Confirmed 2026-08-18: the
+  phone sat on v48 for a day of reopens while the site served v50, and a **phone
+  restart** cleared it instantly. The reason matters: **swiping the PWA out of
+  Recents does not kill Firefox.** Firefox for Android keeps its own process
+  alive underneath, and the service worker registration and its update-check
+  state live in that process, not in the home-screen shortcut — so every
+  "close and reopen" reopens a window onto the same wedged process. Android
+  Settings → Apps → Firefox → **Force stop** does the same job as a reboot in
+  five seconds. Do not escalate past this: an entire session was spent on
+  export-wipe-reinstall-mint-a-new-token advice for something a process kill
+  fixed.
 - **No `chrome://serviceworker-internals`,** so there is no surgical way to drop
-  a stuck service worker. In Firefox the only reliable route also clears
-  IndexedDB — which is the source of truth *and* holds the sync token. That is
-  why the in-app "Check for updates" control exists: it is the only escape hatch
-  this user actually has.
+  a stuck worker short of that. Firefox's per-site "clear cookies and site data"
+  works but also clears IndexedDB — the source of truth *and* the sync token —
+  so it is a last resort, not a first move. The in-app "Check for updates"
+  control (v51) sits between the two: it forces the check and reports a failed
+  install, without touching storage.
 - Autoplay and `AudioContext` gesture rules differ from Chrome's. The v30/v31
   notes below reason explicitly about "Chrome is free to silently reject" a bare
   `Audio().play()` — the conclusion (route everything through one unlocked
@@ -2605,6 +2618,17 @@ data if forgotten:
   *committed tree*, not local disk — `os.path.isfile` happily finds untracked
   files that were never deployed. It was clean here, which is what ruled out the
   usual cause.
+
+  **Postscript, and the actual answer: a phone restart fixed it.** Not the
+  button, not a reinstall. Firefox for Android keeps its own process alive when
+  the PWA is swiped out of Recents, and the worker's update-check state lives in
+  that process — so every reopen was looking at the same wedged instance. A
+  **force-stop of Firefox** does it in five seconds. This is now the first line
+  of the Firefox notes at the top of this file, because the diagnosis here went
+  straight past "turn it off and on again" to export-wipe-reinstall, and cost a
+  day. The v51 button is still worth having — it gives visibility and reports a
+  failed install, which nothing did before — but it is the *second* thing to
+  reach for, not the first.
 
   sw `CACHE` → v51, `VERSION` → v51. No files added.
 
