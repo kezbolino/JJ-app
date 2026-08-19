@@ -139,7 +139,7 @@ All three are in the strength module.
 |---|---|---|
 | `kb-getup` | Turkish get-up — the lift name, on its first set and at the end of a rest | Turkish get-up, nephew. Slow, eyes on that bell. |
 | `kb-swing` | Kettlebell swings — same two moments | Kettlebell swings. Snap them hips, bitch. |
-| `wu-press-ups` | The strength warm-up checklist, announced by ticking the row above it | *(to write)* |
+| `wu-press-ups` | The strength warm-up checklist, announced by ticking the row above it | Press-ups. Ten of 'em. Chest to the floor, young'n. |
 
 **`wu-press-ups` is not wired in either voice.** `WARM_UP` in `js/strength.js`
 carries `cue: null` for it, from when no clip existed, so nothing ever requests
@@ -149,6 +149,13 @@ speaking in one voice and not the other.
 
 `single-leg-rdl` is deliberately *not* on this list. It is a lift and a rest-day
 movement sharing one id, and the rest-day clip already covers both.
+
+Snoop counterparts for the five finish lines below are written too, since those
+cannot be wired until both voices have them. **All eight are in
+`docs/voice-record-list-snoop.txt`** as a flat paste list, in the order of this
+section then the next — same shape as `voice-record-list.txt`, one line per
+file, no ids and no numbering, because that is what fed the Arnold batch and it
+is what makes the mapping checkable afterwards.
 
 ---
 
@@ -164,13 +171,16 @@ the other. The recordings are in the source zip.
 Ids follow the `rest-over-N` / `hype-N` convention, so `pickCue(FINISH_CUES, …)`
 in `js/stretches.js` would drive them with no new mechanism.
 
-| id | line |
-|---|---|
-| `finish-1` | Session complete. You did it. Well done. |
-| `finish-2` | That is it. We are all finished. Now go and eat. |
-| `finish-3` | Done. You have earned that. I am proud of you. |
-| `finish-4` | The workout is over. I'll be back tomorrow. |
-| `finish-5` | Finished. Everybody out of the pool. Go! |
+| id | Arnold (recorded) | Snoop (to record) |
+|---|---|---|
+| `finish-1` | Session complete. You did it. Well done. | Session complete. You did that, nephew. Respect. |
+| `finish-2` | That is it. We are all finished. Now go and eat. | That's it, we done. Go get your eat on. |
+| `finish-3` | Done. You have earned that. I am proud of you. | Done. You earned that one, fo shizzle. |
+| `finish-4` | The workout is over. I'll be back tomorrow. | Workout's over. Catch you tomorrow, young'n. |
+| `finish-5` | Finished. Everybody out of the pool. Go! | Finished. Everybody up out the pool. Go on. |
+
+The Snoop column carries the same *function*, not the same catchphrases — a
+Snoop line quoting Predator would be a worse impression, not a matching one.
 
 **These five lines are reconstructed, not transcribed cleanly.** There was no
 script for them — they arrived as extra files beyond the 62 in
