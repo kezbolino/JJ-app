@@ -316,6 +316,36 @@ test('syncHealth reports a recorded failure', () => {
   assert.match(health.message, /Bad credentials/);
 });
 
+test('syncHealth calls a missing connection offline, not a broken backup', () => {
+  // A plane is not a failed backup. The recorded error is almost always the
+  // last attempt from this same trip, so it must not outrank being offline —
+  // an amber "backup failed" every time you go through a tunnel is how a user
+  // learns to ignore the banner that means something.
+  const health = store.syncHealth({
+    configured: true,
+    lastSyncAt: null,
+    lastError: { message: 'Failed to fetch', at: '2026-08-20T10:00:00.000Z' },
+    online: false,
+    today: '2026-08-20',
+  });
+  assert.equal(health.state, 'offline');
+  assert.match(health.message, /saved on this device/);
+
+  // With a connection, the same failure still reads as a failure.
+  const back = store.syncHealth({
+    configured: true,
+    lastSyncAt: null,
+    lastError: { message: 'Failed to fetch', at: '2026-08-20T10:00:00.000Z' },
+    online: true,
+    today: '2026-08-20',
+  });
+  assert.equal(back.state, 'failing');
+});
+
+test('syncHealth stays quiet offline when sync was never set up', () => {
+  assert.equal(store.syncHealth({ configured: false, online: false }).state, 'off');
+});
+
 test('syncHealth goes stale after a week of silence, not before', () => {
   const at = day => `${day}T09:00:00.000Z`;
   const on = (last, today) =>

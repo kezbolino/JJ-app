@@ -84,6 +84,7 @@ js/store.js           entry CRUD and every derived query (coverage, gaps, themes
 js/appstate.js        which settings sync, and how two devices' copies merge
 js/backup.js          JSON export/import
 js/markdown.js        entry ↔ markdown file (the backup format)
+js/offline.js         asks the worker what is cached; the offline-readiness wording
 js/sync.js            GitHub backup repo sync, via the Git Data API
 js/youtube.js         link parsing and title lookup
 js/ui.js              h() element builder and shared bits
@@ -117,6 +118,7 @@ node tests/schedule.test.mjs    # pure node, fast — dates, SRS, attendance
 node tests/strength.test.mjs   # pure node, fast — the progression engine
 node tests/appstate.test.mjs   # pure node, fast — synced-settings merge rules
 node tests/swupdate.test.mjs   # pure node, fast — when a new version may reload
+node tests/offline.test.mjs    # pure node, fast — the precache split, offline wording
 python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
@@ -124,7 +126,7 @@ node tests/features.test.mjs    # Playwright; calendar, deck, trash, links,
                                 # stretch, strength
 ```
 
-**Run all eleven after touching anything in `js/`.** Between them they cover the
+**Run all twelve after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
 including user corrections, backup format fidelity, multi-device sync including
 deletions, the move-suggestion engine, the stretch routines, the strength
@@ -146,8 +148,11 @@ guards against are invisible on a UTC box.
   can be undone. Only change the shipped ontology for things true of BJJ
   generally, and update the markdown copy in the same commit.
 - **Bump `CACHE` in `sw.js`** whenever you add, remove or rename a file under
-  `js/` or `css/`, and add new files to `SHELL`. Otherwise returning users get
-  a stale app.
+  `js/` or `css/`, and add new files to **`CORE`** (the precache is split into
+  `CORE` + `EXTRAS` as of v53 — see the header of `sw.js`). Otherwise returning
+  users get a stale app. `tests/offline.test.mjs` fails if a module under `js/`
+  is missing from `CORE`, because that is a white screen offline and works
+  perfectly on wifi.
 - Never render user content as HTML. `h()` in `js/ui.js` makes text nodes;
   don't reach for `innerHTML`.
 - This repo is **public** and served by GitHub Pages at
@@ -2787,6 +2792,73 @@ data if forgotten:
   **The first open will want a moment on wifi.** `audio/cues/` went 808 KB →
   2.3 MB in this version (121 clips → 134, two voices), and the service worker
   precaches all of it before the new shell is usable offline.
+
+- 2026-08-20 — **v53: the app did not work offline at all, and nothing said so.**
+  User: *"I realised I can't access the app without Internet. If on a train with
+  no signal or a plane I can't look or take notes."* An offline-first PWA that
+  needs a connection to open is the whole product failing, and the cause was one
+  line.
+
+  **`cache.addAll(SHELL)` is atomic, and `SHELL` was 179 files.** 134 of them
+  are voice clips — 2.3 MB, none of which matter for reading or writing a note.
+  A single dropped byte anywhere in that download rejects the *whole* install,
+  the worker is discarded, and **nothing is cached**. The app then has no
+  offline mode whatsoever, reports no error, and works perfectly on wifi, so
+  every test and every check passes. v52 more than doubled the audio (808 KB →
+  2.3 MB, a second voice), which is almost certainly what tipped it over.
+
+  **The fix is the split, and it is the rule worth keeping: never put an
+  optional asset in the same `addAll` as a required one.** `sw.js` now has
+  `CORE` (the app — 44 files, under a megabyte, `addAll`, all-or-nothing on
+  purpose because half an app is a white screen) and `EXTRAS` (the clips, added
+  one at a time, failures ignored). A missing clip is silent, which is already
+  `createVoice`'s standing contract and exactly what `PENDING_ART` does for a
+  figure. `activate` tops up whatever the install could not finish, and any
+  same-origin file fetched from the network is now kept, so a gap closes the
+  first time it is used rather than at the next deploy.
+
+  **Two smaller offline holes closed with it.** A navigation that misses the
+  cache used to reject and hand the user Firefox's "server not found", which
+  reads as *the app is gone* — it falls back to the cached shell now, and every
+  route in this app lives behind the hash, so the shell is always the right
+  answer. And `syncHealth` gained an `online` flag: being in a tunnel is not a
+  broken backup, and an amber "Backup failed" every time you lose signal is how
+  a user learns to ignore the banner that means something. Offline gets a plain
+  banner saying the notes are safe on this device; Home also stops *attempting*
+  the daily sync when `navigator.onLine` is false, so a trip no longer records
+  an error that outlives it. (`navigator.onLine` is a weak signal — true only
+  means an interface exists — but **false is reliable, and false is the only
+  case this changes**.)
+
+  **Settings → Offline use is the part that makes it checkable.** It asks the
+  worker what is actually cached (a `MessageChannel` per question, because a
+  bare `postMessage` has no reply path and "did that work?" is the entire point)
+  and says one of three things, with a Download button that fills every gap.
+  Verified by breaking it for real: evicted two `CORE` files and ten clips from
+  a live cache, watched the card turn amber and name the count, tapped Download,
+  watched it come back to "All 178 files". **The middle state is why this is not
+  a boolean** — a phone with the app and not the audio is ready for a flight and
+  must be told so, or the card is lying about a stretch clip.
+
+  **`describeOffline` is pure** and lives in the new `js/offline.js` with the
+  message protocol, because the sentence someone reads on a platform before
+  boarding is the part worth testing. New suite `tests/offline.test.mjs`
+  (9 assertions) — **the suite count is now twelve** — and it also pins the
+  structural half: every module under `js/` must be in `CORE` (a module on disk
+  but not precached is the v41 audio bug applied to something that is *not*
+  optional: perfect on wifi, white screen on a train), nothing under `audio/`
+  may be in `CORE`, and `CORE` must stay small enough that being atomic is
+  reasonable. Verified it fails by dropping `js/offline.js` from `CORE` first.
+
+  **And `tests/features.test.mjs` now actually pulls the plug** —
+  `context.setOffline(true)`, cold load, read the journal, write a class, read
+  it back. Every other browser test in this repo has always had a server to
+  fall back on, which is precisely why none of them could see this.
+
+  sw `CACHE` → v53, `VERSION` → v53; `js/offline.js` added and in `CORE`.
+  Twelve suites green (`schedule` under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`), screenshot-checked the new card ready and not-ready in
+  light and dark, no overflow at 360px.
 
 ## Parked — pick this up next session
 

@@ -438,8 +438,19 @@ export const SYNC_STALE_DAYS = 7;
  *   stale    — nothing has succeeded in a week (or ever)
  *   ok       — synced recently
  */
-export function syncHealth({ configured, lastSyncAt, lastError, today = todayISO() } = {}) {
+export function syncHealth({ configured, lastSyncAt, lastError, online = true, today = todayISO() } = {}) {
   if (!configured) return { state: 'off', message: null };
+  // Being on a train is not a broken backup, and calling it one trains the user
+  // to ignore the banner that means something. This outranks the recorded
+  // error, because that error is almost always the last failed attempt from
+  // this same trip. It deliberately does not outrank nothing at all: with a
+  // connection, a real failure still reads as a real failure.
+  if (!online) {
+    return {
+      state: 'offline',
+      message: 'No connection — notes are saved on this device and will back up later.',
+    };
+  }
   if (lastError) {
     return { state: 'failing', message: `Backup failed — ${lastError.message}` };
   }

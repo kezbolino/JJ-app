@@ -264,6 +264,14 @@ function nudgePanel(nudge, dismissedOn, today) {
  */
 function syncPanel(health) {
   if (health.state === 'off' || health.state === 'ok') return null;
+  // Offline is a plain banner, not an amber one. Amber means "a gap, waiting on
+  // you", and there is nothing you can do about a tunnel — it is reassurance
+  // that the class you just wrote is safe, not a warning.
+  if (health.state === 'offline') {
+    return h('div.banner',
+      h('span.b-ico', icon('cloud')),
+      h('span.b-txt.muted', health.message));
+  }
   return h('a.banner.warn', { href: '#/settings' },
     h('span.b-ico', icon('cloud')),
     h('span.b-txt', health.message),
@@ -384,14 +392,18 @@ export default async function home(root) {
   const lastSync = await sync.getLastSync();
   const lastError = configured ? await sync.getLastSyncError() : null;
   const pending = configured ? store.pendingSync(entries, lastSync) : 0;
-  const health = store.syncHealth({ configured, lastSyncAt: lastSync, lastError, today });
+  // navigator.onLine is a weak signal — true only means "there is an
+  // interface", not "the internet answers" — but false is reliable, and false
+  // is the only case this changes.
+  const online = navigator.onLine !== false;
+  const health = store.syncHealth({ configured, lastSyncAt: lastSync, lastError, online, today });
 
   // Daily autosaver: if sync is set up and we haven't synced yet today, do it
   // in the background, then re-render so counts and the pending dot refresh.
   // Fully quiet — a failed sync (usually just offline) shouldn't interrupt.
   // The token check is what stops a slow sync from wiping a screen the user has
   // navigated to in the meantime.
-  if (configured && autoSyncedOn !== today && (!lastSync || lastSync.slice(0, 10) < today)) {
+  if (online && configured && autoSyncedOn !== today && (!lastSync || lastSync.slice(0, 10) < today)) {
     // Mark the attempt before it runs, not after. A failure leaves `lastSyncAt`
     // untouched, so without this flag the re-render below would satisfy the
     // same condition and start another sync, forever.

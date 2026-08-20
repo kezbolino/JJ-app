@@ -1952,6 +1952,71 @@ await test('the map shows attention month by month, once there is more than one 
   await page.context().close();
 });
 
+/**
+ * The one that answers the actual question: pull the plug and see if the app
+ * still opens.
+ *
+ * Everything else in this file runs with a network. Until v53 the precache was
+ * a single `cache.addAll` over 179 files, 134 of them optional voice clips, so
+ * one failed download left *nothing* cached — and no test could tell, because
+ * every one of them had a server to fall back on.
+ */
+await test('the app opens, reads and logs with the network switched off', async () => {
+  const page = await newPage();
+  await seed(page, [
+    { date: '2026-08-01', gi: 'gi', sections: { drilled: 'armbar from guard' } },
+    // Dated, not left to default to today: the class logged offline below has
+    // to be the newest row for `.first()` to mean anything.
+    { type: 'note', date: '2026-07-15', title: 'armbar detail', body: 'keep the elbow tight' },
+  ]);
+
+  // Wait for the worker to be installed *and* driving this page — going offline
+  // before it controls the page proves nothing.
+  const status = await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      await new Promise(r => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+    }
+    const { offlineStatus } = await import('/js/offline.js');
+    return offlineStatus();
+  });
+  assert.equal(status.supported, true, 'the worker did not answer OFFLINE_STATUS');
+  assert.equal(status.coreMissing, 0, `${status.coreMissing} of the app's own files did not cache`);
+
+  await page.context().setOffline(true);
+  try {
+    // A cold load with no network at all. This is the train.
+    await page.goto(BASE + '#/library', { waitUntil: 'load' });
+    // waitFor, not isVisible: the view is painted after an IndexedDB read, and
+    // isVisible answers immediately — it would report "no" on a screen that was
+    // about to be perfectly fine, which is a flake, not a finding.
+    await page.getByText('keep the elbow tight').first().waitFor();
+    await page.getByText('EVERYTHING · 2').first().waitFor();
+
+    // A URL that was never visited online still has to land in the app rather
+    // than on the browser's error page — that is the navigate fallback.
+    await page.goto(BASE + '?never-seen=1#/map', { waitUntil: 'load' });
+    await page.locator('.cov-grid, .trend, .view .card').first().waitFor();
+
+    // And writing works, which is the half that would actually lose something.
+    // Saved, then read back through the UI — an entry that only exists in a
+    // variable is not a class you logged on a plane.
+    await go(page, '/log');
+    await page.locator('textarea').first().fill('logged this at 30,000 feet');
+    await page.getByRole('button', { name: 'Save entry' }).click();
+    await page.waitForFunction(() => location.hash === '#/');
+
+    await go(page, '/library');
+    await page.locator('a.entry').first().click();
+    assert.match(await page.locator('textarea').first().inputValue(), /30,000 feet/,
+      'the entry logged offline did not come back');
+  } finally {
+    await page.context().setOffline(false);
+  }
+
+  await page.context().close();
+});
+
 await browser.close();
 
 if (errors.length) {

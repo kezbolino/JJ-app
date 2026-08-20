@@ -8,6 +8,8 @@ import * as backup from '../backup.js';
 import * as overrides from '../overrides.js';
 import * as appearance from '../appearance.js';
 import { VOICES } from '../voices.js';
+import { offlineStatus, precacheAll, describeOffline } from '../offline.js';
+import { renderToken, isCurrent } from '../render.js';
 
 // A segmented picker over [value, label] pairs; taps apply immediately so the
 // change is visible on the buttons/text on this very screen.
@@ -218,6 +220,67 @@ function updateCard() {
     status);
 }
 
+/**
+ * "Can I use this on a plane?" — answered on screen, before the plane.
+ *
+ * The app has always been offline-first, but nothing in it ever *said* whether
+ * the cache was actually complete, and until v53 a single failed download
+ * anywhere in 2.3 MB of voice clips silently left nothing cached at all. The
+ * fix for that is in sw.js; this is the part that makes it checkable, because
+ * "it should work offline" is not something you want to discover is wrong at
+ * 30,000 feet.
+ *
+ * Note what it does *not* claim: your notes live in this browser's IndexedDB
+ * whatever this card says. Nothing here can lose them — the only thing at stake
+ * is whether the app will open and run.
+ */
+function offlineCard() {
+  // A precache is up to three minutes long, so this screen can easily be gone
+  // by the time it answers. These nodes are the card's own, so a late paint
+  // cannot clobber anything the way the v16 render bug did — the token is here
+  // so a stale download does not overwrite a fresh card's status either.
+  const token = renderToken();
+  const headline = h('p.small', 'Checking…');
+  const detail = h('p.small.muted', '');
+  const btn = h('button.btn.wide', { type: 'button' }, 'Download everything for offline');
+
+  const paint = status => {
+    if (!isCurrent(token)) return;
+    const said = describeOffline(status);
+    headline.textContent = said.headline;
+    detail.textContent = said.detail;
+    // Amber is this app's "gap, waiting on you" colour and this is exactly
+    // that: something you can fix, now, with one tap, while you still have a
+    // connection. A complete cache is not news and gets the plain colour.
+    headline.style.color = said.ready ? 'var(--text)' : 'var(--warm-ink)';
+    btn.disabled = Boolean(said.complete);
+    btn.textContent = said.complete
+      ? 'Everything is downloaded'
+      : 'Download everything for offline';
+  };
+
+  offlineStatus().then(paint);
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    headline.textContent = 'Downloading…';
+    detail.textContent = 'Around 3 MB, mostly the spoken cues. Leave this screen open.';
+    const status = await precacheAll();
+    paint(status);
+    if (!describeOffline(status).complete) {
+      btn.disabled = false;
+      detail.textContent += ' Some files could not be downloaded — try again on a better connection.';
+    }
+  });
+
+  return card('Offline use',
+    h('p.small.muted',
+      'Everything you write is stored in this browser, so a train or a plane changes ' +
+      'nothing about your notes. This is whether the app itself is downloaded and will open.'),
+    headline, detail,
+    h('div.btn-row', btn));
+}
+
 export default async function settings(root) {
   const config = await sync.getConfig();
   const lastSync = await sync.getLastSync();
@@ -309,6 +372,8 @@ export default async function settings(root) {
       h('div.btn-row', h('button.btn.primary.wide', { onclick: runSync }, 'Sync now'))),
 
     updateCard(),
+
+    offlineCard(),
 
     beltCard(promotions, standing, reload),
 
