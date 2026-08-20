@@ -2860,6 +2860,29 @@ data if forgotten:
   `Australia/Sydney`), screenshot-checked the new card ready and not-ready in
   light and dark, no overflow at 360px.
 
+- 2026-08-20 — **v53 deployed.** `main` fast-forwarded `426bc32..63a175c` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 23s, `deploy` succeeded (13:19:06→13:20:46Z, run
+  `32373524990`). Ship gate: twelve suites green (`schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`), `CACHE` == `VERSION` == v53,
+  clean tree, fast-forward confirmed rather than a merge.
+
+  **The user was on v52 and nothing was stuck** — v53 had only ever been pushed
+  to its branch, and Pages serves `main`. Worth remembering before diagnosing a
+  "stale version" again: check `js/version.js` on `origin/main` *first*. A phone
+  showing the version the site is actually serving is not a bug.
+
+  **v53 cannot fix the phone it is shipping to until it lands once.** The whole
+  point of this version is that the precache used to fail atomically, and the
+  worker that has to install it is the old one. So the first open after this
+  deploy still needs a connection; after that the app is genuinely offline-capable.
+  The visible tells: the footer reads `JUJI v53`, and Settings gains an **Offline
+  use** card that should say *"Ready to use offline. All 178 files are stored on
+  this device."* If it says fewer, tap Download while there is still signal.
+
+  **No churn expected in `jj-app-data`** — nothing here touches `js/markdown.js`,
+  the entry model or `js/appstate.js`.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
