@@ -290,11 +290,11 @@ await test('a calendar day links to the class logged that day', async () => {
 // 3. The deck
 // ---------------------------------------------------------------------------
 
-await test('the deck flips and steps, with no rating asked for', async () => {
+await test('a card shows its cues without a flip, and the deck still steps', async () => {
   const page = await newPage();
   await setSetting(page, 'focuses', [
     { front: 'half guard passing', back: 'knee across, kill the underhook' },
-    { front: 'triangle finish', back: 'cut the angle' },
+    { front: 'triangle finish', back: '' },
   ]);
 
   await go(page, '/focus');
@@ -304,13 +304,24 @@ await test('the deck flips and steps, with no rating asked for', async () => {
   // v20 removed the Again/Good/Easy rating and the scheduler behind it.
   assert.equal(await page.locator('.fc-grade').count(), 0, 'the grade buttons are back');
 
-  await page.click('.flashcard');
-  await page.waitForTimeout(150);
-  assert.equal(await page.locator('.flashcard.flipped').count(), 1, 'tapping did not flip the card');
+  // v55 removed the flip. Both halves are on one face now, so the cues are
+  // readable without touching anything — pinned the way the timer and the
+  // session picker were, because a half-removed interaction is worse than
+  // either state: a card that still looks tappable but no longer turns.
+  assert.ok(await page.locator('.fc-text').first().isVisible());
+  assert.equal(await page.locator('.fc-cues').first().innerText(),
+    'knee across, kill the underhook', 'the cues are not on the front of the card');
+  await page.locator('.flashcard').click();
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.flashcard.flipped').count(), 0, 'the card still flips');
+  assert.equal(await page.locator('.fc-back').count(), 0, 'the back face is still being rendered');
 
   await page.click('.fc-arrow[aria-label="Next"]');
   await page.waitForTimeout(150);
   assert.match(await page.locator('.fc-count').innerText(), /2 \/ 2/);
+  // A card with nothing written on it says so, in place, rather than looking
+  // like a card whose cues failed to load.
+  assert.match(await page.locator('.flashcard .empty').innerText(), /No cues yet/);
   await page.context().close();
 });
 
@@ -349,10 +360,9 @@ await test('cues can be added to a card that was made without them', async () =>
   assert.deepEqual(Object.keys(deck[0]).sort(), ['back', 'front'],
     `editing put something else on the card: ${JSON.stringify(deck[0])}`);
 
-  // And it reaches the card face, which is the point of writing it.
-  await page.click('.flashcard');
-  await page.waitForTimeout(150);
-  assert.match(await page.locator('.fc-back').innerText(), /hips back/);
+  // And it reaches the card, which is the point of writing it. No tap needed
+  // since v55 — the cues sit under the name on the one face.
+  assert.match(await page.locator('.fc-cues').first().innerText(), /hips back/);
   await page.context().close();
 });
 
@@ -382,7 +392,7 @@ await test('a card can be renamed, and cannot collide with another', async () =>
   await page.context().close();
 });
 
-await test('the deck can be reordered, and the tiles on Home follow', async () => {
+await test('a card can be dragged to a new place in the deck', async () => {
   // Order is the array order and nothing else — a card carries no position of
   // its own, because `normalizeFocus` drops anything that is not front/back.
   // Home renders the same list, so the deck order *is* the tile order.
@@ -396,23 +406,58 @@ await test('the deck can be reordered, and the tiles on Home follow', async () =
   await page.waitForSelector('.fc-list');
 
   const fronts = () => page.$$eval('.fc-list-front', ns => ns.map(n => n.textContent));
-  const up = n => page.locator('.fc-list li').nth(n).locator('.fc-move[aria-label*="up"]').click();
 
-  await up(2); await page.waitForTimeout(250);
-  await up(1); await page.waitForTimeout(250);
+  // Drag the last row up past both others. Driven through real pointer events
+  // rather than by calling the handler, because the parts that break are the
+  // pointer capture and the geometry, and neither shows up in a unit test.
+  const grip = await page.locator('.fc-list li').nth(2).locator('.fc-grip').boundingBox();
+  const target = await page.locator('.fc-list li').nth(0).boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y - 20, { steps: 5 });
+  assert.equal(await page.locator('.fc-list li.is-dragging').count(), 1,
+    'the row was never picked up');
+  await page.mouse.move(grip.x + grip.width / 2, target.y + 6, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+
   assert.deepEqual(await fronts(),
-    ['standing guard break', 'half guard passing', 'triangle finish'], 'the deck did not reorder');
-
-  // The ends cannot walk off: nothing to swap with.
-  assert.equal(await page.locator('.fc-list li').first().locator('.fc-move[aria-label*="up"]').isDisabled(), true);
-  assert.equal(await page.locator('.fc-list li').last().locator('.fc-move[aria-label*="down"]').isDisabled(), true);
-
+    ['standing guard break', 'half guard passing', 'triangle finish'], 'the drag did not reorder');
   const stored = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
   assert.equal(stored[0].front, 'standing guard break', 'the new order did not persist');
+  assert.deepEqual(Object.keys(stored[0]).sort(), ['back', 'front'],
+    `reordering put something else on the card: ${JSON.stringify(stored[0])}`);
 
   await go(page, '/');
   const tiles = await page.$$eval('.wo-tile .wo-front', ns => ns.map(n => n.textContent));
   assert.equal(tiles[0], 'standing guard break', 'Home did not follow the deck order');
+  await page.context().close();
+});
+
+await test('the drag handle also reorders from the keyboard', async () => {
+  // A handle that only answers to a pointer is a control some people cannot
+  // reach at all. It is six lines, and it is the reason the ↑ ↓ buttons could
+  // go without losing anything.
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'half guard passing', back: '' },
+    { front: 'triangle finish', back: '' },
+  ]);
+  await go(page, '/focus');
+  await page.waitForSelector('.fc-list');
+
+  await page.locator('.fc-list li').first().locator('.fc-grip').focus();
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(350);
+  assert.deepEqual(await page.$$eval('.fc-list-front', ns => ns.map(n => n.textContent)),
+    ['triangle finish', 'half guard passing'], 'the keyboard did not move the card');
+
+  // And it cannot walk off the end.
+  await page.locator('.fc-list li').first().locator('.fc-grip').focus();
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(350);
+  assert.deepEqual(await page.$$eval('.fc-list-front', ns => ns.map(n => n.textContent)),
+    ['triangle finish', 'half guard passing'], 'the top card moved above the top');
   await page.context().close();
 });
 

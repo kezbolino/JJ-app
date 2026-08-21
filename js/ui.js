@@ -292,6 +292,10 @@ const SHAPES = {
   trash:    [['path', 'M6 7h12'], ['path', 'M9 7V5h6v2'], ['path', 'M7 7l1 13h8l1-13'], ['line', 10.5, 10.5, 10.5, 16.5], ['line', 13.5, 10.5, 13.5, 16.5]],
   undo:     [['path', 'M4 9h10a5 5 0 0 1 0 10h-4'], ['path', 'M7.5 5.5 4 9l3.5 3.5']],
   flame:    [['path', 'M12 3s5 4.2 5 9a5 5 0 0 1-10 0c0-1.7.8-3.2 1.7-4.3.3 1.2 1 2 1.8 2.3C10.2 8.4 12 6.2 12 3Z']],
+  // A drag handle: two rails, the universal "pick this up and move it". Three
+  // rails is the other common form and it collapses into a hamburger at 20px,
+  // which is a menu everywhere else in the world.
+  grip:     [['line', 5, 9.5, 19, 9.5], ['line', 5, 14.5, 19, 14.5]],
   // A stack of cards, for the deck.
   cards:    [['rect', 4, 7, 12, 13, 2], ['path', 'M8 5h9a2 2 0 0 1 2 2v10']],
   // Speaker + waves, and the muted twin. Not the mic: that one means "record",

@@ -741,27 +741,20 @@ a.banner .b-txt.muted { color: var(--muted); }
 .deck-rail { flex: 1; height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
 .deck-rail i { display: block; height: 100%; background: var(--accent); transition: width .35s var(--spring); }
 
-.fc-stage { perspective: 1200px; }
+/* One face, both halves visible. This was a 3D flip until v55 — the cues sat
+   on the back, one tap and half a second away from the person who wrote them
+   in order to read them. */
 .flashcard {
-  display: block; width: 100%; border: 0; padding: 0 0 7px; background: none;
-  cursor: pointer; font: inherit; color: inherit;
-  height: 232px;
+  width: 100%; min-height: 200px; padding: 24px; margin-bottom: 7px;
+  border-radius: 26px; background: var(--surface); box-shadow: 0 7px 0 var(--edge);
 }
-.fc-inner {
-  position: relative; width: 100%; height: 100%;
-  transition: transform .5s; transform-style: preserve-3d;
-}
-.flashcard.flipped .fc-inner { transform: rotateY(180deg); }
-.fc-face {
-  position: absolute; inset: 0;
-  -webkit-backface-visibility: hidden; backface-visibility: hidden;
-  display: grid; place-items: center; text-align: center;
-  padding: 24px; border-radius: 26px;
-  background: var(--surface); box-shadow: 0 7px 0 var(--edge);
-}
-.fc-back { transform: rotateY(180deg); background: var(--surface-2); }
 .fc-text { font-size: 1.3rem; font-weight: 900; letter-spacing: -.02em; white-space: pre-wrap; }
-.fc-back .fc-text { font-size: 1rem; font-weight: 600; line-height: 1.5; color: var(--sub); }
+.fc-cues {
+  margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--line);
+  font-size: 1rem; font-weight: 600; line-height: 1.5; color: var(--sub);
+  white-space: pre-wrap;
+}
+.flashcard .empty { margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--line); }
 
 .fc-hint { text-align: center; color: var(--muted); font-size: .76rem; font-weight: 700; margin: 14px 0 0; }
 
@@ -797,15 +790,27 @@ a.banner .b-txt.muted { color: var(--muted); }
 .fc-row svg { width: 15px; height: 15px; flex-shrink: 0; opacity: .55; }
 .fc-row[aria-expanded="true"] svg { opacity: 1; color: var(--accent); }
 .fc-list-front { flex: 1; font-weight: 800; font-size: .92rem; min-width: 0; overflow-wrap: anywhere; }
-/* Reorder taps get a real target — they sit next to each other, and one is the
-   undo of the other, so a mis-tap here costs nothing. */
-.fc-move {
-  width: 34px; height: 34px; flex-shrink: 0;
-  display: grid; place-items: center; border-radius: 9px;
+/* The drag handle. `touch-action: none` is the load-bearing line: without it
+   Android scrolls the page instead of giving the drag its pointermove events.
+   It is scoped to the 38px handle, so the list still scrolls normally. */
+.fc-head button.fc-grip {
+  width: 38px; height: 38px; flex-shrink: 0; padding: 0;
+  display: grid; place-items: center; border-radius: 10px;
+  touch-action: none; cursor: grab;
 }
-.fc-move:hover { color: var(--accent); }   /* blue is action; amber means a gap */
-.fc-move:disabled { opacity: .25; cursor: default; }
-.fc-move:disabled:hover { color: var(--muted); }
+/* Beaten by `.fc-head button:hover` at 0,2,1 without the extra class here. */
+.fc-head button.fc-grip:hover { color: var(--accent); }   /* blue is action; amber means a gap */
+.fc-grip:active { cursor: grabbing; }
+.fc-grip svg { width: 18px; height: 18px; }
+/* Only the rows being pushed out of the way animate. The one under your finger
+   must not: a transition on it lags the drag behind the pointer. */
+.fc-list.is-reordering li { transition: transform .16s var(--spring); }
+.fc-list li.is-dragging {
+  transition: none; position: relative; z-index: 2;
+  background: var(--surface); border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
+}
+.fc-list.is-reordering { touch-action: none; user-select: none; }
 .fc-edit { padding: 2px 0 14px; }
 .fc-edit label { margin-top: 10px; }
 .fc-edit textarea { min-height: 90px; }
@@ -1803,7 +1808,8 @@ body:has(.st.is-running) .appfoot { display: none; }
   .cal__day, .sbit-cue, .hcal-arrow, .wo-dots i,
   .btn, .btn:active, .btn.cta:active,
   .avatar-btn, .avatar-btn:active, .fc-arrow, .fc-arrow:active,
-  .seg button, .fc-inner, .flip-inner, .flipcard, .deck-rail i,
+  .seg button, .flip-inner, .flipcard, .deck-rail i,
+  .fc-list.is-reordering li,
   .tabbar a::before, .tabbar a svg, .tabbar a:active svg,
   .cov-fill, .st-rail i, .st-phaserail i,
   .sx-rail i, .sx-set, .sx-set:active, .st-pick a, .btn.danger, .btn.danger:active,

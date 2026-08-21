@@ -2961,6 +2961,65 @@ data if forgotten:
   as part of `focuses`, which has synced as `'whole'` since v46, so the first
   sync after this will simply carry whatever order the phone has.
 
+- 2026-08-21 — **v55: the deck is dragged, not nudged, and the cards stopped
+  flipping.** User: *"when i edit the deck, can we have it where i can tap and
+  drag it instead of pushing the up/down buttons? Also instead of the card
+  flipping, have them fixed and have the cues appear below the name."* Both were
+  reversals of calls made a day earlier, and both are right.
+
+  **The drag.** v54 chose two arrow buttons over a drag on the grounds that a
+  hand-rolled touch drag fights the page scroll. That is a real problem and it
+  has a real answer, which v54 did not reach for: **Pointer Events with
+  `touch-action: none` on the 38px grip alone.** The page still scrolls
+  everywhere else in the list; only the handle refuses to, which is exactly the
+  distinction the arrows were dodging. `setPointerCapture` on the way down is
+  the other load-bearing line — without it the drag dies the moment your finger
+  leaves the handle, which is what makes most hand-rolled drags feel broken.
+
+  **Rows are measured once, at pointerdown, and never again.** The others move
+  by transform, so their real boxes never change; a `getBoundingClientRect` in a
+  `pointermove` is what turns a smooth drag into a stutter. Heights are read per
+  row rather than assumed equal — a long front wraps to two lines and an open
+  editor panel makes its row several times taller, so a uniform-height
+  assumption would drop the card in the wrong place exactly when the list is
+  most interesting.
+
+  **The arrows are gone but the keyboard is not.** The grip takes ArrowUp and
+  ArrowDown, which is six lines and is the reason removing the buttons costs
+  nothing: a drag handle that only answers to a pointer is a control some people
+  cannot reach at all. Two tests, one driving real `page.mouse` events (the
+  parts that break are the capture and the geometry, and neither shows up in a
+  unit test) and one on the keyboard.
+
+  **The flip.** The card was a `rotateY(180deg)` flip with the cues on the back.
+  Wrong shape for what the deck is *for*: you open it to read your cues, so the
+  half you came for was one tap and half a second away. A flashcard hides the
+  answer because it is testing you — and **v20 already removed the grading**,
+  so nothing has been testing anything for thirty-five versions. Both halves are
+  now on one face, the cues under a hairline rule below the name. `.fc-inner`,
+  `.fc-face` and `.fc-back` are deleted, not orphaned; `.flashcard` is a `div`
+  rather than a `button`, because a card that looks tappable and does nothing is
+  worse than either state. Pinned by a test the same way the v18 timer was.
+
+  **Three strings that would have quietly gone stale**, all found by looking at
+  a screenshot rather than by a test: the deck hint said "Tap the card to flip",
+  the page subtitle said "tap to flip, swipe through to drill", and the editor
+  hint still described `↑ ↓`. Nothing asserts on any of them, which is precisely
+  why they are the ones that rot.
+
+  **The specificity trap, hit for the third version running:** `.fc-head
+  button:hover` is 0,2,1 and beat `.fc-grip:hover` at 0,2,0, so the handle went
+  amber on hover — and amber has exactly three jobs in this app, none of them
+  "a control you are about to use". Needed `.fc-head button.fc-grip:hover`. That
+  is v49's `.sx-wu button` and v54's `.fc-list li button` again: **a class added
+  inside an element-scoped block starts one point behind.**
+
+  sw `CACHE` → v55, `VERSION` → v55; `grip` added to `SHAPES` in `js/ui.js` (two
+  rails, not three — three collapses into a hamburger at 20px, which means a
+  menu everywhere else). Twelve suites green (75 browser assertions in
+  `features`), screenshot-checked light and dark at 360px, no horizontal
+  overflow, 0 running animations under `prefers-reduced-motion`.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages

@@ -15,19 +15,20 @@
 import { h, empty, icon, toast } from '../ui.js';
 import * as store from '../store.js';
 
-// One flippable card. `card` is { front, back }; flipping is local view state.
+// One card: the thing on top, your cues underneath. Both visible at once.
+//
+// This flipped until v55 — tap the front, `rotateY(180deg)`, cues on the back.
+// The flip was the wrong shape for what the deck is actually for: you open it
+// to *read* your cues, so the interesting half was always one tap away and
+// behind an animation. A flashcard hides the answer because it is testing you,
+// and v20 already removed the grading that made this a test. Nothing was
+// grading it, so nothing needed hiding.
 function flashcard(card) {
-  const inner = h('div.fc-inner',
-    h('div.fc-face', h('div.fc-text', card.front)),
-    h('div.fc-face.fc-back',
-      card.back ? h('div.fc-text', card.back) : empty('No cues yet — add them in Edit deck below.')));
-
-  const el = h('button.flashcard', {
-    type: 'button',
-    'aria-label': `Flashcard: ${card.front}. Tap to flip.`,
-    onclick: () => el.classList.toggle('flipped'),
-  }, inner);
-  return el;
+  return h('div.flashcard',
+    h('div.fc-text', card.front),
+    card.back
+      ? h('div.fc-cues', card.back)
+      : empty('No cues yet — add them in Edit deck below.'));
 }
 
 /**
@@ -72,11 +73,88 @@ function deck(cards, mount, { onIndex, start = 0 } = {}) {
       render();
     }, { passive: true });
 
-    mount.replaceChildren(top, stage, h('p.fc-hint', 'Tap the card to flip · swipe for the next'), nav);
+    mount.replaceChildren(top, stage, h('p.fc-hint', 'Swipe, or use the arrows, for the next card'), nav);
     onIndex?.(i);
   };
 
   render();
+}
+
+/**
+ * Drag a row to reorder, with the pointer or the keyboard.
+ *
+ * Pointer Events rather than touch handlers, and `touch-action: none` **on the
+ * grip only** — that is what stops the page scrolling under your finger while
+ * you drag, without disabling scrolling anywhere else in the list. The grip
+ * captures the pointer on the way down, so the drag survives the finger leaving
+ * the 38px handle, which is otherwise the thing that makes a hand-rolled drag
+ * feel broken.
+ *
+ * Rows are measured once, at pointerdown. Nothing re-measures mid-drag: the
+ * others are moved with a transform, so their real boxes never change, and a
+ * layout read inside a pointermove is what turns a smooth drag into a stutter.
+ * Heights are read per row rather than assumed equal — a long front wraps to two
+ * lines, and an expanded editor panel makes its row several times taller.
+ */
+function dragReorder(list, rows, onDrop) {
+  let drag = null;
+
+  const begin = (event, from) => {
+    if (rows.length < 2) return;
+    event.preventDefault();
+    const boxes = rows.map(r => r.getBoundingClientRect());
+    drag = { from, to: from, y0: event.clientY, boxes, row: rows[from], h: boxes[from].height };
+    drag.row.classList.add('is-dragging');
+    list.classList.add('is-reordering');
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const during = event => {
+    if (!drag) return;
+    const dy = event.clientY - drag.y0;
+    drag.row.style.transform = `translateY(${dy}px)`;
+
+    // Where the dragged row's middle now sits, against where everyone else's
+    // middle started. Only one of these two walks can run.
+    const mid = drag.boxes[drag.from].top + drag.h / 2 + dy;
+    let to = drag.from;
+    while (to < rows.length - 1 && mid > drag.boxes[to + 1].top + drag.boxes[to + 1].height / 2) to++;
+    while (to > 0 && mid < drag.boxes[to - 1].top + drag.boxes[to - 1].height / 2) to--;
+    drag.to = to;
+
+    // Open a gap where it would land by sliding the rows it has passed.
+    rows.forEach((row, i) => {
+      if (i === drag.from) return;
+      const shift = (drag.from < to && i > drag.from && i <= to) ? -drag.h
+        : (to < drag.from && i >= to && i < drag.from) ? drag.h
+        : 0;
+      row.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+  };
+
+  const finish = () => {
+    if (!drag) return;
+    const { from, to } = drag;
+    for (const row of rows) { row.style.transform = ''; row.classList.remove('is-dragging'); }
+    list.classList.remove('is-reordering');
+    drag = null;
+    if (to !== from) onDrop(from, to);
+  };
+
+  return (grip, i) => {
+    grip.addEventListener('pointerdown', e => begin(e, i));
+    grip.addEventListener('pointermove', during);
+    grip.addEventListener('pointerup', finish);
+    grip.addEventListener('pointercancel', finish);
+    // The keyboard half. A drag handle that only answers to a pointer is a
+    // control some people simply cannot reach, and this is six lines.
+    grip.addEventListener('keydown', e => {
+      const dir = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      if (i + dir >= 0 && i + dir < rows.length) onDrop(i, i + dir);
+    });
+  };
 }
 
 /**
@@ -114,6 +192,7 @@ function editor(cards, rerender, { open = null } = {}) {
     rerender({ showFront: f });
   };
 
+  const grips = [];
   const rows = cards.map((card, i) => {
     const isOpen = open === card.front;
 
@@ -138,20 +217,11 @@ function editor(cards, rerender, { open = null } = {}) {
       rerender({});
     };
 
-    // Swap with the neighbour. Two buttons rather than a drag: a hand-rolled
-    // drag on a touch screen fights the page scroll, and this is the same call
-    // as v20's scroll-snapping tile row — take the thing the platform already
-    // gets right over the gesture that looks better in a demo.
-    const move = async dir => {
-      const j = i + dir;
-      if (j < 0 || j >= cards.length) return;
-      const next = [...cards];
-      [next[i], next[j]] = [next[j], next[i]];
-      await store.setFocuses(next);
-      // `open` is kept and the deck stays on whatever card it was showing, so
-      // nudging a card up four places is four taps and nothing else moves.
-      rerender({ open });
-    };
+    const grip = h('button.fc-grip', {
+      type: 'button',
+      'aria-label': `Reorder ${card.front} — drag, or use the arrow keys`,
+    }, icon('grip'));
+    grips.push(grip);
 
     const head = h('div.fc-head',
       h('button.fc-row', {
@@ -163,14 +233,7 @@ function editor(cards, rerender, { open = null } = {}) {
         h('span.fc-list-front', card.front),
         h('span.now-badge', { hidden: true }, 'Now'),
         icon('edit')),
-      h('button.fc-move', {
-        type: 'button', 'aria-label': `Move ${card.front} up`,
-        disabled: i === 0, onclick: () => move(-1),
-      }, '↑'),
-      h('button.fc-move', {
-        type: 'button', 'aria-label': `Move ${card.front} down`,
-        disabled: i === cards.length - 1, onclick: () => move(1),
-      }, '↓'));
+      grip);
 
     // Delete lives in here rather than on the row. Three small targets side by
     // side on a 360px phone is a mis-tap waiting to happen, and this one is the
@@ -186,10 +249,24 @@ function editor(cards, rerender, { open = null } = {}) {
     return h('li', head, panel);
   });
 
+  const list = h('ul.fc-list', rows);
+
+  // Reordering is a whole-list write, which is how `js/appstate.js` already
+  // syncs focuses ('whole'), so a drag travels between devices for free.
+  const bind = dragReorder(list, rows, async (from, to) => {
+    const next = [...cards];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    await store.setFocuses(next);
+    // `open` is kept and the deck stays on whatever card it was showing, so
+    // moving a card never yanks anything else out from under you.
+    rerender({ open });
+  });
+  grips.forEach(bind);
+
   const el = h('section.card',
     h('div.card-title', 'Edit deck'),
-    rows.length ? h('ul.fc-list', rows) : null,
-    rows.length ? h('p.small.muted', 'Tap a card to change its cues · ↑ ↓ reorder the deck and the tiles on Home') : null,
+    rows.length ? list : null,
+    rows.length ? h('p.small.muted', 'Tap a card to change its cues · drag the handle to reorder the deck and the tiles on Home') : null,
     h('label', 'New card'),
     front,
     back,
@@ -215,7 +292,7 @@ export default async function focus(root, { card, open = null, showFront = null 
     h('div.page-head',
       h('div',
         h('h1.page-title', 'Working on'),
-        h('p.page-sub', 'Your flashcards — tap to flip, swipe through to drill'))));
+        h('p.page-sub', 'The things you are drilling, with your cues'))));
 
   const panel = editor(cards, rerender, { open });
 
