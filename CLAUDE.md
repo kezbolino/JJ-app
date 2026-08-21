@@ -3020,6 +3020,30 @@ data if forgotten:
   `features`), screenshot-checked light and dark at 360px, no horizontal
   overflow, 0 running animations under `prefers-reduced-motion`.
 
+- 2026-08-21 — **v55 deployed.** `main` fast-forwarded `5254895..27f5772` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 34s, `deploy` succeeded in 27s (10:04:30→10:04:57Z, run
+  `32470864356`). Ship gate: twelve suites green (75 browser assertions in
+  `features`; `schedule` under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`), `CACHE` == `VERSION` == v55, clean tree, fast-forward
+  confirmed. Third clean deploy in a row — Pages has been healthy all week.
+
+  **The visible tells:** footer reads `JUJI v55`; the card on `#/focus` no
+  longer flips and shows its cues under the name; Edit deck rows carry a `≡`
+  handle instead of `↑ ↓`.
+
+  **The one thing a Chromium suite cannot confirm** — and it is the whole
+  feature — is that the drag works on the user's own engine. Playwright drives
+  Chromium; the phone is Firefox for Android. `touch-action: none` and
+  `setPointerCapture` are both well supported there, so there is no reason to
+  expect trouble, but this is the standing gap recorded at the top of this file
+  and it applies squarely to a pointer gesture. **Worth asking whether the drag
+  actually feels right on the phone, rather than assuming green means shipped.**
+
+  **No churn expected in `jj-app-data`** — nothing in v55 touches
+  `js/markdown.js`, the entry model or `js/appstate.js`. A reorder is a whole
+  `focuses` write, which has synced as `'whole'` since v46.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
