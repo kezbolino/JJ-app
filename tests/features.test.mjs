@@ -1234,17 +1234,20 @@ await test('the running screen has a red End button and hides the version footer
   await page.context().close();
 });
 
-await test('a movement with no artwork yet leaves the frame out instead of drawing a blank', async () => {
+await test('the running screen draws the movement it is on', async () => {
   const page = await newPage();
   await go(page, '/stretch?r=rest-day');
   await page.click('.st-intro .btn.cta');
   await page.waitForSelector('.st-count');
 
-  // Nothing in the rest-day session is drawn yet, so the figure slot must be
-  // hidden rather than showing an empty box that reads as broken.
-  assert.equal(await page.locator('.st-fig svg').count(), 0);
-  assert.ok(await page.locator('.st-fig').isHidden(), 'an empty figure frame is on screen');
-  // The movement is still fully usable without a picture.
+  // This used to assert the opposite — that the slot was *empty*, because
+  // nothing in the rest-day session was drawn. Every movement in both routines
+  // has a figure as of v56, so the assertion flipped rather than the contract:
+  // `stretchFigure` still returns null for an undrawn id and the view still
+  // leaves the slot out, which is now unit-tested in tests/stretches.test.mjs
+  // because there is no longer a real movement to exercise it with.
+  assert.equal(await page.locator('.st-fig svg').count(), 1, 'the figure is missing');
+  assert.ok(await page.locator('.st-fig').isVisible(), 'the figure frame is hidden');
   assert.ok((await page.locator('.st-name').innerText()).length > 0);
   assert.ok((await page.locator('.st-cue').innerText()).length > 20);
   await page.context().close();
@@ -1431,6 +1434,30 @@ await test('the first strength session opens with the programme already prescrib
   // Acceptance criterion 1: cold, with no thinking required.
   assert.match(await page.locator('.sx-intro-l').innerText(), /no sessions logged yet/i);
   assert.match(await page.locator('.sx-warmup').innerText(), /dead hang/i);
+  await page.context().close();
+});
+
+await test('every movement in the session carries its figure', async () => {
+  // The lift screen drew no figures at all until v56 — it is a form, not a
+  // routine, and there was no code that would render one. The contract is the
+  // routines': `stretchFigure` returns null for an id with no artwork and the
+  // head just has one fewer child, so this asserts the count matches the
+  // movements rather than a hard-coded 10, and a movement added without art
+  // still renders.
+  const page = await newPage();
+  await go(page, '/strength');
+  const start = page.getByRole('button', { name: /start/i }).first();
+  if (await start.count()) await start.click();
+  await page.waitForSelector('.sx-ex');
+
+  const drawn = await page.evaluate(async () => {
+    const { EXERCISES } = await import('/js/strength.js');
+    const { ART } = await import('/js/stretch-art.js');
+    return EXERCISES.filter(e => ART[e.id]).length;
+  });
+  assert.equal(await page.locator('.sx-ex-fig svg').count(), drawn,
+    'a movement with artwork is not showing it');
+  assert.ok(drawn > 0, 'no lift has artwork at all');
   await page.context().close();
 });
 

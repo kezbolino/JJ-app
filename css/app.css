@@ -1493,6 +1493,12 @@ body:has(.st.is-running) .appfoot { display: none; }
 .sx-ex-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
 }
+/* The figure sits left of the name. Fixed box so a wide pose (the get-up, the
+   inverted row) and a tall one (the swing) take the same room and the names
+   below them line up. */
+.sx-ex-fig { width: 44px; height: 44px; flex-shrink: 0; color: var(--sub); margin-top: 1px; }
+.sx-ex-titles { flex: 1; min-width: 0; }
+.is-muted .sx-ex-fig { opacity: .4; }
 .sx-ex-name { font-size: 1.05rem; font-weight: 600; margin: 0; }
 .sx-ex-var { color: var(--muted); font-size: .78rem; font-weight: 700; margin: 2px 0 0; }
 .sx-mute {

@@ -8,7 +8,7 @@ import {
   ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
   READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, HYPE_CUES, FINISH_CUES,
   pickOtherSide, pickHype, pickFinish,
-  phasesFor, segmentAt,
+  phasesFor, segmentAt, stretchFigure,
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
 import { VOICE_IDS, VOICES, pickVoice } from '../js/voices.js';
@@ -74,13 +74,29 @@ test('every item either has artwork or is declared as awaiting it', () => {
     assert.ok(drawn || pending, `${item.id} has no figure and is not in PENDING_ART`);
     assert.ok(!(drawn && pending), `${item.id} is both drawn and pending — drop it from PENDING_ART`);
   }
-  const ids = new Set(allItems.map(i => i.id));
+  // Anything that can draw a figure counts, not just the routines: since v56
+  // the strength screen renders one beside each movement name, so a lift's id
+  // is a legitimate ART key. The guard is still worth having pointed the other
+  // way — an ART key nothing can ever ask for is dead weight in the largest
+  // file in the precached CORE.
+  const ids = new Set([...allItems.map(i => i.id), ...EXERCISES.map(e => e.id)]);
   for (const key of Object.keys(ART)) {
-    assert.ok(ids.has(key), `ART carries "${key}", which no routine uses`);
+    assert.ok(ids.has(key), `ART carries "${key}", which nothing renders`);
   }
   for (const key of PENDING_ART) {
-    assert.ok(ids.has(key), `PENDING_ART carries "${key}", which no routine uses`);
+    assert.ok(ids.has(key), `PENDING_ART carries "${key}", which nothing renders`);
   }
+});
+
+test('a movement with no artwork draws nothing rather than an empty frame', () => {
+  // The PENDING_ART contract, tested directly. It used to be covered in a
+  // browser by the rest-day routine, which had no figures at all; every
+  // movement is drawn as of v56, so there is no longer a real one to point at —
+  // and the contract still has to hold for the next movement added ahead of
+  // its artwork.
+  assert.equal(stretchFigure({ id: 'no-such-movement' }, 'nope'), null);
+  assert.equal(stretchFigure(undefined), null);
+  assert.equal(stretchFigure({}), null);
 });
 
 test('the artwork that exists is square-framed and theme-neutral', () => {

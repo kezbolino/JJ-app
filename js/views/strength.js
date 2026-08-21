@@ -31,7 +31,7 @@ import { createBeeper } from '../beeps.js';
 import { createWakeLock } from '../wakelock.js';
 import { createVoice } from '../voice.js';
 import { pickVoice, VOICE_IDS } from '../voices.js';
-import { pickFinish } from '../stretches.js';
+import { pickFinish, stretchFigure } from '../stretches.js';
 import { getVoicePref } from '../appearance.js';
 import { pickCue } from '../stretches.js';
 import * as store from '../store.js';
@@ -528,9 +528,17 @@ function exerciseCard(logged, ctx, { inPair = false } = {}) {
     onclick: () => ctx.announce(ex.id, { force: true }),
   }, icon('sound'));
 
+  // A figure beside the name. Small — 44px, the size the routine list uses —
+  // because this screen is numbers and buttons and the drawing is there to say
+  // *which* movement you are on at a glance, not to teach it. `stretchFigure`
+  // returns null for an id with no artwork, and the head simply has one fewer
+  // child then: the same contract the routines have had since PENDING_ART.
+  const fig = stretchFigure(ex, ex.name);
+
   const card = h(shell,
     h('div.sx-ex-head',
-      h('div',
+      ...(fig ? [h('div.sx-ex-fig', fig)] : []),
+      h('div.sx-ex-titles',
         h('h3.sx-ex-name', ex.name, sayBtn),
         h('p.sx-ex-var', variation.name)),
       h('button.sx-mute', {

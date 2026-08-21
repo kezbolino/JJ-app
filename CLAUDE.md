@@ -3044,6 +3044,61 @@ data if forgotten:
   `js/markdown.js`, the entry model or `js/appstate.js`. A reorder is a whole
   `focuses` write, which has synced as `'whole'` since v46.
 
+- 2026-08-21 — **v56: the artwork job is finished, and the lift screen draws
+  figures.** The user generated the last 16 movements as two contact sheets and
+  uploaded them to `art-inbox`. Every movement in both routines and all ten
+  lifts now has a figure; **`PENDING_ART` is empty** for the first time.
+
+  **The contact-sheet rule was wrong, not the route.** v48 rejected sheets
+  because its tiles were ~150×130px with captions and cell borders traced in.
+  These had no captions, no borders, and tiles at 300–450px, and traced
+  cleanly. The rule is not "never a sheet" — it is **no captions, no borders,
+  at least ~300px per figure**. `docs/ART-PROMPTS.md` now says so and is marked
+  done; the twelve stale prompts for figures that shipped in v48 were removed
+  in the commit before this one, because following that doc would have meant
+  regenerating artwork the app already had.
+
+  **Four things cost time in the pipeline, all written up in that doc.** The
+  worst: **potracer's `Bitmap` traces where the array is FALSE**, so the mask is
+  `>= 128`. The intuitive `< 128` succeeds, returns curves, and wraps every
+  figure in a contour round the whole canvas — which renders as a black
+  rectangle with the figure knocked out in white. Confirm polarity on a 20px
+  black square before trusting a batch. Also: don't upscale a tile that is
+  already 300px+ (94 KB → 63 KB for seven figures, visually identical); dilate
+  the ink twice before tracing or the lighter line does not match the shipped
+  set; and **segment a sheet by connected components, not a nominal grid** — a
+  grid crop took the bar off `hanging-leg-raise` — ordering the boxes by each
+  figure's *centre* against the row height, never its top edge, which put four
+  names on the wrong drawings.
+
+  **The strength screen renders a 44px figure beside each movement name.** It
+  had no code for one — it is a form, not a routine — so this is a view change
+  as well as an art drop, and it was the user's call. `stretchFigure` is reused
+  as-is, so the null contract still holds: a lift added without artwork gets one
+  fewer child in the head, not an empty box.
+
+  **`js/stretch-art.js` is 120 KB → 215 KB, and the budget is now spent.** It is
+  much the largest file in `CORE`, which is precached atomically and re-downloaded
+  on every version bump. A further batch this size needs a different answer than
+  "add it to the module" — splitting the strength figures into their own lazily
+  imported file is the obvious one, since only the lift screen reads them. That
+  is written at the top of the module.
+
+  **Two real failures nearly shipped, and the second one is the lesson.** My own
+  test runner printed `tail -1` of each suite — which is the "N passed" line
+  whether or not something above it failed. It hid `ART carries "pull-up", which
+  no routine uses` (the guard predates the lift screen reading ART; it now
+  counts `EXERCISES` too). Fixing the runner to report exit codes immediately
+  surfaced a second: `a movement with no artwork yet leaves the frame out`
+  asserted the rest-day routine had *no* figures, which stopped being true. Its
+  contract still matters, so it moved to a pure test calling `stretchFigure`
+  with an unknown id — there is no longer a real undrawn movement to point at.
+  **A summary line is not a test result.**
+
+  sw `CACHE` → v56, `VERSION` → v56, no files added. Twelve suites green (76
+  browser assertions in `features`, 32 in `stretches`), screenshot-checked both
+  routines and the lift session in light and dark at 360px, no overflow.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages

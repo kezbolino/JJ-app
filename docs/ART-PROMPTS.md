@@ -1,45 +1,30 @@
-# Image prompts for the missing figures
+# Image prompts for the figures
 
-**16 figures are missing.** Seven are in the rest-day mobility routine and
-render as a blank slot in the app today; nine are strength lifts, which have no
-figure *and* no code that would draw one — see the note above that section.
+> **DONE, 2026-08-21. Nothing is missing.** All 39 movements across both
+> routines and the strength session have artwork. `PENDING_ART` in
+> `js/stretch-art.js` is empty.
+>
+> The last 16 came from two contact sheets generated in one sitting and
+> uploaded to the `art-inbox` branch as `JJ 1.png` and `JJ 2.png`. **That is the
+> route that finally worked, and it contradicts the advice this file used to
+> give** — a contact sheet was rejected in v48 because its tiles were ~150×130px
+> with captions and cell borders traced in. These sheets had no captions, no
+> borders, and tiles at 300–450px, which is plenty. So the rule is not "never a
+> sheet"; it is **"no captions, no borders, and at least ~300px per figure"**.
+>
+> The prompts below are kept for regenerating any single figure that turns out
+> wrong at 52px. See "What was learned tracing these" at the bottom before
+> running the pipeline again.
 
-This list is generated from `PENDING_ART` in `js/stretch-art.js` and `EXERCISES`
-in `js/strength.js`, checked against the 23 ids that actually have art. **It was
-last reconciled on 2026-08-21**, when twelve prompts for figures that had already
-shipped in v48 were removed from this file — they would have had someone
-regenerate artwork the app already had.
+## Where each figure came from
 
-## What is missing
-
-**Rest-day mobility (7)** — these are the ones you can see missing:
-
-- `warmup-march`
-- `ninety-ninety-liftoff`
-- `copenhagen`
-- `jefferson-curl`
-- `thoracic-press-up`
-- `wall-slide`
-- `dead-hang`
-
-**Strength (9)** — nothing renders these yet, so they change nothing until
-the view does:
-
-- `pull-up`
-- `archer-press-up`
-- `kb-getup`
-- `split-squat`
-- `inverted-row`
-- `pike-press-up`
-- `hanging-leg-raise`
-- `hollow-hold`
-- `kb-swing`
-
-**Already drawn (23)** — do not regenerate these:
-
-`ankle-rock`, `bear-crawl`, `childs-pose`, `cossack-squat`, `deep-squat-hold`, `frog`, `glute-bridge-single`, `hip-flexor-lunge`, `neck-isometric`, `neck-side`, `ninety-ninety`, `pigeon`, `quad-kneel`, `seated-fold`, `side-plank`, `single-leg-rdl`, `sphinx`, `supine-twist`, `thread-needle`, `warmup-arm-circle`, `warmup-leg-swing`, `warmup-squat`, `wrist-floor`
-
-`ankle-rock` is in that list but is an optional redo; its prompt is at the bottom.
+- **11 mobility** — the v48 contact sheet.
+- **1** — `ankle-rock`, a single full-size PNG (v47). Its pose is imperfect: the
+  knee sits behind the toes where the cue says to drive it well past them. It
+  does not read as a duplicate of `hip-flexor-lunge` in the list, so it stayed.
+- **7 mobility + 9 strength** — the 2026-08-21 sheets. `single-leg-rdl` needed
+  nothing: the rest-day mobility item and the lift are the same movement and the
+  same id.
 
 ---
 
@@ -248,3 +233,43 @@ Only regenerate if that bothers you.
 > flat and pinned to the floor. Both hands press down on the front knee, pushing
 > it further forward. The extreme forward angle of the front shin is the point of
 > the drawing.
+
+---
+
+# What was learned tracing these
+
+The pipeline is scripted but the script is disposable; these are the four things
+that cost time and would cost it again.
+
+**1. potracer's `Bitmap` traces where the array is FALSE.** So the mask is
+`np.array(im) >= 128` — True for the white page — and the ink is what comes
+back. Passing the intuitive `< 128` succeeds, returns curves, and wraps every
+figure in a contour around the whole canvas: rendered, that is a black rectangle
+with the figure knocked out of it in white. Confirm the polarity on a 20px black
+square against a white field before trusting a batch. A fill-rule change does
+not fix it — the rectangle is really in the path.
+
+**2. Do not upscale a tile that is already big.** The v48 pipeline resized 2×
+before tracing, which was right for 150px tiles (it stops potrace turning each
+pixel step into a corner). At 300–450px it just multiplies curve segments:
+93.7 KB for seven figures at 2×, 62.5 KB at 1×, visually identical.
+
+**3. Thicken the ink, or the figures do not match the shipped set.** These
+drawings have a lighter line and more interior detail (faces, muscle contours)
+than the Illustrator originals. Two iterations of `binary_dilation` on the ink
+before tracing lands on the shipped weight — checked side by side at 120px and
+52px. Three starts to fill the torso in. It also *reduces* the byte count, since
+neighbouring lines merge.
+
+**4. Segment a sheet by connected components, not a nominal grid.** A grid crop
+clips whatever overflows its cell — it took the bar off `hanging-leg-raise` and
+gave `split-squat` a pair of feet from the tile above. Label the ink with a
+*small* dilation (4px): a large one merges figures that sit above each other in
+the same column. Then order the boxes by each figure's **centre** against the
+sheet's row height, never by its top edge — within one row a hanging figure's
+bar sits 175px above a press-up's shoulders, and banding on the top edge put
+four names on the wrong drawings.
+
+And the standing rule, unchanged: **render it at 52px and look at it.** That is
+the size in the routine list. It is what caught `ankle-rock` reading as
+`hip-flexor-lunge` in v47, and it is the only check that matters.
