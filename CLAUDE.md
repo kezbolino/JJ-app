@@ -2935,6 +2935,32 @@ data if forgotten:
   `America/Los_Angeles` and `Australia/Sydney`), screenshot-checked the editor
   open in light and dark at 360px, no horizontal overflow.
 
+- 2026-08-21 — **v54 deployed.** `main` fast-forwarded `f5221f6..cdd61e0` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 32s, `deploy` succeeded in **7 seconds** (08:53:10→08:53:17Z, run
+  `32465184825`) — the fastest deploy this repo has had, and a useful contrast
+  with the two failure shapes in that note: seconds-to-*fail* means refused,
+  seconds-to-*succeed* means Pages was simply healthy.
+
+  Ship gate: twelve suites green (74 browser assertions in `features`;
+  `schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`),
+  `CACHE` == `VERSION` == v54, clean tree, fast-forward confirmed.
+
+  **This should be the first deploy that lands entirely by itself.** The phone
+  was on v53, which carries both the v50 auto-updater and v53's fixed precache,
+  so no close-and-reopen dance and no incomplete cache. If it does not land:
+  force-stop Firefox first (top of this file), then Settings → Check for
+  updates.
+
+  **The visible tells:** footer reads `JUJI v54`; Working on → Edit deck shows
+  `↑ ↓` on every row; tapping a card's name opens Front/Cues/Save/Delete in
+  place.
+
+  **No churn expected in `jj-app-data`** — v54 touches neither `js/markdown.js`,
+  the entry model nor `js/appstate.js`. The deck order rides in `app-state.md`
+  as part of `focuses`, which has synced as `'whole'` since v46, so the first
+  sync after this will simply carry whatever order the phone has.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
