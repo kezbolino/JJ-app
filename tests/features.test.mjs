@@ -326,6 +326,96 @@ await test('a card keeps no schedule — nothing due, nothing hidden', async () 
   await page.context().close();
 });
 
+await test('cues can be added to a card that was made without them', async () => {
+  // The gap this closes: until v54 the back of a card could only be written
+  // when the card was created. Adding a cue later meant deleting and retyping,
+  // which also dropped the card to the bottom of the deck. The card's own back
+  // face said "tap Edit to add some" and there was nothing to tap.
+  const page = await newPage();
+  await setSetting(page, 'focuses', [{ front: 'standing guard break', back: '' }]);
+  await go(page, '/focus');
+  await page.waitForSelector('.fc-list');
+
+  const row = page.locator('.fc-list li').first();
+  await row.locator('.fc-row').click();
+  await row.locator('.fc-edit textarea').fill('elbow in, hips back, then step');
+  await row.locator('.fc-edit .btn.primary').click();
+  await page.waitForTimeout(300);
+
+  const deck = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.equal(deck[0].back, 'elbow in, hips back, then step', 'the cue was not saved');
+  // Still exactly { front, back } — the v20 invariant, now that a second code
+  // path writes a card.
+  assert.deepEqual(Object.keys(deck[0]).sort(), ['back', 'front'],
+    `editing put something else on the card: ${JSON.stringify(deck[0])}`);
+
+  // And it reaches the card face, which is the point of writing it.
+  await page.click('.flashcard');
+  await page.waitForTimeout(150);
+  assert.match(await page.locator('.fc-back').innerText(), /hips back/);
+  await page.context().close();
+});
+
+await test('a card can be renamed, and cannot collide with another', async () => {
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'triangle finish', back: 'cut the angle' },
+    { front: 'armbar finish', back: '' },
+  ]);
+  await go(page, '/focus');
+  await page.waitForSelector('.fc-list');
+
+  const second = () => page.locator('.fc-list li').nth(1);
+  await second().locator('.fc-row').click();
+  await second().locator('.fc-edit input').fill('triangle finish');
+  await second().locator('.fc-edit .btn.primary').click();
+  await page.waitForTimeout(300);
+  let deck = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.deepEqual(deck.map(c => c.front), ['triangle finish', 'armbar finish'],
+    'a duplicate front was allowed through');
+
+  await second().locator('.fc-edit input').fill('armbar from mount');
+  await second().locator('.fc-edit .btn.primary').click();
+  await page.waitForTimeout(300);
+  deck = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.deepEqual(deck.map(c => c.front), ['triangle finish', 'armbar from mount']);
+  await page.context().close();
+});
+
+await test('the deck can be reordered, and the tiles on Home follow', async () => {
+  // Order is the array order and nothing else — a card carries no position of
+  // its own, because `normalizeFocus` drops anything that is not front/back.
+  // Home renders the same list, so the deck order *is* the tile order.
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'half guard passing', back: '' },
+    { front: 'triangle finish', back: '' },
+    { front: 'standing guard break', back: '' },
+  ]);
+  await go(page, '/focus');
+  await page.waitForSelector('.fc-list');
+
+  const fronts = () => page.$$eval('.fc-list-front', ns => ns.map(n => n.textContent));
+  const up = n => page.locator('.fc-list li').nth(n).locator('.fc-move[aria-label*="up"]').click();
+
+  await up(2); await page.waitForTimeout(250);
+  await up(1); await page.waitForTimeout(250);
+  assert.deepEqual(await fronts(),
+    ['standing guard break', 'half guard passing', 'triangle finish'], 'the deck did not reorder');
+
+  // The ends cannot walk off: nothing to swap with.
+  assert.equal(await page.locator('.fc-list li').first().locator('.fc-move[aria-label*="up"]').isDisabled(), true);
+  assert.equal(await page.locator('.fc-list li').last().locator('.fc-move[aria-label*="down"]').isDisabled(), true);
+
+  const stored = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.equal(stored[0].front, 'standing guard break', 'the new order did not persist');
+
+  await go(page, '/');
+  const tiles = await page.$$eval('.wo-tile .wo-front', ns => ns.map(n => n.textContent));
+  assert.equal(tiles[0], 'standing guard break', 'Home did not follow the deck order');
+  await page.context().close();
+});
+
 // ---------------------------------------------------------------------------
 // 3b. "Working on" as tiles on the front door
 // ---------------------------------------------------------------------------

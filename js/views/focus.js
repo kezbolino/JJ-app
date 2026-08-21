@@ -20,7 +20,7 @@ function flashcard(card) {
   const inner = h('div.fc-inner',
     h('div.fc-face', h('div.fc-text', card.front)),
     h('div.fc-face.fc-back',
-      card.back ? h('div.fc-text', card.back) : empty('No cues yet — tap Edit to add some.')));
+      card.back ? h('div.fc-text', card.back) : empty('No cues yet — add them in Edit deck below.')));
 
   const el = h('button.flashcard', {
     type: 'button',
@@ -79,40 +79,117 @@ function deck(cards, mount, { onIndex, start = 0 } = {}) {
   render();
 }
 
-// The editor: add a card (front required, back optional) and remove existing
-// ones. Any change persists and re-renders the whole view so the deck stays in
-// step with the list.
-function editor(cards, rerender) {
+/**
+ * The editor: add a card, reorder the deck, and change a card after the fact.
+ *
+ * Until v54 the only per-card control was ×. Cues could be written when a card
+ * was created and never again, so "add a cue later" meant deleting the card and
+ * retyping it — which also dropped it to the bottom, because a new card is
+ * always appended and there was no way to move one. The card's own back face
+ * has said "tap Edit to add some" since v0.2, and there was nothing to tap.
+ *
+ * Order is the array's order and nothing else: `normalizeFocus` returns exactly
+ * { front, back } and drops anything else on read, so a card cannot carry a
+ * position of its own — and it should not, because the deck order *is* the tile
+ * order on Home. Moving a card is a whole-list write, which is what
+ * `js/appstate.js` already syncs focuses as ('whole'), so the order travels
+ * between devices for free.
+ *
+ * `open` is the front of the row whose panel is expanded, threaded through the
+ * re-render so a save or a move does not collapse what you were working on.
+ */
+function editor(cards, rerender, { open = null } = {}) {
   const front = h('input', { type: 'text', placeholder: 'What are you working on?', maxLength: 60 });
   const back = h('textarea', { placeholder: 'Cues, details, reminders… (optional)', maxLength: 400 });
+
+  const clash = (value, exceptIndex) => cards.some(
+    (c, n) => n !== exceptIndex && c.front.toLowerCase() === value.toLowerCase());
 
   const add = async () => {
     const f = front.value.trim();
     if (!f) return;
-    if (cards.some(c => c.front.toLowerCase() === f.toLowerCase())) {
-      toast('Already on the list');
-      return;
-    }
+    if (clash(f, -1)) { toast('Already on the list'); return; }
     await store.setFocuses([...cards, { front: f, back: back.value.trim() }]);
-    rerender();
+    // Land on the card you just added rather than back at the top of the deck.
+    rerender({ showFront: f });
   };
 
-  const remove = async card => {
-    await store.setFocuses(cards.filter(c => c.front !== card.front));
-    rerender();
-  };
+  const rows = cards.map((card, i) => {
+    const isOpen = open === card.front;
 
-  const rows = cards.map(c =>
-    h('li',
-      h('span.fc-list-front', c.front),
-      h('span.now-badge', { hidden: true }, 'Now'),
-      h('button', {
-        type: 'button', 'aria-label': `Remove ${c.front}`, onclick: () => remove(c),
-      }, '×')));
+    const frontEdit = h('input', { type: 'text', value: card.front, maxLength: 60 });
+    const backEdit = h('textarea', {
+      placeholder: 'Cues, details, reminders… (optional)', maxLength: 400,
+    });
+    backEdit.value = card.back;
+
+    const save = async () => {
+      const f = frontEdit.value.trim();
+      if (!f) { toast('A card needs a front'); return; }
+      if (clash(f, i)) { toast('Already on the list'); return; }
+      await store.setFocuses(cards.map((c, n) =>
+        n === i ? { front: f, back: backEdit.value.trim() } : c));
+      toast('Saved');
+      rerender({ showFront: f });
+    };
+
+    const remove = async () => {
+      await store.setFocuses(cards.filter((_, n) => n !== i));
+      rerender({});
+    };
+
+    // Swap with the neighbour. Two buttons rather than a drag: a hand-rolled
+    // drag on a touch screen fights the page scroll, and this is the same call
+    // as v20's scroll-snapping tile row — take the thing the platform already
+    // gets right over the gesture that looks better in a demo.
+    const move = async dir => {
+      const j = i + dir;
+      if (j < 0 || j >= cards.length) return;
+      const next = [...cards];
+      [next[i], next[j]] = [next[j], next[i]];
+      await store.setFocuses(next);
+      // `open` is kept and the deck stays on whatever card it was showing, so
+      // nudging a card up four places is four taps and nothing else moves.
+      rerender({ open });
+    };
+
+    const head = h('div.fc-head',
+      h('button.fc-row', {
+        type: 'button',
+        'aria-expanded': String(isOpen),
+        'aria-label': `Edit ${card.front}`,
+        onclick: () => rerender({ open: isOpen ? null : card.front }),
+      },
+        h('span.fc-list-front', card.front),
+        h('span.now-badge', { hidden: true }, 'Now'),
+        icon('edit')),
+      h('button.fc-move', {
+        type: 'button', 'aria-label': `Move ${card.front} up`,
+        disabled: i === 0, onclick: () => move(-1),
+      }, '↑'),
+      h('button.fc-move', {
+        type: 'button', 'aria-label': `Move ${card.front} down`,
+        disabled: i === cards.length - 1, onclick: () => move(1),
+      }, '↓'));
+
+    // Delete lives in here rather than on the row. Three small targets side by
+    // side on a 360px phone is a mis-tap waiting to happen, and this one is the
+    // only irreversible thing on the screen — focuses are not in the 30-day
+    // trash, so a card deleted by a fat thumb is gone with its cues.
+    const panel = h('div.fc-edit', { hidden: !isOpen },
+      h('label', 'Front'), frontEdit,
+      h('label', 'Cues'), backEdit,
+      h('div.btn-row',
+        h('button.btn.small.primary', { type: 'button', onclick: save }, 'Save'),
+        h('button.btn.small.danger', { type: 'button', onclick: remove }, 'Delete card')));
+
+    return h('li', head, panel);
+  });
 
   const el = h('section.card',
     h('div.card-title', 'Edit deck'),
     rows.length ? h('ul.fc-list', rows) : null,
+    rows.length ? h('p.small.muted', 'Tap a card to change its cues · ↑ ↓ reorder the deck and the tiles on Home') : null,
     h('label', 'New card'),
     front,
     back,
@@ -125,12 +202,14 @@ function editor(cards, rerender) {
   return { el, mark };
 }
 
-export default async function focus(root, { card } = {}) {
+export default async function focus(root, { card, open = null, showFront = null } = {}) {
   const cards = await store.getFocuses();
-  const rerender = () => focus(clearThen(root), { card });
 
-  // `?card=N` comes from tapping a tile on Home.
-  const start = Number.isFinite(Number(card)) ? Number(card) : 0;
+  // Which card the deck is showing, tracked live so a re-render triggered by
+  // the editor puts you back on it instead of snapping to the top of the deck.
+  let shownFront = showFront;
+  const rerender = ({ open: nextOpen = null, showFront: next } = {}) =>
+    focus(clearThen(root), { card, open: nextOpen, showFront: next ?? shownFront });
 
   root.append(
     h('div.page-head',
@@ -138,7 +217,7 @@ export default async function focus(root, { card } = {}) {
         h('h1.page-title', 'Working on'),
         h('p.page-sub', 'Your flashcards — tap to flip, swipe through to drill'))));
 
-  const panel = editor(cards, rerender);
+  const panel = editor(cards, rerender, { open });
 
   if (!cards.length) {
     root.append(empty('No flashcards yet. Add the first thing you want to drill below.'));
@@ -146,9 +225,18 @@ export default async function focus(root, { card } = {}) {
     return;
   }
 
+  // A front we were following wins over `?card=N`, which is only the tile that
+  // was tapped on Home and goes stale the moment the deck is reordered.
+  const byFront = shownFront ? cards.findIndex(c => c.front === shownFront) : -1;
+  const start = byFront >= 0 ? byFront
+    : Number.isFinite(Number(card)) ? Number(card) : 0;
+
   const mount = h('div.deck');
   root.append(mount);
-  deck(cards, mount, { start, onIndex: i => panel.mark(i) });
+  deck(cards, mount, {
+    start,
+    onIndex: i => { shownFront = cards[i]?.front ?? null; panel.mark(i); },
+  });
   root.append(panel.el);
 }
 

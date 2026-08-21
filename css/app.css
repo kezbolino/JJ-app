@@ -778,18 +778,37 @@ a.banner .b-txt.muted { color: var(--muted); }
 .fc-count { font-size: .82rem; font-weight: 900; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: right; }
 
 .fc-list { list-style: none; padding: 0; margin: 0 0 4px; }
-.fc-list li {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 0; border-bottom: 2px solid var(--line);
-}
+.fc-list li { display: block; border-bottom: 2px solid var(--line); }
 .fc-list li:last-child { border-bottom: 0; }
-.fc-list li:first-child { padding-top: 0; }
-.fc-list-front { flex: 1; font-weight: 800; font-size: .92rem; }
-.fc-list li button {
+.fc-head { display: flex; align-items: center; gap: 6px; padding: 10px 0; }
+.fc-list li:first-child .fc-head { padding-top: 0; }
+/* Scoped to .fc-head on purpose: as `.fc-list li button` this beat `.btn`
+   (0,2,1 against 0,1,0) and flattened the Save/Delete buttons in the panel
+   below, whatever order the rules were written in. Same trap as .sx-wu in v49. */
+.fc-head button {
   background: none; border: 0; color: var(--muted); cursor: pointer;
   font-size: 1.2rem; line-height: 1; padding: 0 4px;
 }
-.fc-list li button:hover { color: var(--warm); }
+.fc-head button:hover { color: var(--warm); }
+.fc-head button.fc-row {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  text-align: left; min-width: 0; padding: 4px 0;
+}
+.fc-row svg { width: 15px; height: 15px; flex-shrink: 0; opacity: .55; }
+.fc-row[aria-expanded="true"] svg { opacity: 1; color: var(--accent); }
+.fc-list-front { flex: 1; font-weight: 800; font-size: .92rem; min-width: 0; overflow-wrap: anywhere; }
+/* Reorder taps get a real target — they sit next to each other, and one is the
+   undo of the other, so a mis-tap here costs nothing. */
+.fc-move {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: grid; place-items: center; border-radius: 9px;
+}
+.fc-move:hover { color: var(--accent); }   /* blue is action; amber means a gap */
+.fc-move:disabled { opacity: .25; cursor: default; }
+.fc-move:disabled:hover { color: var(--muted); }
+.fc-edit { padding: 2px 0 14px; }
+.fc-edit label { margin-top: 10px; }
+.fc-edit textarea { min-height: 90px; }
 .now-badge {
   font-size: .6rem; font-weight: 900; text-transform: uppercase; letter-spacing: .07em;
   color: var(--accent); background: var(--accent-soft);

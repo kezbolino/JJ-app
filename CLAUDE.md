@@ -2883,6 +2883,58 @@ data if forgotten:
   **No churn expected in `jj-app-data`** — nothing here touches `js/markdown.js`,
   the entry model or `js/appstate.js`.
 
+- 2026-08-20 — **v54: the deck can be reordered, and a card can be changed
+  after you make it.** User: *"I would like to be able to rearrange the order,
+  also when I want to add a cue, I'm unable to unless I define it at the
+  beginning."* Both were real. The only per-card control was `×`, and a new card
+  is always appended — so "add a cue later" meant deleting the card and retyping
+  it, which also dropped it to the bottom of the deck. **The back of a card has
+  read "No cues yet — tap Edit to add some" since v0.2 and there was nothing to
+  tap.**
+
+  **Order is the array's order and nothing else.** `normalizeFocus` returns
+  exactly `{ front, back }` and drops anything else on read (v20), so a card
+  cannot carry a position of its own — and should not, because the deck order
+  *is* the tile order on Home. Reordering is a whole-list write, which is
+  already how `js/appstate.js` syncs `focuses` (`'whole'`), so the order travels
+  between devices with no change to the merge rules — the module this repo is
+  most careful about was not touched.
+
+  **Two arrow buttons, not a drag.** A hand-rolled touch drag fights the page
+  scroll, and this is the same call as v20's scroll-snapping tile row: take what
+  the platform gets right over the gesture that demos better. It also keeps the
+  keyboard and screen reader working for free.
+
+  **Delete moved off the row into the expanded panel, and that is deliberate.**
+  Three small targets side by side at 360px is a mis-tap generator, and this one
+  is the only irreversible thing on the screen — **focuses are not in the 30-day
+  trash**, so a card lost to a fat thumb is gone with its cues. `↑` and `↓` are
+  safe to mis-tap because each is the other's undo. It is one tap slower to
+  delete than it was; that is the trade.
+
+  **Two bits of state are threaded through the re-render**, because the editor
+  re-renders the whole view on every change: `open` (which row's panel is
+  expanded, keyed by front) and the front of the card the deck is showing. Move
+  a card four places and it is four taps with nothing else moving; without the
+  second one the deck snapped back to `?card=N` from the URL, which is the tile
+  you tapped on Home and goes stale the moment anything is reordered.
+
+  **The CSS trap, hit before it shipped:** `.fc-list li button` is 0,2,1 and
+  beat `.btn` at 0,1,0, so Save and Delete rendered as flat grey text whatever
+  order the rules were in — the same specificity trap as `.sx-wu button` in v49.
+  Rescoped to `.fc-head button`. The stylesheet still has exactly one
+  `!important`, `[hidden]`, which is how it should stay.
+
+  Renaming is allowed and de-duplicates against the *other* cards, so saving a
+  card under its own name is not a clash. Three browser tests: cues added after
+  the fact reach the card face and the card still carries exactly front/back, a
+  rename cannot collide, and a reorder persists and moves Home's tiles.
+
+  sw `CACHE` → v54, `VERSION` → v54, no files added or removed. Twelve suites
+  green (74 browser assertions in `features`; `schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`), screenshot-checked the editor
+  open in light and dark at 360px, no horizontal overflow.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
