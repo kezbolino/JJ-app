@@ -3099,6 +3099,29 @@ data if forgotten:
   browser assertions in `features`, 32 in `stretches`), screenshot-checked both
   routines and the lift session in light and dark at 360px, no overflow.
 
+- 2026-08-21 — **v56 deployed.** `main` fast-forwarded `9feb4d5..bce247d` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 23s, `deploy` succeeded in 6s (19:16:31→19:16:37Z, run
+  `32517575598`). Ship gate: twelve suites green — and green *verified by exit
+  code*, which is new this version and is what caught the two failures the
+  `tail -1` runner had hidden — `CACHE` == `VERSION` == v56, clean tree,
+  fast-forward confirmed. Fourth clean deploy in a row.
+
+  **The visible tells:** footer reads `JUJI v56`; every movement in the rest-day
+  routine has a figure (the warm-up's March in place, 90/90 lift-off, Copenhagen
+  plank, Jefferson curl, thoracic press-up, wall slide and dead hang were blank
+  slots before); and the strength session shows a small figure beside each of
+  the ten movement names.
+
+  **This is the biggest single download this app has shipped since the second
+  voice.** `js/stretch-art.js` went 120 KB → 215 KB and it is in `CORE`, which
+  is precached atomically — so the first open after this deploy wants a moment
+  on wifi before the app is fully offline-capable again. Settings → Offline use
+  is the place to check; it should read "All 178 files".
+
+  **No churn expected in `jj-app-data`** — nothing here touches
+  `js/markdown.js`, the entry model or `js/appstate.js`.
+
 ## Parked — pick this up next session
 
 **v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
