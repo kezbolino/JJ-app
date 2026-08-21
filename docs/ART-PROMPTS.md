@@ -1,30 +1,61 @@
 # Image prompts for the missing figures
 
-> **PARKED, 2026-08-07.** Seven mobility figures and all ten strength ones are
-> still missing, and the prompts below are ready — but the generation route is
-> the unsolved part, not the wording.
->
-> **The bind:** asking for all of them in one go returns a contact sheet, which
-> is stylistically consistent but leaves each figure at ~150×130px — a
-> thirtieth of the area needed, with captions and borders drawn in. Asking one
-> at a time gives full resolution but a different house style every time: some
-> figures come back with faces, some without, line weights vary. Neither route
-> gives consistency *and* resolution, and a routine list where half the figures
-> have faces is worse than one where several have no figure at all.
->
-> The eleven that shipped in v48 came from the sheet and are internally
-> consistent with each other; `PENDING_ART` means the rest simply render without
-> a figure, which is the designed behaviour and looks fine.
->
-> **Worth trying when this is picked up again:** feed the generator one of the
-> shipped SVGs (or a PNG render of one) as a style reference alongside each
-> prompt, so it has something concrete to match rather than a description. That
-> is the only approach that plausibly gets both.
+**16 figures are missing.** Seven are in the rest-day mobility routine and
+render as a blank slot in the app today; nine are strength lifts, which have no
+figure *and* no code that would draw one — see the note above that section.
 
-One prompt per movement, for generating the line drawings that `js/stretch-art.js`
-holds. Send the **raw PNG** to the `art-inbox` branch, named after the id in the
+This list is generated from `PENDING_ART` in `js/stretch-art.js` and `EXERCISES`
+in `js/strength.js`, checked against the 23 ids that actually have art. **It was
+last reconciled on 2026-08-21**, when twelve prompts for figures that had already
+shipped in v48 were removed from this file — they would have had someone
+regenerate artwork the app already had.
+
+## What is missing
+
+**Rest-day mobility (7)** — these are the ones you can see missing:
+
+- `warmup-march`
+- `ninety-ninety-liftoff`
+- `copenhagen`
+- `jefferson-curl`
+- `thoracic-press-up`
+- `wall-slide`
+- `dead-hang`
+
+**Strength (9)** — nothing renders these yet, so they change nothing until
+the view does:
+
+- `pull-up`
+- `archer-press-up`
+- `kb-getup`
+- `split-squat`
+- `inverted-row`
+- `pike-press-up`
+- `hanging-leg-raise`
+- `hollow-hold`
+- `kb-swing`
+
+**Already drawn (23)** — do not regenerate these:
+
+`ankle-rock`, `bear-crawl`, `childs-pose`, `cossack-squat`, `deep-squat-hold`, `frog`, `glute-bridge-single`, `hip-flexor-lunge`, `neck-isometric`, `neck-side`, `ninety-ninety`, `pigeon`, `quad-kneel`, `seated-fold`, `side-plank`, `single-leg-rdl`, `sphinx`, `supine-twist`, `thread-needle`, `warmup-arm-circle`, `warmup-leg-swing`, `warmup-squat`, `wrist-floor`
+
+`ankle-rock` is in that list but is an optional redo; its prompt is at the bottom.
+
+---
+
+## How to send them back
+
+Send the **raw PNG** to the `art-inbox` branch, named after the id in the
 heading — no tracing, no Illustrator, no removing the background. The pipeline
-does all of that (`art-inbox/README.md` documents it).
+does all of that: potrace at `turdsize 8`, `alphamax 1.0`, `opttolerance 1.2`,
+threshold 128, upscale 2x before tracing, then reframe the viewBox to a square on
+the real bounding box with a 5% margin.
+
+**One image per request, one movement per image.** A contact sheet of all of them
+comes back at ~150x130px per figure with captions and borders traced in, which is
+a thirtieth of the area needed — that is what stalled this job in the first
+place. If the style drifts between requests, attach a PNG render of one of the
+shipped figures as a reference alongside the prompt.
 
 ## The style block — paste this in front of every prompt
 
@@ -53,33 +84,7 @@ Render it small before you trust it.
 
 ---
 
-# Cool-down (after class)
-
-## `ankle-rock` — a redo, if wanted
-
-The shipped one has the knee behind the toes, so it reads as a hip flexor lunge.
-Only regenerate if that bothers you.
-
-> Side view. A person in a half-kneeling lunge: back knee on the floor, front
-> foot flat. The front knee is driven **far forward, well past the toes**, so the
-> shin is at a steep 40-degree angle rather than upright. The front heel stays
-> flat and pinned to the floor. Both hands press down on the front knee, pushing
-> it further forward. The extreme forward angle of the front shin is the point of
-> the drawing.
-
-## `sphinx`
-
-> Side view. A person lying face down, propped on both forearms with the elbows
-> directly under the shoulders, forearms flat and parallel on the floor. The
-> chest is lifted and the head is up and long, but the hips, thighs and legs stay
-> flat on the floor. A gentle open curve through the upper back, not a deep
-> backbend — the low back stays long.
-
----
-
-# Rest day — warm-up
-
-These four are movements. Each needs a clear mid-motion instant.
+# Rest-day mobility — the seven that are missing
 
 ## `warmup-march`
 
@@ -87,44 +92,6 @@ These four are movements. Each needs a clear mid-motion instant.
 > hip height with the shin hanging down, the other leg straight and standing. The
 > opposite arm is swung forward, elbow bent, and the other arm swung back.
 > Upright posture.
-
-## `warmup-squat`
-
-> Side view. A person mid-squat, caught halfway down: hips back, knees bent to
-> about 90 degrees, chest up, arms reaching forward at shoulder height for
-> balance. A shallow, continuous, bouncing squat — not a deep bottom position.
-
-## `warmup-arm-circle`
-
-> Front view. A person standing, both arms straight out to the sides and swept up
-> and back in a wide circle, hands at head height with the palms leading, so the
-> arms are caught mid-sweep rather than static. Feet shoulder-width apart.
-
-## `warmup-leg-swing`
-
-> Side view. A person standing on one leg, one hand resting on a simple vertical
-> support at their side for balance. The free leg is swung forward and up to
-> about hip height, straight, caught mid-swing. Upright torso, no twisting.
-
----
-
-# Rest day — main session
-
-## `deep-squat-hold`
-
-> Front view. A person at the very bottom of a deep squat, hips below the knees,
-> feet flat with the heels down, knees pushed wide apart. Both elbows are inside
-> the knees with the hands together at chest height, elbows pressing the knees
-> outward. Chest upright. Front view because the width between the knees is the
-> point.
-
-## `cossack-squat`
-
-> Front view. A person in a very wide stance, sitting all the way down over one
-> deeply bent leg with that heel flat. The other leg is completely straight out
-> to the side with the toes pointed up and the heel on the floor. Arms reach
-> forward for balance. The extreme contrast between the deeply folded leg and the
-> straight one is the point.
 
 ## `ninety-ninety-liftoff`
 
@@ -135,13 +102,6 @@ These four are movements. Each needs a clear mid-motion instant.
 > with the torso upright and not leaning back. The small gap under the front shin
 > is the point of the drawing.
 
-## `glute-bridge-single`
-
-> Side view. A person lying on their back with one foot planted flat on the
-> floor, knee bent. The other knee is pulled up and hugged into the chest with
-> both hands. The hips are lifted high so the body makes a straight line from the
-> planted knee through the hip to the shoulder. Shoulders stay on the floor.
-
 ## `copenhagen`
 
 > Side view. A person in a side plank with the lower forearm on the floor, elbow
@@ -149,14 +109,6 @@ These four are movements. Each needs a clear mid-motion instant.
 > supported near the ankle. The bottom leg hangs below with the knee down and
 > resting on the floor. The hips are lifted so the body is in a straight line.
 > The chair is a plain outline with no detail.
-
-## `single-leg-rdl`
-
-> Side view. A person balanced on one straight leg, hinged forward at the hip so
-> the torso is nearly horizontal. The other leg reaches straight back behind at
-> the same height as the torso, making one long line from the head to the back
-> heel. Arms hang down towards the floor. The spine is long and flat, not
-> rounded.
 
 ## `jefferson-curl`
 
@@ -190,30 +142,9 @@ These four are movements. Each needs a clear mid-motion instant.
 > floor. The shoulders are relaxed up towards the ears. The bar is a plain
 > horizontal line.
 
-## `neck-isometric`
-
-> Head-and-shoulders, three-quarter view. A person seated upright, one open palm
-> placed flat against the side of their own head above the ear, elbow out. The
-> head stays perfectly upright and level — pressing against the hand without
-> moving. Only the head, neck, shoulders and the one arm need to be in frame.
-
-## `bear-crawl`
-
-> Side view. A person on hands and feet with the **knees hovering an inch off the
-> floor**, hips low and level, back flat. Caught mid-step, with one hand and the
-> opposite foot both lifted and moving forward. The small visible gap under the
-> knees is the point — without it this is just a plank.
-
-## `side-plank`
-
-> Front-on-to-the-body side view. A person balanced on one forearm with the elbow
-> directly under the shoulder, feet stacked one on top of the other, hips lifted
-> so the body is one straight line from head to heels. The top arm rests along
-> the side of the body or points straight up.
-
 ---
 
-# Strength
+# Strength — the nine that are missing
 
 **Read this before generating these.** `js/views/strength.js` currently draws no
 figures at all — the lift is a form, not a routine, and there is no code that
@@ -225,12 +156,23 @@ whether it earns the space on a screen that is mostly numbers and buttons.
 Each prompt draws the **middle** progression, not the easiest or hardest, so the
 picture stays right as you climb the ladder.
 
+Each prompt draws the **middle** progression, not the easiest or hardest, so the
+picture stays right as you climb the ladder.
+
 ## `pull-up`
 
 > Front view. A person hanging from a simple horizontal bar overhead in an
 > overhand grip, hands a little wider than the shoulders, pulled all the way up
 > so the chest is at bar height and the elbows are down by the ribs. Legs
 > straight and together, hanging still. The bar is a plain horizontal line.
+
+## `archer-press-up`
+
+> Front view from slightly above. A person in a press-up at the bottom, hands
+> very wide. **One arm is bent with the chest lowered over that hand; the other
+> arm is completely straight out to the side.** Body in one straight line from
+> head to heels, hips level. The contrast between the bent and straight arm is
+> the point.
 
 ## `kb-getup`
 
@@ -249,41 +191,12 @@ picture stays right as you climb the ladder.
 > floor. Chest upright, arms hanging or hands at the chest. The chair is a plain
 > outline.
 
-## `archer-press-up`
-
-> Front view from slightly above. A person in a press-up at the bottom, hands
-> very wide. **One arm is bent with the chest lowered over that hand; the other
-> arm is completely straight out to the side.** Body in one straight line from
-> head to heels, hips level. The contrast between the bent and straight arm is
-> the point.
-
 ## `inverted-row`
 
 > Side view. A person lying face up underneath a low horizontal bar, gripping it
 > overhand with both hands, pulled up so the chest touches the bar and the elbows
 > are back past the ribs. The body is in one straight line from head to heels
 > with the heels on the floor. The bar is a plain horizontal line.
-
-## `single-leg-rdl`
-
-Replaced `nordic-curl` in v49 — the user has neither the floor space nor an
-ankle anchor for a Nordic, so it was never being performed. The old prompt is in
-this file's git history if it is ever wanted back.
-
-> Side view. A person balanced on one straight leg, hinged forward at the hip so
-> the torso and the free back leg form **one straight horizontal line** from head
-> to heel. A **kettlebell** hangs from the hand on the side of the lifted leg,
-> close to the standing shin. Back flat, not rounded. The horizontal line
-> through the body, and the hinge coming from the hip rather than the waist, is
-> the point.
-
-## `kb-swing`
-
-> Side view. A person at the top of a kettlebell swing: standing tall, hips fully
-> snapped through, both arms straight out in front at about chest height holding
-> a **kettlebell** that is floating out at the end of the arms. Feet flat. This
-> is the top of the swing, not a squat and not an overhead lift — the bell is at
-> chest height, no higher.
 
 ## `pike-press-up`
 
@@ -305,3 +218,33 @@ this file's git history if it is ever wanted back.
 > floor**, both arms reaching straight back overhead and both legs straight and
 > together, all four limbs held just a few inches off the floor so the body makes
 > a long shallow banana shape. Head and shoulders lifted slightly.
+
+## `kb-swing`
+
+> Side view. A person at the top of a kettlebell swing: standing tall, hips fully
+> snapped through, both arms straight out in front at about chest height holding
+> a **kettlebell** that is floating out at the end of the arms. Feet flat. This
+> is the top of the swing, not a squat and not an overhead lift — the bell is at
+> chest height, no higher.
+
+## `single-leg-rdl` — already drawn, nothing to do
+
+The lift and the rest-day mobility item are the same movement and the same id,
+and the figure shipped with the rest-day batch. If a figure is ever rendered on
+the strength screen, this one is already in `ART` and needs no new artwork.
+
+---
+
+# Optional
+
+## `ankle-rock` — a redo, if wanted
+
+The shipped one has the knee behind the toes, so it reads as a hip flexor lunge.
+Only regenerate if that bothers you.
+
+> Side view. A person in a half-kneeling lunge: back knee on the floor, front
+> foot flat. The front knee is driven **far forward, well past the toes**, so the
+> shin is at a steep 40-degree angle rather than upright. The front heel stays
+> flat and pinned to the floor. Both hands press down on the front knee, pushing
+> it further forward. The extreme forward angle of the front shin is the point of
+> the drawing.
