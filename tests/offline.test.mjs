@@ -31,6 +31,7 @@ function swList(name) {
 }
 
 const CORE = swList('CORE');
+const LAZY = swList('LAZY');
 
 /** Every .js under js/, repo-relative, the way sw.js spells them. */
 function modules(dir = 'js') {
@@ -48,8 +49,30 @@ test('every module the app imports is in CORE', () => {
   // can ship, because every test and every check passes. This is the v41 audio
   // lesson (a file on disk, missing from SHELL) applied to the part that is not
   // optional.
+  //
+  // LAZY is the one way out, and it is deliberately narrow — see the next test.
   for (const file of modules()) {
-    assert.ok(CORE.includes(file), `${file} is not precached — the app breaks offline without it`);
+    assert.ok(CORE.includes(file) || LAZY.includes(file),
+      `${file} is not precached — the app breaks offline without it`);
+  }
+});
+
+test('a module outside CORE is genuinely lazy and genuinely optional', () => {
+  // LAZY exists so a big file only one screen reads does not have to ride in an
+  // atomic `addAll` (v58, the lift artwork). The escape hatch is worth exactly
+  // as much as its guard: put a statically imported module in here and it is
+  // the v41 bug again with a comment explaining why it is fine.
+  //
+  // So each entry must actually be reached with `import()` somewhere under js/,
+  // and must not also be statically imported — a module that is both is loaded
+  // at boot anyway, and being outside CORE only makes it a white screen.
+  const sources = modules().map(f => [f, readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')]);
+  for (const file of LAZY) {
+    const name = file.replace(/^.*\//, '');
+    const dynamic = sources.some(([, src]) => new RegExp(`import\\([^)]*${name}`).test(src));
+    assert.ok(dynamic, `${file} is in LAZY but nothing import()s it — it would simply never load`);
+    const statik = sources.some(([, src]) => new RegExp(`^import[^(].*${name}`, 'm').test(src));
+    assert.ok(!statik, `${file} is in LAZY but also imported statically, so it loads at boot regardless`);
   }
 });
 

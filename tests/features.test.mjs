@@ -1437,6 +1437,34 @@ await test('the first strength session opens with the programme already prescrib
   await page.context().close();
 });
 
+await test('the lift artwork loads only when the lift screen does', async () => {
+  // The point of the v58 split. js/strength-art.js is 53 KB of path data that
+  // only this screen reads, so it is a lazy import and it sits outside CORE —
+  // and both of those are worth nothing if some module quietly imports it at
+  // boot again. Nothing on screen would change; the app would just be heavier,
+  // silently, the way it was for two versions.
+  const page = await newPage();
+  const asked = [];
+  page.on('request', req => {
+    if (req.url().includes('strength-art.js')) asked.push(req.url());
+  });
+
+  await go(page, '/');
+  await page.waitForSelector('.view');
+  await go(page, '/stretch');
+  await page.waitForSelector('.st');
+  assert.equal(asked.length, 0, 'the lift artwork was fetched by a screen that never draws it');
+
+  await go(page, '/strength');
+  await page.waitForSelector('.sx');
+  // Not just "did it load" — *this* screen has to be the one that loads it.
+  // A static import anywhere in the boot graph shows up here as zero requests,
+  // because the module is already resolved by the time the screen mounts.
+  assert.equal(asked.length, 1,
+    'the lift screen did not fetch its own artwork — is something importing it at boot?');
+  await page.context().close();
+});
+
 await test('every movement in the session carries its figure', async () => {
   // The lift screen drew no figures at all until v56 — it is a form, not a
   // routine, and there was no code that would render one. The contract is the
@@ -1450,10 +1478,14 @@ await test('every movement in the session carries its figure', async () => {
   if (await start.count()) await start.click();
   await page.waitForSelector('.sx-ex');
 
+  // Both art files: the lifts' figures moved to js/strength-art.js in v58 and
+  // are loaded lazily, but `single-leg-rdl` stayed in ART because the rest-day
+  // routine draws it too. A movement is drawn if either has it.
   const drawn = await page.evaluate(async () => {
     const { EXERCISES } = await import('/js/strength.js');
     const { ART } = await import('/js/stretch-art.js');
-    return EXERCISES.filter(e => ART[e.id]).length;
+    const { STRENGTH_ART } = await import('/js/strength-art.js');
+    return EXERCISES.filter(e => ART[e.id] || STRENGTH_ART[e.id]).length;
   });
   assert.equal(await page.locator('.sx-ex-fig svg').count(), drawn,
     'a movement with artwork is not showing it');

@@ -89,7 +89,8 @@ js/sync.js            GitHub backup repo sync, via the Git Data API
 js/youtube.js         link parsing and title lookup
 js/ui.js              h() element builder and shared bits
 js/stretches.js       two routines (cool-down, rest day): items, phases, segments
-js/stretch-art.js     ~47 KB of figure paths — data only, don't hand-edit
+js/stretch-art.js     the routines' figure paths — data only, don't hand-edit
+js/strength-art.js    the lifts' figures — lazy import, outside CORE (v58)
 js/strength.js        the once-a-week lift: programme + progression engine (pure)
 js/voice.js           spoken cue playback, one voice per session
 js/voices.js          which voices exist and how one is chosen
@@ -3192,6 +3193,59 @@ data if forgotten:
 
   **No churn expected in `jj-app-data`.**
 
+- 2026-08-22 — **v58: the lift artwork left CORE.** `js/stretch-art.js` was
+  215 KB and by a distance the largest file in the atomically precached shell,
+  which is re-downloaded whole on every version bump. Nine of its figures are
+  drawn by exactly one screen.
+
+  **The split is by reader, not by subject.** `js/strength-art.js` holds the
+  nine lift-only figures (53 KB); `js/stretch-art.js` keeps the thirty the
+  routines draw and is 166 KB. `single-leg-rdl` stayed with the routines
+  deliberately — the lift and the rest-day mobility item are one movement under
+  one id, so its figure has to be reachable without the lazy import. That is
+  why `stretchFigure(item, label, extra)` is **additive**: `extra` supplements
+  ART, it does not replace it. Replacing it was the first version and the
+  browser test caught it — 9 figures where 10 were expected.
+
+  **Two mechanisms, and the second is what makes the first safe.** The module
+  is loaded with `import()` inside `js/views/strength.js`, in the same
+  `Promise.all` the screen already waits on for IndexedDB, so it costs no
+  visible latency and a failure resolves to `{}` rather than throwing: no
+  figures, never no screen. And `sw.js` gained a **`LAZY`** list, folded into
+  `EXTRAS`, so the file is precached best-effort instead of riding in
+  `cache.addAll(CORE)`. The v53 rule holds — *never put an optional asset in the
+  same `addAll` as a required one* — and the artwork is genuinely optional, the
+  same contract `PENDING_ART` has given an undrawn movement since v27.
+
+  **The escape hatch is worth exactly as much as its guard.** `tests/offline.test.mjs`
+  still requires every module under `js/` to be precached, and now allows LAZY
+  as the one way out — but asserts each LAZY entry is actually reached with
+  `import()` somewhere and is **not** also imported statically. A module that is
+  both loads at boot anyway, so being outside CORE only buys a white screen
+  offline. Both failure modes verified by breaking it first.
+
+  **And a browser test asserts the laziness itself**, because nothing on screen
+  would change if it regressed: Home and the routines must fetch
+  `strength-art.js` zero times, the lift screen exactly once. Verified against a
+  deliberate static import — which shows up as *zero* fetches on the lift
+  screen, since the module is already resolved by then, hence the wording of
+  that assertion.
+
+  **The trade, stated plainly:** a phone that has never opened the lift screen
+  and then loses signal draws the movements without figures. Same deal the voice
+  clips took in v53, and the right one — the alternative is a drawing being able
+  to fail the whole install.
+
+  CORE: 45 entries, ~670 KB (was ~720 KB). The rule for the next art batch is
+  written at the top of both modules: a figure belongs in `stretch-art.js` only
+  if a *routine* draws it, because `js/stretches.js` is in the boot graph and
+  every screen pays for that file.
+
+  Thirteen suites green by exit code (77 browser assertions in `features`, 34 in
+  `stretches`), screenshot-checked the lift session in light and dark at 390px —
+  all ten figures present, no horizontal overflow. sw `CACHE` → v58, `VERSION` →
+  v58; `js/strength-art.js` added, in `LAZY`/`EXTRAS`, **not** in `CORE`.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3200,8 +3254,8 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v57.** Sessions v53–v57 all shipped and were verified at the Pages
-**job** level, not the run badge.
+**Live at v57; v58 is built and not yet deployed.** Sessions v53–v57 all
+shipped and were verified at the Pages **job** level, not the run badge.
 
 ### The three things most likely to need a look
 
@@ -3224,14 +3278,17 @@ strength figures outstanding — finished in v56. `PENDING_ART` is empty and
    regeneration and a re-trace; the prompt with the fix is in
    `docs/ART-PROMPTS.md`.
 
-### The size budget, which is now the real constraint
+### The size budget — addressed in v58, with a rule for next time
 
-`js/stretch-art.js` is **215 KB** and is by far the largest file in `CORE`,
-which is precached atomically and re-downloaded on every version bump. Another
-batch of figures needs a different answer than "add it to the module" —
-splitting the strength figures into their own lazily-imported file is the
-obvious one, since only the lift screen reads them. Written at the top of the
-module too.
+`js/stretch-art.js` is **166 KB** now (was 215 KB): the nine lift-only figures
+moved to `js/strength-art.js`, which is a lazy import and sits in `LAZY`/
+`EXTRAS` rather than `CORE`. CORE is 45 entries, ~670 KB.
+
+The rule for the next batch, written at the top of both modules: **a figure
+belongs in `stretch-art.js` only if a routine draws it.** `js/stretches.js` is
+in the boot graph, so every screen pays for that file; anything a single screen
+reads should follow the lifts out into its own lazy module and its own `LAZY`
+entry. `tests/offline.test.mjs` enforces what LAZY is allowed to mean.
 
 ### Two process lessons from this session, worth not relearning
 

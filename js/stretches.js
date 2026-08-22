@@ -495,9 +495,18 @@ export { PENDING_ART };
  *
  * Returns null when there is no artwork yet, so callers can leave the space out
  * entirely rather than rendering an empty frame that reads as broken.
+ *
+ * `extra` exists for the strength screen, whose figures live in
+ * js/strength-art.js and are imported lazily — so it hands its own lookup in
+ * rather than this module importing a file the routines never draw from. It
+ * *adds* to ART rather than replacing it, which is what `single-leg-rdl` needs:
+ * one movement, one id, drawn by both the rest-day routine and the lift screen,
+ * and its figure stays in ART. Passing nothing, or `{}` when the lazy import
+ * failed offline, both mean "just the routine figures" — fewer drawings, never
+ * a broken screen.
  */
-export function stretchFigure(item, label = '') {
-  const art = ART[item?.id];
+export function stretchFigure(item, label = '', extra = null) {
+  const art = extra?.[item?.id] ?? ART[item?.id];
   if (!art) return null;
 
   const svg = document.createElementNS(SVG_NS, 'svg');

@@ -11,6 +11,7 @@ import {
   phasesFor, segmentAt, stretchFigure,
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
+import { STRENGTH_ART } from '../js/strength-art.js';
 import { VOICE_IDS, VOICES, pickVoice } from '../js/voices.js';
 import { EXERCISES, WARM_UP } from '../js/strength.js';
 
@@ -74,17 +75,46 @@ test('every item either has artwork or is declared as awaiting it', () => {
     assert.ok(drawn || pending, `${item.id} has no figure and is not in PENDING_ART`);
     assert.ok(!(drawn && pending), `${item.id} is both drawn and pending — drop it from PENDING_ART`);
   }
-  // Anything that can draw a figure counts, not just the routines: since v56
-  // the strength screen renders one beside each movement name, so a lift's id
-  // is a legitimate ART key. The guard is still worth having pointed the other
-  // way — an ART key nothing can ever ask for is dead weight in the largest
-  // file in the precached CORE.
+  // An ART key nothing can ever ask for is dead weight in the largest file in
+  // the precached CORE, so the guard also points the other way. Lift ids count
+  // here too — `single-leg-rdl` is one movement under one id, drawn by both the
+  // rest-day routine and the lift screen, and it lives in ART.
   const ids = new Set([...allItems.map(i => i.id), ...EXERCISES.map(e => e.id)]);
   for (const key of Object.keys(ART)) {
     assert.ok(ids.has(key), `ART carries "${key}", which nothing renders`);
   }
   for (const key of PENDING_ART) {
     assert.ok(ids.has(key), `PENDING_ART carries "${key}", which nothing renders`);
+  }
+});
+
+test('the lift artwork stays lift-only, and does not shadow a routine figure', () => {
+  // js/strength-art.js is outside CORE and loaded lazily (v58), which is only
+  // safe while nothing a *routine* draws lives there: a routine figure out
+  // there would be missing on a phone that has never opened the lift screen,
+  // and nothing would say so.
+  //
+  // The overlap check is the other half. A duplicated id would be 6 KB of dead
+  // bytes and, worse, two drawings of one movement that could drift apart —
+  // the lift screen would show one and the rest-day routine the other.
+  const routineIds = new Set(allItems.map(i => i.id));
+  const liftIds = new Set([...EXERCISES.map(e => e.id), ...WARM_UP.map(w => w.id)]);
+  for (const key of Object.keys(STRENGTH_ART)) {
+    assert.ok(liftIds.has(key), `STRENGTH_ART carries "${key}", which the lift screen never draws`);
+    assert.ok(!routineIds.has(key),
+      `"${key}" is drawn by a routine, so its figure belongs in ART where CORE precaches it`);
+    assert.ok(!ART[key], `"${key}" is in both art files — one of the two copies is never seen`);
+  }
+});
+
+test('the lift figures are square-framed and theme-neutral too', () => {
+  // The same three checks as ART below. Split out rather than folded in,
+  // because a second file is exactly where a rule quietly stops being applied.
+  for (const [id, art] of Object.entries(STRENGTH_ART)) {
+    const [, , w, hgt] = art.viewBox.split(' ').map(Number);
+    assert.equal(w, hgt, `${id} is not framed square, so it will scale oddly`);
+    assert.match(art.d, /^M[-\d.]/, `${id} path does not start with a move`);
+    assert.doesNotMatch(art.d, /#[0-9a-f]{3,6}/i, `${id} has a colour in its path data`);
   }
 });
 

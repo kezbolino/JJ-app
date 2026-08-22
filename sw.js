@@ -6,14 +6,15 @@
 //
 // The precache is split in two, and that split is the whole point of this file:
 //
-//   CORE   — the app itself. 44 small files, under a megabyte. Cached with
-//            `addAll`, which is all-or-nothing on purpose: half an app is a
-//            white screen, so it is better for the install to fail and leave
-//            the previous version serving.
-//   EXTRAS — the 134 spoken cues, 2.3 MB of them. Cached one at a time, and a
-//            failure is *ignored*: a missing clip is silent, which is already
-//            createVoice's standing contract, exactly like PENDING_ART for a
-//            figure.
+//   CORE   — the app itself. 45 entries, ~670 KB. Cached with `addAll`, which
+//            is all-or-nothing on purpose: half an app is a white screen, so
+//            it is better for the install to fail and leave the previous
+//            version serving. Everything in here is something the app cannot
+//            open without; anything else belongs below.
+//   EXTRAS — the 134 spoken cues, 2.3 MB of them, plus LAZY below. Cached one
+//            at a time, and a failure is *ignored*: a missing clip is silent,
+//            which is already createVoice's standing contract, exactly like
+//            PENDING_ART for a figure.
 //
 // Until v53 both lists were one `cache.addAll(SHELL)`. That is atomic, so a
 // single dropped byte anywhere in 2.3 MB of audio rejected the whole install
@@ -21,7 +22,7 @@
 // said nothing about it. Never put an optional asset in the same `addAll` as
 // a required one.
 
-const CACHE = 'jj-app-v57';
+const CACHE = 'jj-app-v58';
 
 // The clips that exist on disk, per voice. See js/voices.js.
 //
@@ -100,7 +101,7 @@ const CORE = [
   'js/moves.js',
   'js/stretches.js',
   'js/strength.js',
-  'js/stretch-art.js',
+  'js/stretch-art.js',   // the routines' figures; the lifts' are in LAZY below
   'js/ontology.js',
   'js/tagger.js',
   'js/overrides.js',
@@ -126,12 +127,29 @@ const CORE = [
   'icons/icon-maskable.png',
 ];
 
+// Code that is loaded with `import()` rather than at boot, and whose absence
+// is silent by design. The one member so far is the lift artwork: 53 KB of
+// paths that only the strength screen reads, and a screen with no drawings on
+// it is a working screen (see js/strength-art.js).
+//
+// The rule this list encodes, and the reason it is not simply in CORE: CORE is
+// atomic, so everything in it is a thing the app cannot open without. A module
+// only earns a place out here by being genuinely optional *and* genuinely
+// lazy, and tests/offline.test.mjs checks both — that something does
+// `import('…')` it, and that no other module under js/ escapes CORE.
+const LAZY = [
+  'js/strength-art.js',
+];
+
 // Spoken cues — see js/voices.js. One folder per voice, the same ids in each,
 // so a session speaks in one voice throughout and a routine run on gym wifi or
 // offline still gets the voice, not just the beeps. Optional by design: the app
 // is fully usable with none of these cached.
-const EXTRAS = Object.entries(CUES).flatMap(([voice, ids]) =>
-  ids.map(id => `audio/cues/${voice}/${id}.webm`));
+const EXTRAS = [
+  ...LAZY,
+  ...Object.entries(CUES).flatMap(([voice, ids]) =>
+    ids.map(id => `audio/cues/${voice}/${id}.webm`)),
+];
 
 const SHELL = [...CORE, ...EXTRAS];
 

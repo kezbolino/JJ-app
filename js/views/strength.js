@@ -43,6 +43,28 @@ import {
   sessionDuration, durationLine, PAIRED_REST,
 } from '../strength.js';
 
+// The lift figures are a lazy import, and this is the only thing that reads
+// them. js/strength-art.js is 53 KB of path data outside the boot graph and
+// outside CORE — see the header of that file for why — so it is fetched on the
+// way into this screen, alongside the IndexedDB reads the screen already waits
+// on. That costs no visible latency: the DB round-trip is the slower half.
+//
+// A failure is answered with `{}`, never with a throw. Offline on a phone that
+// has never opened this screen, the artwork simply is not there, and a
+// movement with no figure renders one fewer child — the contract PENDING_ART
+// has given an undrawn movement since v27. A drawing must not be able to cost
+// somebody their workout.
+let artCache = null;
+async function loadArt() {
+  if (artCache) return artCache;
+  try {
+    artCache = (await import('../strength-art.js')).STRENGTH_ART;
+  } catch {
+    artCache = {};
+  }
+  return artCache;
+}
+
 const pageHead = () => h('div.page-head',
   h('div',
     h('h1.page-title', 'Off mat'),
@@ -533,7 +555,12 @@ function exerciseCard(logged, ctx, { inPair = false } = {}) {
   // *which* movement you are on at a glance, not to teach it. `stretchFigure`
   // returns null for an id with no artwork, and the head simply has one fewer
   // child then: the same contract the routines have had since PENDING_ART.
-  const fig = stretchFigure(ex, ex.name);
+  //
+  // `ctx.art` is the lazily loaded lift artwork and is *additional* — it does
+  // not replace ART, or `single-leg-rdl` would lose its drawing: the lift and
+  // the rest-day mobility item are one movement under one id, so its figure
+  // lives with the routines'.
+  const fig = stretchFigure(ex, ex.name, ctx.art);
 
   const card = h(shell,
     h('div.sx-ex-head',
@@ -900,8 +927,9 @@ export default async function strength(root, { view } = {}) {
   const mount = h('div.sx');
   root.append(pageHead(), mount);
 
-  const [entries, sessions, muted, draft] = await Promise.all([
+  const [entries, sessions, muted, draft, art] = await Promise.all([
     store.allEntries(), store.getStrengthSessions(), store.getMutedExercises(), store.getStrengthDraft(),
+    loadArt(),
   ]);
   if (!isCurrent(token)) return;
 
@@ -958,6 +986,7 @@ export default async function strength(root, { view } = {}) {
   const showSession = current => {
     sessionScreen(mount, {
       draft: current,
+      art,
       restTimer,
       holdTimer,
       stateFor: id => state[id],
