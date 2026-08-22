@@ -3175,146 +3175,71 @@ data if forgotten:
   sw `CACHE` → v57, `VERSION` → v57, no files added or removed, no audio
   touched.
 
+- 2026-08-22 — **v57 deployed.** `main` fast-forwarded `9a91350..f60e47a` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 29s, `deploy` succeeded in 54s (14:30:10→14:31:04Z, run
+  `32578854358`). Ship gate: thirteen suites green *by exit code*,
+  `CACHE` == `VERSION` == v57, clean tree, fast-forward confirmed. Fifth clean
+  deploy in a row.
+
+  **The visible tell is audible, not visual** — the footer reads `JUJI v57` and
+  nothing on screen changed. The spoken cues in both Off mat routines and the
+  lift should be noticeably louder and, more to the point, all at the *same*
+  level as each other; the beeps are untouched.
+
+  **Nothing to re-download.** v57 changes ~40 lines of `js/voice.js` and no
+  audio, so the first open after this is a normal small update, unlike v56.
+
+  **No churn expected in `jj-app-data`.**
+
 ## Parked — pick this up next session
 
-**v49 is deployed.** `main` fast-forwarded `c425763..2044314`, and GitHub Pages
-is serving it — `deploy` succeeded at 18:42:07Z in run `32056096392`, checked at
-the **job** level. Ship gate was clean: ten suites green (`schedule` under UTC,
-`America/Los_Angeles` and `Australia/Sydney`), `CACHE` == `VERSION` == v49,
-clean tree, fast-forward not a merge.
+**Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
+settings sync landed in v46, the app was made genuinely offline-capable in v53,
+and the artwork job — parked since 2026-08-07 with seven mobility and ten
+strength figures outstanding — finished in v56. `PENDING_ART` is empty and
+`docs/ART-PROMPTS.md` is marked done.
 
-**It took two attempts, and the first failure is the mirror image of the
-2026-08-06 one above — which is exactly why that note is worth having.** There,
-`deploy` polled for ten minutes, timed out, and the content went live anyway.
-On the first v49 attempt (run `32055744421`):
+**Live at v57.** Sessions v53–v57 all shipped and were verified at the Pages
+**job** level, not the run badge.
 
-- `build` — **succeeded**, 28s, artifact uploaded.
-- `deploy` — **failed in 2 seconds**: `HTTP 503, No server is currently
-  available to service your request` from the Pages deployment API.
+### The three things most likely to need a look
 
-A two-second failure is an immediate rejection, not a slow backend, so nothing
-was published by that run. **The rule: read the *duration* of a failed `deploy`
-job, not just its conclusion.** Seconds means refused and nothing shipped;
-minutes-then-timeout means it may well have shipped anyway. The two look
-identical in the run list and mean opposite things.
+1. **The voice level (v57) has never been heard by anyone.** The gain rule is
+   unit-tested and the output was measured across all 134 clips (-24.4 →
+   -15.5 dBFS RMS, zero clipping), but "is it right in the room" is a judgement
+   only the user can make. If it is now too loud, `TARGET_RMS` in `js/voice.js`
+   is the one number. If the **beeps** now feel weak beside the speech, that is
+   a separate one-line change in `js/beeps.js` — deliberately not touched, so
+   the two changes stay independently judgeable.
+2. **The drag-to-reorder gesture (v55) has never run on the user's engine.**
+   Playwright drives Chromium; the phone is Firefox for Android.
+   `touch-action: none` and `setPointerCapture` are well supported there, but
+   this is the standing gap at the top of this file and it applies squarely to a
+   pointer gesture.
+3. **`ninety-ninety-liftoff` draws the position, not the lift-off.** The shin is
+   not visibly clear of the floor. It does not read as a duplicate of the
+   shipped `ninety-ninety` (that one is front-on, this is a side view), so it
+   shipped — but the cue says to lift, and the picture does not. One
+   regeneration and a re-trace; the prompt with the fix is in
+   `docs/ART-PROMPTS.md`.
 
-`rerun_failed_jobs` was accepted (201) and then **sat at `queued` with
-`run_attempt: 1` and never took a runner** — the same stuck-re-run state
-recorded in the 2026-08-06 note. What cleared it was **pushing a fresh commit**
-(the doc note itself), which started a clean run that built and deployed in
-about 90 seconds. So: a stuck re-run is not worth waiting on, and a Pages 503 is
-worth retrying rather than investigating.
+### The size budget, which is now the real constraint
 
-**The visible tells that v49 landed:** the footer reads `JUJI v49`; the strength
-intro leads with **About 1 hr 20 min · 37 sets · 39 min of it resting**; the plan
-list shows four `SUPERSET` brackets; and Nordic curl negatives is replaced by
-Single-leg Romanian deadlift. Close the installed PWA fully and reopen — the
-service worker serves the old shell until it takes the new `CACHE`.
+`js/stretch-art.js` is **215 KB** and is by far the largest file in `CORE`,
+which is precached atomically and re-downloaded on every version bump. Another
+batch of figures needs a different answer than "add it to the module" —
+splitting the strength figures into their own lazily-imported file is the
+obvious one, since only the lift screen reads them. Written at the top of the
+module too.
 
-**The live site cannot be fetched from this session to double-check** —
-`kezbolino.github.io` is blocked by the agent proxy (403 on CONNECT). A green
-deploy job is the evidence; the footer on the phone is the confirmation.
+### Two process lessons from this session, worth not relearning
 
-**No churn expected in `jj-app-data` from v49** — it touches neither
-`js/markdown.js` nor the entry model. Strength sessions are settings rows and
-ride in `app-state.md`, which has existed since v46.
+- **A summary line is not a test result.** The runner printed `tail -1` of each
+  suite, which is the "N passed" line whether or not something above it failed.
+  It hid two real failures that were within one command of being committed. It
+  reports exit codes now — keep it that way.
+- **Check `js/version.js` on `origin/main` before diagnosing a stale phone.**
+  A version sitting on a branch is not deployed, and a phone showing what the
+  site actually serves is not a bug. That cost a round trip on v53.
 
-**The visible tells that v49 landed:** the footer reads `JUJI v49`; the strength
-intro leads with **About 1 hr 20 min**; the plan list shows four `SUPERSET`
-brackets; and Nordic curl negatives is replaced by Single-leg Romanian deadlift.
-
-**Both voices are complete as of v52.** 62 clips each; every movement in both
-routines and every strength lift is nameable in either. The last three
-(`kb-getup`, `kb-swing`, `wu-press-ups`) were recorded in Snoop and shipped in
-the same version. A test now asserts every voice can name everything the app
-speaks, so a movement added later cannot quietly ship in one voice only.
-
-**`wu-press-ups` was wired to `cue: null` and nothing ever asked for it** — its
-Arnold clip sat on disk and in the precache, unreachable, for the length of that
-version. Now wired, and pinned by a new test: *every precached clip is one the
-app can actually ask for*. Worth remembering as its own failure mode — it is the
-v41 lesson pointed the other way. v41 was a file on disk missing from `SHELL`
-(silent offline); this is a file in both, wired to nothing (silent always), and
-neither the SHELL/disk test nor the "does the clip have sound in it" test can
-see it. **A cue needs a file, a precache entry *and* a caller.**
-
-**The spoken finish cue shipped in v52.** A completed routine or lift chimes,
-then speaks one of five "session complete" lines, in whichever voice the session
-is running. **Chime first, voice after** — the chime is the signal that the
-session is over, the same three notes every time and readable without looking;
-the line is the flourish on top, and one arriving *instead* of the chime would
-be a worse signal. It lands at 900ms, just past the chime's last note.
-
-Two things in it are worth keeping. `voice.say` now returns the clip's length,
-and the routine's teardown waits that long before closing its audio contexts —
-a fixed timeout would have to suit the longest line in the longest voice and
-would go stale the moment one is re-recorded, and closing early cuts the line
-off mid-sentence. And `pickFinish()` carries **no** no-repeat state, unlike the
-hype and other-side pickers: a session finishes exactly once, so there is no
-previous take within it to avoid, and threading one through would be dead state.
-
-Ending a session early plays neither the chime nor the line — that is not a
-session you finished.
-
-**The `art-inbox` branch is live and unmerged**, waiting for raster figures.
-Images attached in chat are rendered into context but never written to disk, so
-that branch is the only way to get a PNG somewhere it can be traced. The trace
-pipeline is proven end to end — potrace at `turdsize 8`, `alphamax 1.0`,
-`opttolerance 1.2`, threshold 128, 5% viewBox margin. An existing figure was
-round-tripped through it and came out indistinguishable from the Illustrator
-original, so **the user no longer needs Illustrator at all**: send PNGs, not
-SVGs, and skip the import/trace/delete-background/export steps entirely. First
-real test is `ankle-rock`; the last attempt had the pose type right but the knee
-behind the toes and a lighter line weight than the existing 11. The voice-cue re-recording
-job that sat parked here is **finished** — all 30 per-move names, the six "other
-side" takes (v38), a spoken "3, 2, 1, let's go" and seven hype lines are cut and
-wired. `audio/cues/` holds 44 clips, ~600 KB, all precached in `SHELL`.
-
-**If more clips ever arrive, read the v39 entry before cutting them.** The short
-version: in that take the pauses *inside* a line were sometimes longer than the
-breaks *between* lines (0.74s vs 0.33s), so no gap-width threshold could split
-it and a plausible-looking split was silently wrong. The only thing that worked
-was transcribing the fragments with `pocketsphinx` and aligning them against the
-script. Budget for that whenever the pauses are not obviously graded — the v38
-take, with a deliberate 1.2–1.9s after every line, was a ten-minute job.
-
-**`docs/AUDIT.md` is closed** as of v45 — every item in it is built. Nothing in
-that document is a to-do any more.
-
-**Settings sync as of v46** — the deck, starred moves, promotions and both
-off-mat logs. That closes the last item that had real downside. What it does
-*not* cover, and would be the next ask if wanted: the appearance pickers, which
-live in `localStorage` rather than IndexedDB and are genuinely per-device
-(theme, font, button style), and the 30-day trash, which is deliberately local.
-
-**Artwork is PARKED as of 2026-08-07, and the reason is worth reading before
-restarting it.** Seven movements have no figure (`PENDING_ART` in
-`js/stretch-art.js`) — `warmup-march`, `ninety-ninety-liftoff`, `copenhagen`,
-`jefferson-curl`, `thoracic-press-up`, `wall-slide`, `dead-hang` — plus all ten
-strength ones.
-
-The blocker is **not** the prompts, which are written and specific
-(`docs/ART-PROMPTS.md`). It is that the two ways of asking each fail
-differently: **one request for all of them returns a contact sheet** — one
-consistent style, but ~150×130px per figure, which is a thirtieth of the area
-needed and comes with captions and borders traced in. **One request per figure
-gives full resolution but a different style each time** — some come back with
-faces, some without, line weights vary. A list where half the figures have faces
-is worse than one where several have no figure, so partial delivery is not a
-safe default here.
-
-The eleven shipped in v48 all came from the same sheet, so they are at least
-consistent with each other. `PENDING_ART` means anything missing renders with no
-figure at all, which is the designed contract and looks fine — **nothing is
-broken while this stays parked.**
-
-**The idea worth trying next:** pass one of the shipped figures (a PNG render of
-it) to the generator as a style reference alongside each prompt, instead of
-describing the style in words. That is the only route that plausibly gets both
-resolution and consistency. **The ten strength movements
-have no artwork either, and `js/views/strength.js` has no code that would draw
-one** — it is a form, not a routine. Adding figures there is a view change as
-well as an art job; do not assume the prompts alone are enough. The strength module
-ships no artwork and no voice cues at all — it is a form, not a routine, so it
-needs neither, but if the two stretch routines ever get their missing figures
-the eight lifts are the obvious next ask.
