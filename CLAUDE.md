@@ -3246,6 +3246,86 @@ data if forgotten:
   all ten figures present, no horizontal overflow. sw `CACHE` → v58, `VERSION` →
   v58; `js/strength-art.js` added, in `LAZY`/`EXTRAS`, **not** in `CORE`.
 
+- 2026-08-22 — **v59: the cues are louder again, and v57's approach turned out
+  to be at a dead end.** User, on v57: *"doesn't seem loud enough."*
+
+  **The measurement that reframed it.** v57 raised each clip's RMS and let a
+  `DynamicsCompressorNode` catch the peaks, landing at -15.4 dBFS RMS with peaks
+  at -0.49 dBFS. The obvious next move — a makeup gain after that limiter —
+  was swept across all 134 clips and put **every single one past full scale**,
+  and the crest factor stayed at ~15 dB however hard the compressor was driven.
+  That is the finding: **a `DynamicsCompressorNode` is not a look-ahead
+  limiter.** Its fastest attack is far too slow for speech transients, so it was
+  passing them through essentially untouched — the peaks were already against
+  the ceiling and the "limiter" was buying almost nothing. There was no headroom
+  left to reclaim, which is why v57 could not be turned up.
+
+  **So the chain moved into the samples**, where a real limiter can hold the
+  peaks and the average can come up underneath them. `js/voice.js` now processes
+  each clip once at decode time, in place, through four pure steps: drive to a
+  target RMS, lift the speech band, limit with look-ahead, normalise onto a
+  -1 dBFS ceiling. The `DynamicsCompressorNode` is gone — a node doing nothing
+  measurable is worse than no node, because it reads as protection.
+
+  **Result, measured across all 134 clips through the shipped code: -11.0 dBFS
+  RMS, peaks at -1 dBFS, zero over full scale, tightest crest 8.0 dB.** That is
+  **+4.4 dB on v57** and +13 dB on the raw takes. Confirmed end to end as well
+  as in the harness — instrumented `createBufferSource` in a real browser and
+  read the buffer the routine actually hands to the graph: peak 0.891, -11.04
+  dBFS.
+
+  **+4.4 dB is all the level there is, and the honest reason is worth keeping.**
+  With peaks pinned at the ceiling, loudness can only come from crest
+  reduction, and the curve flattens hard: drive 0.5 gives -12.1 dBFS, drive 1.0
+  gives -11.0, and past that it is a tannoy. **The app is now at digital
+  maximum.** If it is still not enough, the remaining levers are the phone's own
+  media volume or a hotter re-record — not code.
+
+  **Which is why there is also a presence lift.** Speech is carried over
+  background noise almost entirely by the 1-4 kHz band, so a peaking EQ at
+  2.6 kHz, Q 0.8, **+5 dB** buys more intelligibility over a television than the
+  same few dB spread across the spectrum would — this is what every broadcast
+  voice chain does. It runs *before* the limiter so the boosted peaks are held
+  and the clip still lands exactly on the ceiling; boosting after would push it
+  straight back over. Modest and wide on purpose: further starts to make both
+  voices thin and shouty.
+
+  **The guard that became load-bearing.** Everything now normalises onto the
+  ceiling, so `MAX_GAIN` no longer protects anything — a mis-cut file of room
+  tone would be normalised to full scale and play as a blast of hiss. `SILENCE_PEAK`
+  (-40 dBFS) leaves such a clip exactly where it is. v32 shipped 24 clips of true
+  digital silence and nothing said so for three versions; that failure is one
+  this repo has actually had.
+
+  **Nearly all of it is pure, and that is the point of the rewrite.** v57's
+  limiter was Web Audio and could only be tuned by rendering and measuring;
+  `clipGain`, `presence`, `limitSamples` and `processClip` are plain functions
+  over sample arrays. `tests/voice.test.mjs` is 14 assertions — the EQ's
+  response measured at six frequencies, the limiter proven to reduce gain
+  *before* a burst rather than after it, nothing ever over full scale, room tone
+  left alone. Three failure modes verified by breaking the module first
+  (removing the silence guard, removing the look-ahead, and a third that
+  revealed the final normalise corrects nothing in practice — the comment now
+  says so rather than claiming it catches overshoot).
+
+  **This also removes the Firefox risk that was sitting under v57.** The old
+  chain leaned on a `DynamicsCompressorNode`, whose behaviour is
+  implementation-specific and was tuned in Chromium while the user runs Firefox.
+  Arithmetic over a `Float32Array` is the same on both.
+
+  **Nothing was re-encoded** — no bytes re-downloaded, and a clip recorded later
+  at a different level is still handled on its own merits, which is what went
+  wrong when Arnold's take arrived 9 dB hotter than Snoop's (v52).
+
+  **The beeps are untouched, and the balance has now flipped.** They peak at
+  -9 dBFS against the voice's -1, so the speech is comfortably the louder of the
+  two for the first time. That is what was asked for, but if the beeps now feel
+  weak beside it, that is still a one-line change in `js/beeps.js` — kept
+  separate so the two stay independently judgeable.
+
+  Thirteen suites green by exit code. sw `CACHE` → v59, `VERSION` → v59, no
+  files added or removed, no audio touched.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3254,29 +3334,30 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v57; v58 is built and not yet deployed.** Sessions v53–v57 all
-shipped and were verified at the Pages **job** level, not the run badge.
+**Live at v57; v58 and v59 are built and not yet deployed.** Sessions v53–v57
+all shipped and were verified at the Pages **job** level, not the run badge.
 
 ### The three things most likely to need a look
 
-1. **The voice level (v57) has never been heard by anyone.** The gain rule is
-   unit-tested and the output was measured across all 134 clips (-24.4 →
-   -15.5 dBFS RMS, zero clipping), but "is it right in the room" is a judgement
-   only the user can make. If it is now too loud, `TARGET_RMS` in `js/voice.js`
-   is the one number. If the **beeps** now feel weak beside the speech, that is
-   a separate one-line change in `js/beeps.js` — deliberately not touched, so
-   the two changes stay independently judgeable.
-2. **The drag-to-reorder gesture (v55) has never run on the user's engine.**
-   Playwright drives Chromium; the phone is Firefox for Android.
-   `touch-action: none` and `setPointerCapture` are well supported there, but
-   this is the standing gap at the top of this file and it applies squarely to a
-   pointer gesture.
-3. **`ninety-ninety-liftoff` draws the position, not the lift-off.** The shin is
-   not visibly clear of the floor. It does not read as a duplicate of the
-   shipped `ninety-ninety` (that one is front-on, this is a side view), so it
-   shipped — but the cue says to lift, and the picture does not. One
-   regeneration and a re-trace; the prompt with the fix is in
-   `docs/ART-PROMPTS.md`.
+1. **v57's voice level was judged too quiet on the phone and v59 answered it**
+   (+4.4 dB, plus a 2.6 kHz presence lift). **v59 has not been heard yet.** If
+   it is still short, the honest answer is that there is no level left — the
+   clips peak at -1 dBFS and the app is at digital maximum, so the next lever is
+   the phone's media volume or a hotter re-record. If it is now *too* loud or
+   sounds squashed, `TARGET_RMS` in `js/voice.js` is the one number (1 → 0.5
+   costs about a dB and buys back 2 dB of crest); if it sounds thin or shouty,
+   `PRESENCE_DB` is the other.
+2. **The beeps are now the quieter half**, for the first time — they peak at
+   -9 dBFS against the voice's -1. Deliberately left alone so v59 is judgeable
+   on its own; a one-line change in `js/beeps.js` if they need to catch up.
+3. **`ninety-ninety-liftoff` draws the position, not the lift-off.** Raised with
+   the user and explicitly accepted — *"it's just a prompt that's fine"*. Left
+   as it is; the corrected prompt stays in `docs/ART-PROMPTS.md` if it is ever
+   regenerated for another reason. **Not outstanding work.**
+
+**Answered this session:** the v55 drag-to-reorder gesture works on the user's
+own phone (Firefox for Android) — confirmed by them, so the standing
+Chromium-vs-Firefox gap is closed for that feature at least.
 
 ### The size budget — addressed in v58, with a rule for next time
 
