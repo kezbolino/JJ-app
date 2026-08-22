@@ -119,6 +119,7 @@ node tests/strength.test.mjs   # pure node, fast — the progression engine
 node tests/appstate.test.mjs   # pure node, fast — synced-settings merge rules
 node tests/swupdate.test.mjs   # pure node, fast — when a new version may reload
 node tests/offline.test.mjs    # pure node, fast — the precache split, offline wording
+node tests/voice.test.mjs      # pure node, fast — how loud a spoken cue is played
 python3 -m http.server 8099 &   # the three browser tests need this
 node tests/smoke.mjs            # Playwright; the whole app loop
 node tests/sync.test.mjs        # Playwright + fake GitHub (tests/fake-github.mjs)
@@ -126,7 +127,7 @@ node tests/features.test.mjs    # Playwright; calendar, deck, trash, links,
                                 # stretch, strength
 ```
 
-**Run all twelve after touching anything in `js/`.** Between them they cover the
+**Run all thirteen after touching anything in `js/`.** Between them they cover the
 core loop (log → tag → technique page → dashboard → coverage prompt), tagging
 including user corrections, backup format fidelity, multi-device sync including
 deletions, the move-suggestion engine, the stretch routines, the strength
@@ -3121,6 +3122,58 @@ data if forgotten:
 
   **No churn expected in `jj-app-data`** — nothing here touches
   `js/markdown.js`, the entry model or `js/appstate.js`.
+
+- 2026-08-21 — **v57: the spoken cues are ~9 dB louder, and the fix is in the
+  playback chain, not the files.** User: the voices are not loud enough even
+  with the phone turned up.
+
+  **My first diagnosis was wrong and the measurement corrected it.** I said the
+  beeps were 12–18 dB above the clips, comparing a beep's RMS over a 1-second
+  render (mostly silence) against a clip's RMS over its own length. Measured
+  fairly they are about 3 dB apart. The real finding is duller and more useful:
+  **the takes average -24.4 dBFS RMS and peak at -8**, so about 8 dB of headroom
+  was never used — and speech needs more level than a 1250 Hz square wave to
+  stay intelligible over a television, which is the room this is used in.
+
+  **Nothing was re-encoded.** `js/voice.js` measures each clip's RMS off the
+  decoded samples once, caches a per-clip gain beside the buffer, and plays
+  through `gain → limiter → destination`. That costs no bytes — re-encoding 134
+  clips would have been a 2.3 MB re-download for every user and a second lossy
+  generation — and it handles a clip recorded later at a different level on its
+  own merits. That is exactly what went wrong in v52, when Arnold's take arrived
+  9 dB hotter than Snoop's and had to be matched by hand at encode time; this
+  makes that class of mismatch impossible.
+
+  **`clipGain` normalises by RMS, not peak, and has a floor and a ceiling.**
+  Peak-normalising leaves a clip with one loud plosive as quiet as it was, which
+  is most of them. The floor of 1 means a well-recorded clip is never pulled
+  *down* — `other-side-1` was already 6 dB hotter than its neighbours. The
+  ceiling of 6× stops a mis-cut clip of room tone being amplified into a blast
+  of hiss, which matters because v32 shipped 24 silent clips once.
+
+  **The limiter settings were measured, not guessed**, by rendering all 134
+  clips through the real chain in an `OfflineAudioContext` and sweeping. The
+  obvious `threshold -2 dB / attack 2 ms` let **42 clips past full scale** by up
+  to +0.7 dBFS — audible crackle on exactly the consonants that carry the words.
+  `-6 dB / 1 ms` clips none of them **and lands louder on average**, because more
+  of the signal is held against the ceiling instead of a few transients spiking
+  over it. Final numbers: -24.4 → -15.5 dBFS RMS, **+8.8 dB**, max peak
+  -0.49 dBFS, zero clipping.
+
+  **The beeps were deliberately left alone.** The complaint was about the
+  voices, and changing both at once makes the result unpredictable — the point
+  of this version is that the voice now sits *above* the beeps rather than under
+  them. If the beeps now feel weak next to the speech, that is a separate,
+  one-line change in `js/beeps.js`.
+
+  New suite `tests/voice.test.mjs` (6 assertions) — **the suite count is now
+  thirteen**. It covers the pure gain rule only; the limiter is Web Audio and
+  cannot run in node, which is why it was tuned by measurement instead. Both
+  real failure modes were verified by breaking the module first: dropping the
+  floor drops it to 4 passed, dropping the zero-RMS guard to 5.
+
+  sw `CACHE` → v57, `VERSION` → v57, no files added or removed, no audio
+  touched.
 
 ## Parked — pick this up next session
 
