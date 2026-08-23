@@ -3393,6 +3393,41 @@ data if forgotten:
   the open editor panel and Home in light and dark at 360px and 390px, no
   horizontal overflow. sw `CACHE` → v60, `VERSION` → v60, no files added.
 
+- 2026-08-23 — **v58, v59 and v60 deployed.** `main` fast-forwarded
+  `8c6860a..bf41d20` and pushed. Checked at the **job** level per the 2026-08-06
+  note: `build` succeeded in 23s, `deploy` succeeded in 8s
+  (12:10:30→12:10:38Z, run `32638606881`). Sixth clean deploy in a row.
+
+  Ship gate: thirteen suites green *by exit code* (80 browser assertions in
+  `features`, 16 in `sync`; `schedule` under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`), `CACHE` == `VERSION` == v60, clean tree, fast-forward
+  confirmed rather than a merge.
+
+  **Three versions had been sitting built-and-unpushed, and that was my
+  mistake, not a deploy problem.** Each of v58, v59 and v60 ended with "say the
+  word and I'll ship it" and the word was never given, so the user tested v57
+  three times over and eventually asked *"did you ship it? I'm stuck on 57."*
+  Their phone was correct the whole time. The lesson is the flip side of the
+  2026-08-20 note: **check `js/version.js` on `origin/main` before diagnosing a
+  stale phone** cuts both ways — if the site is serving an old version because
+  nobody pushed, the phone is not stuck, the deploy simply never happened. Offer
+  to deploy once; if the work is finished and green, ship it rather than parking
+  it behind a confirmation.
+
+  **The visible tells that v60 landed:** the footer reads `JUJI v60`; opening a
+  card in Working on → Edit deck shows **Archive** and **Make priority**; and
+  the spoken cues in both Off mat routines are noticeably louder.
+
+  **The first open will want a moment on wifi.** v58 moved the lift artwork out
+  of `CORE` into a lazy import, so the shell shrank (~720 KB → ~670 KB) but
+  `js/strength-art.js` is a new file the worker precaches separately. Settings →
+  Offline use should read all 179 files once it settles.
+
+  **No churn expected in `jj-app-data`** — none of the three touches
+  `js/markdown.js` or the entry model. The two new focus-card flags ride in
+  `app-state.md` inside `focuses`, which has synced as `'whole'` since v46, so
+  the first sync just carries whatever the phone has.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3401,14 +3436,14 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v57; v58, v59 and v60 are built and not yet deployed.** Sessions
-v53–v57 all shipped and were verified at the Pages **job** level, not the run
-badge.
+**Live at v60.** Every session from v53 on has shipped and been verified at the
+Pages **job** level, not the run badge.
 
 ### The three things most likely to need a look
 
 1. **v57's voice level was judged too quiet on the phone and v59 answered it**
-   (+4.4 dB, plus a 2.6 kHz presence lift). **v59 has not been heard yet.** If
+   (+4.4 dB, plus a 2.6 kHz presence lift). **v59 is now live and has not been
+   heard yet** — it only reached the phone in the v58-59-60 deploy above. If
    it is still short, the honest answer is that there is no level left — the
    clips peak at -1 dBFS and the app is at digital maximum, so the next lever is
    the phone's media volume or a hotter re-record. If it is now *too* loud or
