@@ -3326,6 +3326,73 @@ data if forgotten:
   Thirteen suites green by exit code. sw `CACHE` → v59, `VERSION` → v59, no
   files added or removed, no audio touched.
 
+- 2026-08-23 — **v60: cards can be archived, and one can be flagged as the
+  priority.** User: *"I want to make the cards archivable... as I might want to
+  refer back to them at a later stage but not on my main reminders. I also want
+  one to appear a different colour and this one will be to prioritise stand up
+  moves."*
+
+  **Two flags on a card, and both are stored only when true**, so a plain card
+  is still exactly `{ front, back }` on disk and in `app-state.md`. That is not
+  tidiness: the file's byte-stability is what stops the sync committing an
+  identical state on every run (v46), and `archived: false` on every card would
+  be churn for nothing.
+
+  **The trap that shaped the whole design: `setFocuses` writes the list it is
+  handed.** So a caller that read only the *active* cards and then saved would
+  delete every archived one — silently, with its cues, and there is no trash for
+  a card. `getFocuses()` therefore still returns everything and is deliberately
+  not filtered; `activeFocuses` / `archivedFocuses` are applied at the two
+  places that display (Home's tiles, the deck), and the editor always holds the
+  whole deck. Add, drag, archive and restore each rebuild the full list —
+  active ones in order, archived ones on the end — and there is a browser test
+  on exactly that, because "adding a card wiped the archive" is the kind of
+  thing that shows up a week later with nothing to point at.
+
+  **Archived cards get a shelf, not a second deck.** A plain list under the
+  editor, cues visible rather than behind a tap — looking a cue up later is the
+  entire reason the card was archived instead of deleted, so hiding it would
+  make the two the same thing. Restore puts the card on the *end* of the active
+  run rather than back in its old slot: the deck has moved on, and the bottom is
+  where something you have just decided to work on again is easiest to find and
+  drag.
+
+  **Priority is purple, and the colour was the only real choice available.**
+  Every other colour in this app already means something specific — amber is
+  gap/waiting-on-you (three jobs, guarded since v13), green is rest and warm-up,
+  red means this throws work away, blue is every button. Marking a card with any
+  of them would have made that colour mean two things. Purple appears nowhere
+  else except as a belt rank, which is not a UI colour. New tokens `--flag`,
+  `--flag-ink`, `--flag-soft`, `--flag-line`, `--on-flag`, written into all
+  three palettes (light, `prefers-color-scheme: dark`, `[data-theme="dark"]` —
+  the palette is deliberately duplicated, there is no build step). Contrast
+  checked: 8.1:1 for the flagged row, 7.4:1 on the badge, 5.2:1 worst case for
+  cues on the tint.
+
+  **A flag never reorders anything.** Sorting priority cards to the top would
+  silently undo a drag, and the order is dragged by hand (v55) — it is also the
+  tile order on Home. Nothing enforces "only one priority" either: a rule the
+  app invents is a rule the user has to discover.
+
+  **The v49 translucent-overlay rule applied again.** `--flag-soft` is an
+  `rgba()` in dark mode, so both the card face and the Home tile layer it over
+  an opaque `--surface` with a `linear-gradient(...)`. Used raw, a tinted card
+  stops reading as a card.
+
+  **A pre-existing bug fixed on the way, found by looking at a screenshot.**
+  `.fc-head button:hover` set `color: var(--warm)` — hovering a card in the
+  editor turned its name amber, the colour that means "gap / waiting on you".
+  v55 fixed exactly this for the grip and left it on the row. It is not only a
+  desktop nicety: a touch browser keeps `:hover` on a tapped element, so the row
+  you just tapped went amber. Blue now, like the grip.
+
+  Thirteen suites green by exit code (80 browser assertions in `features`, 39 in
+  `schedule` under UTC/LA/Sydney, 16 in `sync` — the sync test now asserts an
+  archived card reaches the other device *with its cues*, since that is the one
+  you would most hate to find missing). Screenshot-checked the deck, the shelf,
+  the open editor panel and Home in light and dark at 360px and 390px, no
+  horizontal overflow. sw `CACHE` → v60, `VERSION` → v60, no files added.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3334,8 +3401,9 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v57; v58 and v59 are built and not yet deployed.** Sessions v53–v57
-all shipped and were verified at the Pages **job** level, not the run badge.
+**Live at v57; v58, v59 and v60 are built and not yet deployed.** Sessions
+v53–v57 all shipped and were verified at the Pages **job** level, not the run
+badge.
 
 ### The three things most likely to need a look
 

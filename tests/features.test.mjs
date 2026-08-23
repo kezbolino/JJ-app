@@ -392,9 +392,125 @@ await test('a card can be renamed, and cannot collide with another', async () =>
   await page.context().close();
 });
 
+await test('archiving a card takes it out of the deck and keeps its cues', async () => {
+  // Archive exists because delete does not: a card you have stopped drilling is
+  // still something you might want to look up, and deleting takes the cues with
+  // it — focuses are not in the 30-day trash.
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'half guard passing', back: 'staple the knee' },
+    { front: 'berimbolo', back: 'invert early' },
+  ]);
+  await go(page, '/focus');
+  await page.waitForSelector('.fc-list');
+
+  const second = () => page.locator('.fc-list li').nth(1);
+  await second().locator('.fc-row').click();
+  await second().getByRole('button', { name: 'Archive' }).click();
+  await page.waitForTimeout(300);
+
+  assert.equal(await page.locator('.fc-list li').count(), 1, 'the card is still in the editor list');
+  assert.equal(await page.locator('.fc-count').innerText(), '1 / 1', 'the deck still counts it');
+  const shelf = page.locator('.fc-arch li');
+  assert.equal(await shelf.count(), 1, 'it did not land on the shelf');
+  assert.match(await shelf.first().innerText(), /invert early/,
+    'the cues were lost, which makes archiving the same as deleting');
+
+  // And it is gone from Home, which is where the deck actually gets used.
+  await go(page, '/');
+  const tiles = await page.$$eval('.wo-tile .wo-front', ns => ns.map(n => n.textContent));
+  assert.deepEqual(tiles, ['half guard passing'], 'an archived card is still tiled on Home');
+
+  // Still on disk, though — archived, not deleted.
+  const stored = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.equal(stored.length, 2, 'archiving deleted the card');
+  assert.equal(stored.find(c => c.front === 'berimbolo').archived, true);
+  await page.context().close();
+});
+
+await test('restoring brings a card back, and the rest of the deck survives it', async () => {
+  // The trap this pins: the editor writes the whole list every time. Read only
+  // the active cards, save, and every archived one is gone — with no trash and
+  // nothing on screen to say it happened.
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'half guard passing', back: '' },
+    { front: 'berimbolo', back: 'invert early', archived: true },
+    { front: 'lockdown', back: 'parked', archived: true },
+  ]);
+  await go(page, '/focus');
+  await page.waitForSelector('.fc-arch');
+
+  await page.locator('.fc-arch li').first().getByRole('button', { name: 'Restore' }).click();
+  await page.waitForTimeout(300);
+
+  const stored = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.deepEqual(stored.map(c => c.front), ['half guard passing', 'berimbolo', 'lockdown'],
+    'restoring one card disturbed the others');
+  assert.equal(stored[1].archived, undefined, 'the restored card is still archived');
+  assert.equal(stored[2].archived, true, 'the other archived card was restored too');
+
+  // And adding a card while something is archived must not drop the shelf.
+  await page.locator('.fc-list').waitFor();
+  await page.fill('.card input[placeholder="What are you working on?"]', 'leg entanglements');
+  await page.getByRole('button', { name: /Add card/i }).click();
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.deepEqual(after.map(c => c.front),
+    ['half guard passing', 'berimbolo', 'leg entanglements', 'lockdown'],
+    'adding a card lost or reshuffled the archive');
+  await page.context().close();
+});
+
+await test('a priority card is marked out wherever it appears', async () => {
+  // One card in its own colour. Purple, because every other colour in this app
+  // already means something — amber is gap/waiting-on-you, green is rest, red
+  // throws work away, blue is every button.
+  const page = await newPage();
+  await setSetting(page, 'focuses', [
+    { front: 'half guard passing', back: '' },
+    { front: 'stand up', back: 'grip first' },
+  ]);
+  await go(page, '/focus');
+  await page.waitForSelector('.fc-list');
+
+  const second = () => page.locator('.fc-list li').nth(1);
+  await second().locator('.fc-row').click();
+  await second().getByRole('button', { name: 'Make priority' }).click();
+  await page.waitForTimeout(300);
+
+  assert.equal(await page.locator('.fc-row.is-priority').count(), 1, 'the editor row is not marked');
+  const stored = await page.evaluate(async () => (await import('/js/store.js')).getFocuses());
+  assert.equal(stored[1].priority, true);
+  assert.deepEqual(stored.map(c => c.front), ['half guard passing', 'stand up'],
+    'flagging a card moved it — the order is dragged by hand and must not be sorted');
+
+  // The card face, and the tile on Home.
+  await go(page, '/focus?card=1');
+  await page.waitForSelector('.flashcard');
+  assert.equal(await page.locator('.flashcard.is-priority').count(), 1, 'the card face is not marked');
+  assert.match(await page.locator('.fc-flag').innerText(), /priority/i);
+
+  await go(page, '/');
+  await page.waitForSelector('.wo-rail');
+  assert.equal(await page.locator('.wo-tile.is-priority').count(), 1, 'the Home tile is not marked');
+  // Case-insensitive: `.wo-num` is uppercased in CSS, which is fine here because
+  // the label is one word with no unit in it — the trap v28 and v49 hit was a
+  // transform shouting a "60s"/"30s", and there is nothing like that to shout.
+  assert.match(await page.locator('.wo-tile').nth(1).locator('.wo-num').innerText(), /^priority$/i);
+
+  // And it comes off again.
+  await go(page, '/focus');
+  await page.locator('.fc-list li').nth(1).locator('.fc-row').click();
+  await page.locator('.fc-list li').nth(1).getByRole('button', { name: /Priority ✓/ }).click();
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator('.fc-row.is-priority').count(), 0, 'the flag would not come off');
+  await page.context().close();
+});
+
 await test('a card can be dragged to a new place in the deck', async () => {
   // Order is the array order and nothing else — a card carries no position of
-  // its own, because `normalizeFocus` drops anything that is not front/back.
+  // its own, because `normalizeFocus` keeps only front, back and the two flags.
   // Home renders the same list, so the deck order *is* the tile order.
   const page = await newPage();
   await setSetting(page, 'focuses', [

@@ -319,7 +319,8 @@ await test('the deck and starred moves reach the other device', async () => {
     const store = await import('/js/store.js');
     await store.setFocuses([
       { front: 'half guard passing', back: 'staple the knee' },
-      { front: 'standing up in base', back: '' },
+      { front: 'standing up in base', back: '', priority: true },
+      { front: 'berimbolo', back: 'invert early', archived: true },
     ]);
     await store.toggleLikedMove({ position: 'half-guard', technique: 'knee-slice' });
     await store.setPromotions([{ rank: 'blue', date: '2026-01-15' }]);
@@ -334,12 +335,21 @@ await test('the deck and starred moves reach the other device', async () => {
   const got = await laptop.page.evaluate(async () => {
     const store = await import('/js/store.js');
     return {
-      deck: (await store.getFocuses()).map(f => f.front),
+      cards: await store.getFocuses(),
+      deck: store.activeFocuses(await store.getFocuses()).map(f => f.front),
       liked: await store.getLikedMoves(),
       promotions: await store.getPromotions(),
     };
   });
   assert.deepEqual(got.deck, ['half guard passing', 'standing up in base'], 'the deck did not travel');
+  // The two flags ride along in `focuses`, which syncs as 'whole' — but an
+  // archived card is the one you would most hate to find missing on the other
+  // device, since archiving it is what you did *instead* of deleting it.
+  assert.equal(got.cards.length, 3, 'the archived card did not travel');
+  assert.equal(got.cards.find(c => c.front === 'berimbolo')?.back, 'invert early',
+    'the archived card arrived without the cues that were the reason for keeping it');
+  assert.equal(got.cards.find(c => c.front === 'standing up in base')?.priority, true,
+    'the priority flag did not travel');
   assert.equal(got.liked.length, 1, 'starred moves did not travel');
   assert.equal(got.promotions[0]?.rank, 'blue', 'promotions did not travel');
   assert.equal(up.pushed >= 0, true);
@@ -357,7 +367,7 @@ await test('a card deleted on one device stays deleted on the other', async () =
   const laptop = await newDevice();
   await runSync(laptop.page);
   assert.equal((await laptop.page.evaluate(async () =>
-    (await import('/js/store.js')).getFocuses())).length, 2, 'the laptop did not start with the deck');
+    (await import('/js/store.js')).getFocuses())).length, 3, 'the laptop did not start with the deck');
 
   await phone.page.evaluate(async () => {
     const store = await import('/js/store.js');

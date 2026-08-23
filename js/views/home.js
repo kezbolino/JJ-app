@@ -302,8 +302,11 @@ function workingOn(focuses) {
   }
 
   const rail = h('div.wo-rail', focuses.map((f, i) =>
-    h('a.wo-tile', { href: `#/focus?card=${i}`, 'aria-label': `${f.front}. Open for cues.` },
-      h('span.wo-num', `${i + 1} / ${focuses.length}`),
+    h('a.wo-tile' + (f.priority ? '.is-priority' : ''), {
+      href: `#/focus?card=${i}`,
+      'aria-label': `${f.front}.${f.priority ? ' Priority.' : ''} Open for cues.`,
+    },
+      h('span.wo-num', f.priority ? 'Priority' : `${i + 1} / ${focuses.length}`),
       h('span.wo-front', f.front),
       h('span.wo-more', f.back ? 'Tap for your cues' : 'Tap to add cues'))));
 
@@ -383,7 +386,7 @@ export default async function home(root) {
   const entries = await store.allEntries();
   const strengthSessions = await store.getStrengthSessions();
   const mobilitySessions = await store.getMobilitySessions();
-  const focuses = await store.getFocuses();
+  const focuses = store.activeFocuses(await store.getFocuses());
   const promotions = await store.getPromotions();
   const dismissedOn = await store.getSetting('nudgeDismissedOn', '');
 

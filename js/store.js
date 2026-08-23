@@ -234,27 +234,62 @@ export async function readAppState() {
   return { values, stamps: await getSettingStamps() };
 }
 
-// "Things you're working on" — flashcards. Each is { front, back }: front is
-// the thing (e.g. "half guard passing"), back is your cues/notes to drill.
-// Stored as objects, but old installs saved plain strings, so normalise on read
-// and never assume the shape coming out of IndexedDB.
-// A card is just { front, back }. Old installs may hold a bare string from
-// before the deck had two sides, so normalising on read has to cope with that.
+// "Things you're working on" — flashcards. `front` is the thing (e.g. "half
+// guard passing"), `back` is your cues/notes to drill. Stored as objects, but
+// old installs saved plain strings, so normalise on read and never assume the
+// shape coming out of IndexedDB.
 //
-// v20 removed the spaced-repetition schedule that used to live here too. It
-// was driven by an Again/Good/Easy rating after each flip, and once that
-// prompt went there was nothing left to feed the scheduler — a scheduler with
-// no input is not a gentler scheduler, it is a dead one. Cards that still
-// carry the old `due`/`ease`/`interval` keys simply drop them here.
+// Two flags joined them in v60, and both are stored only when true, so a plain
+// card is still exactly { front, back } on disk and in the backup repo:
+//
+//   archived — kept, still readable, but out of the deck and off Home. For a
+//              thing you have stopped drilling and might want to look up later;
+//              deleting it would take its cues with it, and there is no trash
+//              for a card.
+//   priority — draws in its own colour, everywhere the card appears. One thing
+//              at a time is meant to stand out; nothing enforces that, because
+//              a rule the app invents is a rule the user has to discover.
+//
+// **Neither flag reorders anything.** The deck order is the array order and the
+// tile order on Home, and it is dragged by hand (v55) — sorting priority cards
+// to the top would silently undo a drag, which is a worse surprise than
+// scrolling past one.
+//
+// v20 removed the spaced-repetition schedule that used to live here. It was
+// driven by an Again/Good/Easy rating after each flip, and once that prompt
+// went there was nothing left to feed the scheduler — a scheduler with no input
+// is not a gentler scheduler, it is a dead one. Cards that still carry the old
+// `due`/`ease`/`interval` keys simply drop them here.
 export function normalizeFocus(f) {
   if (typeof f === 'string') return { front: f, back: '' };
-  return { front: String(f?.front ?? ''), back: String(f?.back ?? '') };
+  const card = { front: String(f?.front ?? ''), back: String(f?.back ?? '') };
+  // Only when true. An `archived: false` on every card would be noise in
+  // app-state.md, and the file's byte-stability is what stops the sync
+  // committing an identical state on every run (js/appstate.js).
+  if (f?.archived) card.archived = true;
+  if (f?.priority) card.priority = true;
+  return card;
 }
 
+/**
+ * The whole deck, archived cards included.
+ *
+ * Deliberately not filtered here. `setFocuses` writes the list it is given, so
+ * a caller that read only the active cards and then saved would delete every
+ * archived one — silently, with its cues, and with no trash to get it back
+ * from. Filtering is `activeFocuses` at the point of display instead, which is
+ * two call sites and cannot go wrong that way.
+ */
 export async function getFocuses() {
   const list = await getSetting('focuses', []);
   return (Array.isArray(list) ? list : []).map(normalizeFocus).filter(f => f.front);
 }
+
+/** The cards you are actually working on — what the deck and Home show. */
+export const activeFocuses = list => list.filter(c => !c.archived);
+/** The ones you have put away. */
+export const archivedFocuses = list => list.filter(c => c.archived);
+
 export const setFocuses = list => setSetting('focuses', list.map(normalizeFocus));
 
 // ---- belt ----------------------------------------------------------------

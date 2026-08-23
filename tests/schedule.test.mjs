@@ -90,6 +90,52 @@ test('a card with no back is still a card', () => {
   assert.deepEqual(store.normalizeFocus({ front: 'lockdown' }), { front: 'lockdown', back: '' });
 });
 
+test('the two flags are only stored when they are set', () => {
+  // A plain card must stay exactly { front, back } on disk. `archived: false`
+  // on every card would be noise in app-state.md, and that file's byte
+  // stability is what stops the sync committing an identical state every run
+  // (js/appstate.js) — so an absent flag is written as absent, not as false.
+  assert.deepEqual(store.normalizeFocus({ front: 'a', archived: false, priority: false }),
+    { front: 'a', back: '' });
+  assert.deepEqual(store.normalizeFocus({ front: 'a', back: 'b', archived: true }),
+    { front: 'a', back: 'b', archived: true });
+  assert.deepEqual(store.normalizeFocus({ front: 'a', back: '', priority: true }),
+    { front: 'a', back: '', priority: true });
+});
+
+test('archiving splits the deck without losing anything', () => {
+  // The two halves must always add back up to the whole list. The editor writes
+  // the list it was handed, so a caller that read only the active cards and
+  // then saved would delete every archived one — silently, with its cues, and
+  // there is no trash for a card.
+  const deck = [
+    { front: 'a', back: '' },
+    { front: 'b', back: 'cues', archived: true },
+    { front: 'c', back: '', priority: true },
+  ];
+  assert.deepEqual(store.activeFocuses(deck).map(c => c.front), ['a', 'c']);
+  assert.deepEqual(store.archivedFocuses(deck).map(c => c.front), ['b']);
+  assert.equal(store.activeFocuses(deck).length + store.archivedFocuses(deck).length, deck.length);
+});
+
+test('an archived card keeps its cues, which is the whole point of archiving', () => {
+  // Archive rather than delete exists so you can look the thing up later. A
+  // round trip that drops the back would make it the same as deleting.
+  const card = store.normalizeFocus({ front: 'berimbolo', back: 'invert early', archived: true });
+  assert.equal(card.back, 'invert early');
+  assert.equal(card.archived, true);
+});
+
+test('a card can be both archived and the priority', () => {
+  // Nothing stops it, and nothing should: the flags answer different questions
+  // ("am I drilling this?" and "is this the one that matters?"), and clearing
+  // one on the other's behalf is the app deciding something it was not asked
+  // to decide. Restoring the card brings its flag back with it.
+  const card = store.normalizeFocus({ front: 'x', archived: true, priority: true });
+  assert.equal(card.archived, true);
+  assert.equal(card.priority, true);
+});
+
 // ---- attendance -----------------------------------------------------------
 
 const cls = (date, patch = {}) => ({ type: 'class', date, id: date + Math.random(), ...patch });

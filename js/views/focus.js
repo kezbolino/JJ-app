@@ -24,7 +24,8 @@ import * as store from '../store.js';
 // and v20 already removed the grading that made this a test. Nothing was
 // grading it, so nothing needed hiding.
 function flashcard(card) {
-  return h('div.flashcard',
+  return h('div.flashcard' + (card.priority ? '.is-priority' : ''),
+    card.priority ? h('span.fc-flag', 'Priority') : null,
     h('div.fc-text', card.front),
     card.back
       ? h('div.fc-cues', card.back)
@@ -177,6 +178,12 @@ function dragReorder(list, rows, onDrop) {
  * re-render so a save or a move does not collapse what you were working on.
  */
 function editor(cards, rerender, { open = null } = {}) {
+  const active = store.activeFocuses(cards);
+  const archived = store.archivedFocuses(cards);
+  /** Where a card sits in the stored list — the editor always writes the whole
+   *  deck, archived cards included, or archiving one would delete the rest. */
+  const indexOf = card => cards.indexOf(card);
+  const replace = (card, patch) => cards.map(c => (c === card ? { ...c, ...patch } : c));
   const front = h('input', { type: 'text', placeholder: 'What are you working on?', maxLength: 60 });
   const back = h('textarea', { placeholder: 'Cues, details, reminders… (optional)', maxLength: 400 });
 
@@ -187,13 +194,13 @@ function editor(cards, rerender, { open = null } = {}) {
     const f = front.value.trim();
     if (!f) return;
     if (clash(f, -1)) { toast('Already on the list'); return; }
-    await store.setFocuses([...cards, { front: f, back: back.value.trim() }]);
+    await store.setFocuses([...active, { front: f, back: back.value.trim() }, ...archived]);
     // Land on the card you just added rather than back at the top of the deck.
     rerender({ showFront: f });
   };
 
   const grips = [];
-  const rows = cards.map((card, i) => {
+  const rows = active.map((card, i) => {
     const isOpen = open === card.front;
 
     const frontEdit = h('input', { type: 'text', value: card.front, maxLength: 60 });
@@ -205,16 +212,26 @@ function editor(cards, rerender, { open = null } = {}) {
     const save = async () => {
       const f = frontEdit.value.trim();
       if (!f) { toast('A card needs a front'); return; }
-      if (clash(f, i)) { toast('Already on the list'); return; }
-      await store.setFocuses(cards.map((c, n) =>
-        n === i ? { front: f, back: backEdit.value.trim() } : c));
+      if (clash(f, indexOf(card))) { toast('Already on the list'); return; }
+      await store.setFocuses(replace(card, { front: f, back: backEdit.value.trim() }));
       toast('Saved');
       rerender({ showFront: f });
     };
 
     const remove = async () => {
-      await store.setFocuses(cards.filter((_, n) => n !== i));
+      await store.setFocuses(cards.filter(c => c !== card));
       rerender({});
+    };
+
+    const archive = async () => {
+      await store.setFocuses(replace(card, { archived: true }));
+      toast('Archived');
+      rerender({});
+    };
+
+    const flag = async () => {
+      await store.setFocuses(replace(card, { priority: !card.priority }));
+      rerender({ open, showFront: card.front });
     };
 
     const grip = h('button.fc-grip', {
@@ -224,7 +241,7 @@ function editor(cards, rerender, { open = null } = {}) {
     grips.push(grip);
 
     const head = h('div.fc-head',
-      h('button.fc-row', {
+      h('button.fc-row' + (card.priority ? '.is-priority' : ''), {
         type: 'button',
         'aria-expanded': String(isOpen),
         'aria-label': `Edit ${card.front}`,
@@ -244,6 +261,15 @@ function editor(cards, rerender, { open = null } = {}) {
       h('label', 'Cues'), backEdit,
       h('div.btn-row',
         h('button.btn.small.primary', { type: 'button', onclick: save }, 'Save'),
+        h('button.btn.small' + (card.priority ? '.is-priority' : ''), {
+          type: 'button', 'aria-pressed': String(Boolean(card.priority)), onclick: flag,
+        }, card.priority ? 'Priority ✓' : 'Make priority')),
+      // Archive above delete, and delete last. Archiving is the one you want
+      // almost every time — the card stays, its cues stay, it is just out of
+      // the way — and delete is the only irreversible thing on this screen,
+      // since focuses are not in the 30-day trash.
+      h('div.btn-row',
+        h('button.btn.small', { type: 'button', onclick: archive }, 'Archive'),
         h('button.btn.small.danger', { type: 'button', onclick: remove }, 'Delete card')));
 
     return h('li', head, panel);
@@ -253,24 +279,60 @@ function editor(cards, rerender, { open = null } = {}) {
 
   // Reordering is a whole-list write, which is how `js/appstate.js` already
   // syncs focuses ('whole'), so a drag travels between devices for free.
+  // `from`/`to` index the *visible* rows, which are the active cards only. The
+  // write is still the whole deck: reorder the active ones among themselves and
+  // put the archived ones back on the end, so archiving a card and dragging
+  // another cannot lose either.
   const bind = dragReorder(list, rows, async (from, to) => {
-    const next = [...cards];
+    const next = [...active];
     next.splice(to, 0, next.splice(from, 1)[0]);
-    await store.setFocuses(next);
+    await store.setFocuses([...next, ...archived]);
     // `open` is kept and the deck stays on whatever card it was showing, so
     // moving a card never yanks anything else out from under you.
     rerender({ open });
   });
   grips.forEach(bind);
 
-  const el = h('section.card',
-    h('div.card-title', 'Edit deck'),
-    rows.length ? list : null,
-    rows.length ? h('p.small.muted', 'Tap a card to change its cues · drag the handle to reorder the deck and the tiles on Home') : null,
-    h('label', 'New card'),
-    front,
-    back,
-    h('div.btn-row', h('button.btn.primary', { type: 'button', onclick: add }, icon('plus'), 'Add card')));
+  // Archived cards. Deliberately a plain list rather than a second deck: this
+  // is a shelf you go and look something up on, not something you drill. Each
+  // row shows its cues, because looking them up is the entire reason the card
+  // was kept instead of deleted.
+  const shelf = archived.length ? h('section.card.fc-shelf',
+    h('div.card-title', `Archived · ${archived.length}`),
+    h('ul.fc-arch', archived.map(card => h('li',
+      h('div.fc-arch-head',
+        h('span.fc-arch-front', card.front),
+        h('button.btn.small', {
+          type: 'button',
+          onclick: async () => {
+            // Back onto the end of the active run, not into its old slot: the
+            // deck has moved on, and the bottom is where a card you have just
+            // decided to work on again is easiest to find and drag.
+            await store.setFocuses([...active, { ...card, archived: false },
+              ...archived.filter(c => c !== card)]);
+            toast('Back in the deck');
+            rerender({ showFront: card.front });
+          },
+        }, 'Restore')),
+      card.back ? h('p.fc-arch-cues', card.back) : null,
+      h('button.fc-arch-del', {
+        type: 'button', 'aria-label': `Delete ${card.front} for good`,
+        onclick: async () => {
+          await store.setFocuses(cards.filter(c => c !== card));
+          rerender({});
+        },
+      }, 'Delete for good'))))) : null;
+
+  const el = h('div',
+    h('section.card',
+      h('div.card-title', 'Edit deck'),
+      rows.length ? list : null,
+      rows.length ? h('p.small.muted', 'Tap a card to change its cues · drag the handle to reorder the deck and the tiles on Home') : null,
+      h('label', 'New card'),
+      front,
+      back,
+      h('div.btn-row', h('button.btn.primary', { type: 'button', onclick: add }, icon('plus'), 'Add card'))),
+    shelf);
 
   const mark = i => rows.forEach((row, n) => {
     row.querySelector('.now-badge').hidden = n !== i;
@@ -280,7 +342,11 @@ function editor(cards, rerender, { open = null } = {}) {
 }
 
 export default async function focus(root, { card, open = null, showFront = null } = {}) {
+  // The whole deck, archived cards included — the editor writes back what it
+  // was given, so it has to hold everything. The deck below shows the active
+  // ones.
   const cards = await store.getFocuses();
+  const active = store.activeFocuses(cards);
 
   // Which card the deck is showing, tracked live so a re-render triggered by
   // the editor puts you back on it instead of snapping to the top of the deck.
@@ -296,23 +362,25 @@ export default async function focus(root, { card, open = null, showFront = null 
 
   const panel = editor(cards, rerender, { open });
 
-  if (!cards.length) {
-    root.append(empty('No flashcards yet. Add the first thing you want to drill below.'));
+  if (!active.length) {
+    root.append(empty(cards.length
+      ? 'Every card is archived. Restore one below, or add something new.'
+      : 'No flashcards yet. Add the first thing you want to drill below.'));
     root.append(panel.el);
     return;
   }
 
   // A front we were following wins over `?card=N`, which is only the tile that
   // was tapped on Home and goes stale the moment the deck is reordered.
-  const byFront = shownFront ? cards.findIndex(c => c.front === shownFront) : -1;
+  const byFront = shownFront ? active.findIndex(c => c.front === shownFront) : -1;
   const start = byFront >= 0 ? byFront
     : Number.isFinite(Number(card)) ? Number(card) : 0;
 
   const mount = h('div.deck');
   root.append(mount);
-  deck(cards, mount, {
+  deck(active, mount, {
     start,
-    onIndex: i => { shownFront = cards[i]?.front ?? null; panel.mark(i); },
+    onIndex: i => { shownFront = active[i]?.front ?? null; panel.mark(i); },
   });
   root.append(panel.el);
 }
