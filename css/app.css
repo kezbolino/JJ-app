@@ -1499,6 +1499,29 @@ body:has(.st.is-running) .appfoot { display: none; }
    amber only for the lift-after-class warning. */
 
 /* --- before you start --------------------------------------------------- */
+/* How long have you got. Same segmented language as the Off mat tabs above it,
+   but two-line options — the subtitle is what stops "About an hour" reading as
+   the same session with bits missing. */
+.sx-len {
+  display: flex; gap: 4px; padding: 4px; margin-bottom: var(--gap);
+  background: var(--surface-2); border-radius: var(--r-tile);
+}
+.sx-len-opt {
+  flex: 1; display: flex; flex-direction: column; gap: 2px; align-items: center;
+  border: 0; cursor: pointer; font-family: inherit; text-align: center;
+  padding: 9px 6px; border-radius: 10px; background: none; color: var(--muted);
+  transition: background .16s var(--spring), color .16s var(--spring);
+}
+.sx-len-opt.is-on {
+  background: var(--surface); color: var(--text); box-shadow: 0 2px 0 var(--edge);
+}
+.sx-len-t { font-size: .82rem; font-weight: 800; white-space: nowrap; }
+.sx-len-s { font-size: .66rem; font-weight: 700; color: var(--muted); }
+
+.sx-half p { margin: 0 0 8px; }
+.sx-half-why { font-size: .9rem; font-weight: 700; }
+.sx-half-note { color: var(--muted); font-size: .8rem; font-weight: 600; line-height: 1.45; }
+
 .sx-intro-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 10px; margin-bottom: 12px;
@@ -1532,6 +1555,9 @@ body:has(.st.is-running) .appfoot { display: none; }
 }
 .sx-plan-last { color: var(--sub); }
 .sx-muted-flag { color: var(--warm-ink); }
+/* Deliberately not amber. A movement sitting out this week's rotation is not a
+   gap and is not waiting on a decision — it is the plan working. */
+.sx-off-flag { color: var(--muted); font-weight: 800; }
 
 /* Amber, and only ever for this: a movement that has run out of bodyweight
    progression is genuinely waiting on a decision from you. */

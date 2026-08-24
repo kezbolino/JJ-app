@@ -347,3 +347,64 @@ the first *set* tap, i.e. after the set was over.
   than admitting it has run out of road.
 - **The engine never moves you onto a variation marked `needsLoad`.** It flags
   the exercise instead. "Put on a weight vest" is a decision, not a rep.
+
+---
+
+## Session length — the hour-long option (v61)
+
+The full session is about **80 minutes**. v61 added a second length, and how it
+was chosen matters more than the numbers, because the obvious approach is the
+wrong one.
+
+**Shaving reps or sets off everything is the worst option available.** The
+ladder only advances when you hit the target reps *with the tempo held*, so a
+session run at reduced volume moves nothing forward — you pay the hour and the
+prescriptions stand still. Two of those in a row and the engine reads a
+regression. Doing **fewer movements at full prescription** keeps everything you
+actually do progressing.
+
+**Where the minutes are, measured off `sessionDuration` rather than guessed:**
+
+| Dropping | Saves |
+|---|---|
+| Turkish get-up (3 sets, unpaired) | 14.0 min |
+| Kettlebell swings (4 sets, unpaired) | 7.2 min |
+| Bulgarian split squat (4 sets, paired) | 7.0 min |
+| …its partner, hanging leg raises | 1.0 min |
+| Pike press-ups (paired) | 1.0 min |
+
+The pattern: **an unpaired movement is expensive and half a superset is nearly
+free.** Dropping one side of a pair loses a movement and saves about a minute,
+because the partner still has to rest and the rest just goes back to being
+empty. So trimming happens in **whole pairs**, and the kettlebell movements —
+unpaired by design, since the get-up is a skill you should not alternate away
+from — are where an hour is won or lost.
+
+**So: two half-sessions that each fill the hour, alternating.**
+
+| | Movements | Sets | Estimate |
+|---|---|---|---|
+| **Full** | all 10 | 37 | ~80 min |
+| **Supersets** | the four pairs, no bells | 30 | ~58 min |
+| **Kettlebell** | pull-up + archer, split squat + leg raises, get-up, swings | 23 | ~54 min |
+
+Supersets is the most work an hour holds — every movement paired, so no rest is
+wasted. Kettlebell spends the time the pairs save on the get-up and the swings.
+Each is balanced on its own (a pull, a press, legs, core); together they cover
+all ten across a fortnight, so **nothing is dropped permanently**.
+
+**Rotation is straight alternation**, not "pick whichever movements are
+stalest". Both cycle through everything, and alternation is the one you can
+predict — the screen states the reason and you can override it. A full session
+trains everything, so it does not interrupt the cycle and is not counted.
+
+**Sitting a movement out is safe** because `programmeState` ignores a `skipped`
+entry: the prescription pauses rather than being dragged down by two "missed"
+sets, which is exactly what the un-performed Nordic curl did before v49.
+
+**Four tests stop this rotting**, and all four fail silently otherwise: every
+movement must be in at least one variant (add an eleventh and it would only
+ever be trained on full sessions), no variant may split a superset, each must
+fit the hour, and each must fill at least 80% of it — an "optimal hour" that
+comes in at 40 minutes is not what was asked for.
+

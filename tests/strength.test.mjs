@@ -17,6 +17,8 @@ import {
   restClock,
   PAIRS, PAIRED_REST, partnerOf, sessionBlocks, restBetween,
   sessionDuration, durationLine,
+  SHORT_VARIANTS, SHORT_BUDGET_SEC, PLAN_FULL, PLAN_SHORT,
+  shortVariant, nextShortVariant, planExercises,
 } from '../js/strength.js';
 
 let passed = 0;
@@ -585,6 +587,126 @@ test('the warm-up cues point at clips, and the dead hang is timed', () => {
   assert.ok(hang, 'nothing in the warm-up is timed');
   assert.match(hang.name.toLowerCase(), /hang/, 'the timed item should be the dead hang');
   assert.ok(hang.holdSec >= 20 && hang.holdSec <= 60, 'an implausible hold length');
+});
+
+// ---- the hour-long session -------------------------------------------------
+// Not the full session with things taken off. Two half-sessions that each fill
+// the hour and alternate, so everything is trained across a fortnight rather
+// than everything being trained badly every week.
+
+test('each short variant fits inside the hour, including rest and warm-up', () => {
+  // The budget is the whole promise, and it is measured off the same
+  // `sessionDuration` the intro shows — so a movement gaining a set moves this
+  // and fails here rather than quietly making the session 70 minutes.
+  for (const v of SHORT_VARIANTS) {
+    const d = sessionDuration(todaysPlan([], { plan: PLAN_SHORT, variant: v.id }));
+    assert.ok(d.totalSec <= SHORT_BUDGET_SEC,
+      `${v.name} runs ${Math.round(d.totalSec / 60)} min, over the hour`);
+    // And is not so far under that the hour is being wasted — the ask was an
+    // optimal hour, not a short session.
+    assert.ok(d.totalSec >= SHORT_BUDGET_SEC * 0.8,
+      `${v.name} only fills ${Math.round(d.totalSec / 60)} min of the hour`);
+  }
+});
+
+test('the short session is genuinely shorter than the full one', () => {
+  const full = sessionDuration(todaysPlan([]));
+  for (const v of SHORT_VARIANTS) {
+    const d = sessionDuration(todaysPlan([], { plan: PLAN_SHORT, variant: v.id }));
+    assert.ok(d.totalSec < full.totalSec, `${v.name} is not shorter than the full session`);
+  }
+});
+
+test('every movement is in at least one variant', () => {
+  // The guard that stops the rotation rotting. Add an eleventh movement and it
+  // is in neither half, so it is trained on full sessions only and nothing
+  // says so — you would simply stop doing it without noticing.
+  const covered = new Set(SHORT_VARIANTS.flatMap(v => v.exercises));
+  for (const ex of EXERCISES) {
+    assert.ok(covered.has(ex.id), `${ex.id} is in no short variant — it would never be trained`);
+  }
+  for (const id of covered) {
+    assert.ok(EXERCISE_BY_ID[id], `a variant names "${id}", which is not a movement`);
+  }
+});
+
+test('no variant splits a superset', () => {
+  // Half a pair is the worst trade available: you lose a movement and save
+  // about a minute, because the partner still has to rest and the rest just
+  // goes back to being empty. Trimming happens in whole pairs.
+  for (const v of SHORT_VARIANTS) {
+    for (const id of v.exercises) {
+      const mate = partnerOf(id);
+      if (!mate) continue;
+      assert.ok(v.exercises.includes(mate),
+        `${v.name} has ${id} without ${mate} — half a superset costs a movement and saves a minute`);
+    }
+  }
+});
+
+test('each variant on its own is a balanced session', () => {
+  // A pull, a press, something for the legs, something for the middle. A half
+  // that is all upper body is not an hour well spent, it is half a programme.
+  const PULL = ['pull-up', 'inverted-row'];
+  const PRESS = ['archer-press-up', 'pike-press-up'];
+  const LEGS = ['split-squat', 'single-leg-rdl', 'kb-swing', 'kb-getup'];
+  const CORE = ['hollow-hold', 'hanging-leg-raise', 'kb-getup'];
+  for (const v of SHORT_VARIANTS) {
+    const has = group => group.some(id => v.exercises.includes(id));
+    assert.ok(has(PULL), `${v.name} has nothing to pull`);
+    assert.ok(has(PRESS), `${v.name} has nothing to press`);
+    assert.ok(has(LEGS), `${v.name} has nothing for the legs`);
+    assert.ok(has(CORE), `${v.name} has nothing for the middle`);
+  }
+});
+
+test('the variants alternate, and a full session does not interrupt the cycle', () => {
+  const at = (date, plan, variant) => ({ id: date, date, plan, variant, exercises: [] });
+  assert.equal(nextShortVariant([]), SHORT_VARIANTS[0].id, 'the first short session is not the first variant');
+
+  const a = SHORT_VARIANTS[0].id, b = SHORT_VARIANTS[1].id;
+  assert.equal(nextShortVariant([at('2026-08-01', PLAN_SHORT, a)]), b);
+  assert.equal(nextShortVariant([at('2026-08-01', PLAN_SHORT, b)]), a);
+
+  // A full session trains everything, so it is not part of the cycle.
+  assert.equal(nextShortVariant([
+    at('2026-08-01', PLAN_SHORT, a),
+    at('2026-08-08', PLAN_FULL, null),
+  ]), b, 'a full session in between reset the rotation');
+});
+
+test('a movement outside todays plan is skipped, not counted as a miss', () => {
+  // The thing that makes rotating safe at all. `programmeState` ignores a
+  // skipped entry, so a movement you did not do this week keeps its
+  // prescription instead of being dragged down by two "missed" sets — which is
+  // exactly what the Nordic curl did before v49 replaced it.
+  const session = newStrengthSession('2026-08-01', [], { plan: PLAN_SHORT, variant: 'bells' });
+  const off = session.exercises.find(e => e.exerciseId === 'inverted-row');
+  assert.equal(off.skipped, true, 'a movement off the plan was not marked skipped');
+
+  const before = programmeState([]);
+  const after = programmeState([session]);
+  assert.deepEqual(after['inverted-row'], before['inverted-row'],
+    'sitting out a rotation moved the prescription');
+});
+
+test('the session records which plan it was, so a resumed draft keeps it', () => {
+  const short = newStrengthSession('2026-08-01', [], { plan: PLAN_SHORT });
+  assert.equal(short.plan, PLAN_SHORT);
+  assert.ok(SHORT_VARIANTS.some(v => v.id === short.variant), 'no variant was recorded');
+
+  const full = newStrengthSession('2026-08-01', []);
+  assert.equal(full.plan, PLAN_FULL, 'the full session is not the default');
+  assert.equal(full.variant, null);
+  assert.equal(planExercises(PLAN_FULL, null), null, 'the full plan filtered something out');
+});
+
+test('an unknown variant falls back rather than emptying the session', () => {
+  // A stored variant id can outlive a rename. Landing on an empty session is a
+  // much worse answer than landing on the first one.
+  assert.equal(shortVariant('no-such-half').id, SHORT_VARIANTS[0].id);
+  const plans = todaysPlan([], { plan: PLAN_SHORT, variant: 'no-such-half' });
+  assert.ok(plans.some(p => !p.muted), 'an unknown variant left nothing to do');
 });
 
 console.log(`\n${passed} passed`);

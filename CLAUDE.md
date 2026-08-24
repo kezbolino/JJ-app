@@ -3428,6 +3428,69 @@ data if forgotten:
   `app-state.md` inside `focuses`, which has synced as `'whole'` since v46, so
   the first sync just carries whatever the phone has.
 
+- 2026-08-24 — **v61: an hour-long strength session that is designed, not
+  trimmed.** User: *"1 hour tops including rest, as well as the current one...
+  but instead of just removing reps/workouts I want it to be optimal for the
+  time slot given."*
+
+  **The obvious approach is the wrong one, and the engine is why.** The ladder
+  only advances when you hit the target reps *with the tempo held*, so a session
+  run at reduced volume moves **nothing** forward — you pay the hour and every
+  prescription stands still, and two of those in a row reads as a regression.
+  Fewer movements at full prescription keeps everything you actually do
+  progressing. That is the whole argument for the shape below.
+
+  **Where the minutes are, measured off `sessionDuration` rather than guessed:**
+  the get-up costs **14 minutes** for 3 sets and the swings 7.2, while dropping
+  the second half of a superset saves **one**. An unpaired movement is expensive
+  and half a pair is nearly free — the partner still has to rest, so the rest
+  just goes back to being empty. So trimming happens in **whole pairs**, and the
+  two unpaired kettlebell movements are where an hour is won or lost.
+
+  **Two half-sessions that each fill the hour, alternating.** `Supersets` is all
+  four pairs and no bells — 30 sets in 58 minutes, the most work an hour holds,
+  because nothing is resting idle. `Kettlebell` is the two anchor pairs plus the
+  get-up and the swings — 23 sets in 54 minutes. Each is balanced on its own (a
+  pull, a press, legs, core); together they cover all ten across a fortnight, so
+  **nothing is dropped permanently**. Enumerated every whole-pair subset and
+  picked from the ones that fit rather than choosing by feel.
+
+  **Rotation is straight alternation, deliberately, not "pick whichever
+  movements are stalest".** Both cycle through everything, and alternation is
+  the one a person can predict — so the screen states the actual reason and lets
+  you override it. A full session trains everything, so it is not counted and
+  does not interrupt the cycle.
+
+  **Sitting a movement out is safe, and that is what makes rotating possible at
+  all.** `programmeState` already skips a `skipped` entry, so an off-plan
+  movement's prescription *pauses* rather than being dragged down by two
+  "missed" sets — which is exactly what the un-performed Nordic curl did before
+  v49 replaced it. There is a test asserting a short session moves no
+  prescription it did not train.
+
+  **`offPlan` is carried alongside `muted` rather than reusing it**, because the
+  two need different words on screen: "Muted" means you muted this because
+  something hurt, and it is amber. A movement sitting out the rotation is
+  neither — it is the plan working — so it says **Next week** in plain grey.
+  Amber keeps its three jobs.
+
+  **Four tests stop the rotation rotting, and every one of them fails silently
+  otherwise:** every movement must be in at least one variant (add an eleventh
+  and it would quietly only ever be trained on full sessions), no variant may
+  split a superset, each must fit inside the hour, and each must fill **at least
+  80%** of it — an "optimal hour" that comes in at 40 minutes is not what was
+  asked for. All four verified by breaking the data first.
+
+  The choice is screen-local and defaults to **Full**: it is a decision about
+  today, and the hour-long version is a concession to the clock rather than the
+  programme. `plan` and `variant` are recorded on the session so a resumed draft
+  keeps what it started with and the rotation can read its own cycle back out of
+  the log. Full detail in `docs/STRENGTH.md`.
+
+  Thirteen suites green by exit code (82 browser assertions in `features`, 48 in
+  `strength`). Screenshot-checked both lengths in light and dark at 390px, no
+  horizontal overflow. sw `CACHE` → v61, `VERSION` → v61, no files added.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3436,7 +3499,7 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v60.** Every session from v53 on has shipped and been verified at the
+**Live at v60; v61 built.** Every session from v53 on has shipped and been verified at the
 Pages **job** level, not the run badge.
 
 ### The three things most likely to need a look

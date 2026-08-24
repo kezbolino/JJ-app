@@ -41,6 +41,7 @@ import {
   newStrengthSession, sessionProgress, sessionChanges, programmeState,
   variationOf, restClock, sessionBlocks, restBetween, partnerOf,
   sessionDuration, durationLine, PAIRED_REST,
+  PLAN_FULL, PLAN_SHORT, SHORT_VARIANTS, shortVariant, nextShortVariant,
 } from '../strength.js';
 
 // The lift figures are a lazy import, and this is the only thing that reads
@@ -365,15 +366,52 @@ function planRow(plan, pairPos = null) {
     h('div.sx-plan-sub',
       h('span', plan.variation.name),
       last ? h('span.sx-plan-last', `Last: ${last}`) : null,
-      plan.muted ? h('span.sx-muted-flag', 'Muted') : null),
+      // Two different reasons a movement is greyed out, and they need
+      // different words: you muted this one because something hurt, or it is
+      // simply not in today's half of the rotation. Amber means gap/waiting on
+      // you, which the first is and the second is not — sitting a movement out
+      // by design is not something you have to act on.
+      plan.offPlan ? h('span.sx-off-flag', 'Next week')
+        : plan.muted ? h('span.sx-muted-flag', 'Muted') : null),
     plan.needsLoad ? h('p.sx-load', icon('flame'),
       'Out of bodyweight road. Add weight — a kettlebell held between the feet, a loaded rucksack — or move to the next variation.') : null);
 }
 
 function introScreen(mount, ctx) {
-  const { sessions, today, plans, deloadDue, bjjToday, load, muted } = ctx;
+  const { sessions, today, plans, deloadDue, bjjToday, load, muted, plan, variant } = ctx;
   const last = sessions[sessions.length - 1] ?? null;
   const duration = sessionDuration(plans);
+  const short = plan === PLAN_SHORT;
+  const half = short ? shortVariant(variant) : null;
+
+  // How long you have got. Two buttons, not a slider: this is a choice between
+  // two designed sessions, and a continuous budget would imply the programme
+  // can be sliced anywhere, which is exactly what it cannot.
+  const lengthPicker = h('div.sx-len', { role: 'group', 'aria-label': 'How long have you got?' },
+    h('button.sx-len-opt' + (short ? '' : '.is-on'), {
+      type: 'button', 'aria-pressed': String(!short),
+      onclick: () => ctx.setPlan(PLAN_FULL),
+    }, h('span.sx-len-t', 'Full'), h('span.sx-len-s', 'Everything')),
+    h('button.sx-len-opt' + (short ? '.is-on' : ''), {
+      type: 'button', 'aria-pressed': String(short),
+      onclick: () => ctx.setPlan(PLAN_SHORT),
+    }, h('span.sx-len-t', 'About an hour'), h('span.sx-len-s', 'Half, rotated')));
+
+  // Which half, and why this one. The rotation is straight alternation so the
+  // reason can be stated plainly rather than being a black box you have to
+  // trust — and you can override it, because some days you know what you want.
+  const other = SHORT_VARIANTS.find(v => v.id !== half?.id);
+  const halfPanel = short
+    ? h('section.card.sx-half',
+        h('div.card-title', `This week: ${half.name}`),
+        h('p.sx-half-why', half.why),
+        h('p.sx-half-note',
+          `The hour is spent on ${plans.filter(p => !p.muted).length} movements at their full prescription rather than all ten cut short — the ladder only moves when you hit the target reps, so a trimmed session moves nothing.`),
+        other
+          ? h('button.btn.small', { type: 'button', onclick: () => ctx.setVariant(other.id) },
+              `Do ${other.name} instead`)
+          : null)
+    : null;
 
   // Amber, because this is the one thing on the screen waiting on a decision
   // from you. It is a rule about ordering, not a scolding: a lift before class
@@ -397,6 +435,8 @@ function introScreen(mount, ctx) {
     offMatTabs('strength'),
     bjjWarning,
     deloadPanel,
+    lengthPicker,
+    halfPanel,
     h('section.card.sx-intro',
       h('div.sx-intro-head',
         h('div',
@@ -421,6 +461,12 @@ function introScreen(mount, ctx) {
       : [planRow(block.items[0])])),
     muted.length
       ? h('p.sx-note', `${muted.length} ${muted.length === 1 ? 'movement is' : 'movements are'} muted. Unmute from inside a session.`)
+      : null,
+    // Said plainly rather than left as a row of dimmed cards. Sitting a
+    // movement out does not move its prescription — `programmeState` ignores a
+    // skipped entry — so this is a pause, not a missed week.
+    short
+      ? h('p.sx-note', `The rest wait for next week. Nothing you sit out counts against you.`)
       : null,
     // Not "bodyweight only" any more — that line outlived the kettlebells added
     // in v44 and the RDL that replaced the Nordic curl in v49.
@@ -949,12 +995,25 @@ export default async function strength(root, { view } = {}) {
   const state = programmeState(sessions);
   const lastSession = sessions[sessions.length - 1] ?? null;
 
+  // Which length the intro is offering. Screen-local and not stored: it is a
+  // decision about *today*, and defaulting to the full session every time is
+  // the honest default — the hour-long one is a concession to the clock, not
+  // the programme. The variant follows the rotation unless you flip it.
+  let planChoice = PLAN_FULL;
+  let variantChoice = null;
+
   const showIntro = async (deloadDismissed = false) => {
     restTimer.stop();
     holdTimer.stop();
+    const variant = planChoice === PLAN_SHORT
+      ? (variantChoice ?? nextShortVariant(sessions)) : null;
     introScreen(mount, {
       sessions, today, muted,
-      plans: todaysPlan(sessions, { muted }),
+      plans: todaysPlan(sessions, { muted, plan: planChoice, variant }),
+      plan: planChoice,
+      variant,
+      setPlan: next => { planChoice = next; variantChoice = null; showIntro(deloadDismissed); },
+      setVariant: next => { variantChoice = next; showIntro(deloadDismissed); },
       deloadDue: isDeloadDue(sessions) && !deloadDismissed,
       bjjToday: entries.some(e => e.type === 'class' && e.date === today),
       load: store.weekLoad(entries, sessions, today),
@@ -964,7 +1023,9 @@ export default async function strength(root, { view } = {}) {
         // this screen is silent. This is that tap.
         beep.unlock();
         voice.unlock();
-        const fresh = newStrengthSession(today, sessions, { deload, muted });
+        const fresh = newStrengthSession(today, sessions, {
+          deload, muted, plan: planChoice, variant,
+        });
         // Start speaks again, and this time it says the right thing.
         //
         // v42 announced the opening *lift* here, which was correct until v43 put

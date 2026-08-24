@@ -1805,6 +1805,86 @@ await test('the lift speaks when a rest ends — the next movement, or "go again
 
 // --- v49: the feedback from the first real session ------------------------
 
+await test('the hour-long session is offered, and is a designed half not a trim', async () => {
+  // The ask was "1 hour tops, but optimal for the time slot" — so this is two
+  // half-sessions that alternate, each filling the hour at full prescription,
+  // rather than the full session with reps shaved off it. The engine ignores a
+  // skipped movement, so sitting one out pauses its ladder instead of dragging
+  // it down.
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.waitForSelector('.sx-len');
+
+  const full = await page.locator('.sx-duration-n').innerText();
+  const fullRows = await page.locator('.sx-plan:not(.is-muted)').count();
+
+  await page.locator('.sx-len-opt').nth(1).click();
+  await page.waitForSelector('.sx-half');
+  const short = await page.locator('.sx-duration-n').innerText();
+  assert.notEqual(short, full, 'the hour option did not change the session');
+  assert.match(short, /1 hr$|^About (5[0-9]|60) min$/,
+    `the short session reads "${short}", which is not about an hour`);
+
+  // Fewer movements, and the ones that remain are at full prescription — the
+  // point of the design. A trimmed-everything session would keep all ten rows.
+  const shortRows = await page.locator('.sx-plan:not(.is-muted)').count();
+  assert.ok(shortRows < fullRows, 'the short session runs the same movements');
+  assert.ok(shortRows >= 5, 'the short session is a token effort, not an hour');
+
+  // A movement sitting out says so in its own words. "Muted" means you muted
+  // it because something hurt, and amber means a gap — neither is true here.
+  const off = page.locator('.sx-off-flag').first();
+  assert.match(await off.innerText(), /next week/i);
+  assert.equal(await page.locator('.sx-muted-flag').count(), 0,
+    'a movement off the rotation was labelled as muted');
+
+  // And you can take the other half instead.
+  await page.getByRole('button', { name: /Do .* instead/ }).click();
+  await page.waitForTimeout(200);
+  const swapped = await page.locator('.sx-half .card-title').innerText();
+  await page.getByRole('button', { name: /Do .* instead/ }).click();
+  await page.waitForTimeout(200);
+  assert.notEqual(await page.locator('.sx-half .card-title').innerText(), swapped,
+    'the two halves are the same session');
+
+  await page.locator('.sx-len-opt').nth(0).click();
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.sx-duration-n').innerText(), full,
+    'going back to Full did not restore the full session');
+  await page.context().close();
+});
+
+await test('starting an hour-long session records the plan it was', async () => {
+  // Without this a resumed draft would rebuild as the full session mid-workout,
+  // and the rotation would have nothing to read its own cycle back out of.
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.waitForSelector('.sx-len');
+  await page.locator('.sx-len-opt').nth(1).click();
+  await page.waitForSelector('.sx-half');
+  await page.getByRole('button', { name: /start/i }).first().click();
+  await page.waitForSelector('.sx-ex');
+
+  const draft = await page.evaluate(async () =>
+    (await import('/js/store.js')).getStrengthDraft());
+  assert.equal(draft.plan, 'short', 'the draft did not record the plan');
+  assert.ok(draft.variant, 'the draft did not record which half');
+  const off = draft.exercises.filter(e => e.skipped);
+  assert.ok(off.length > 0, 'nothing was sat out');
+
+  // Sitting out must not read as a missed week.
+  const moved = await page.evaluate(async d => {
+    const { programmeState } = await import('/js/strength.js');
+    const before = programmeState([]);
+    const after = programmeState([d]);
+    return d.exercises.filter(e => e.skipped)
+      .filter(e => JSON.stringify(before[e.exerciseId]) !== JSON.stringify(after[e.exerciseId]))
+      .map(e => e.exerciseId);
+  }, draft);
+  assert.deepEqual(moved, [], `sitting out moved a prescription: ${moved.join(', ')}`);
+  await page.context().close();
+});
+
 await test('the intro says how long the session takes, derived from the plan', async () => {
   const page = await newPage();
   await go(page, '/strength');

@@ -394,6 +394,99 @@ export const WARM_UP = [
   { id: 'wu-dead-hang', name: 'Dead hang', dose: '20–30 seconds', cue: 'dead-hang', holdSec: 30 },
 ];
 
+// ---------------------------------------------------------------------------
+// Session length
+// ---------------------------------------------------------------------------
+
+/**
+ * The full session runs about 80 minutes. This is the hour-long alternative,
+ * and the design of it is the whole point: **it is not the full session with
+ * things taken off.**
+ *
+ * Two facts, both measured off `sessionDuration` rather than guessed, decide
+ * the shape:
+ *
+ *   1. **A paired movement is nearly free; an unpaired one is not.** Dropping
+ *      the second half of a superset saves about a minute — its partner still
+ *      has to rest, and the rest just goes back to being empty. Dropping an
+ *      unpaired movement saves seven to fourteen. So trimming has to happen in
+ *      whole pairs, and the two kettlebell movements are where the minutes
+ *      actually are: the get-up alone is 14 minutes for 3 sets.
+ *   2. **Shaving reps or sets off everything is the worst option available.**
+ *      The ladder only advances when you hit the target reps with the tempo
+ *      held, so a session at reduced volume moves *nothing* forward — you pay
+ *      the hour and the numbers stand still. Doing fewer movements at full
+ *      prescription keeps every movement you do actually progressing.
+ *
+ * Hence two half-sessions that each fill the hour, alternating, so nothing is
+ * dropped permanently — everything is trained across a fortnight instead of
+ * everything being trained badly every week. Each one on its own is balanced:
+ * a pull, a press, something for the legs, something for the middle.
+ *
+ * If you add an eleventh movement, put it in a variant. `tests/strength.test.mjs`
+ * fails if a movement is in neither, if either variant runs over the hour, or
+ * if a variant splits a superset — all three are silent failures otherwise.
+ */
+export const SHORT_BUDGET_SEC = 60 * 60;
+
+export const SHORT_VARIANTS = [
+  {
+    id: 'pairs',
+    name: 'Supersets',
+    why: 'Every movement paired, so no rest is wasted — the most work an hour holds.',
+    exercises: [
+      'pull-up', 'archer-press-up',
+      'split-squat', 'hanging-leg-raise',
+      'inverted-row', 'pike-press-up',
+      'single-leg-rdl', 'hollow-hold',
+    ],
+  },
+  {
+    id: 'bells',
+    name: 'Kettlebell',
+    why: 'The get-up and the swings, which need the time the supersets save.',
+    exercises: [
+      'pull-up', 'archer-press-up',
+      'split-squat', 'hanging-leg-raise',
+      'kb-getup', 'kb-swing',
+    ],
+  },
+];
+
+export const PLAN_FULL = 'full';
+export const PLAN_SHORT = 'short';
+
+/** The variant record for an id, defaulting to the first. */
+export const shortVariant = id =>
+  SHORT_VARIANTS.find(v => v.id === id) ?? SHORT_VARIANTS[0];
+
+/**
+ * Which half comes next: simply the other one from last time.
+ *
+ * Straight alternation rather than anything cleverer, like picking whichever
+ * movements are stalest. Both cycle through everything, and this one you can
+ * predict — the screen can say "last short session was Kettlebell" and be
+ * telling you the actual reason. A full session in between trains everything,
+ * so it does not interrupt the cycle and is deliberately not counted.
+ */
+export function nextShortVariant(sessions = []) {
+  const ordered = [...sessions].sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    const was = ordered[i].variant;
+    if (ordered[i].plan === PLAN_SHORT && was) {
+      const at = SHORT_VARIANTS.findIndex(v => v.id === was);
+      if (at >= 0) return SHORT_VARIANTS[(at + 1) % SHORT_VARIANTS.length].id;
+    }
+  }
+  return SHORT_VARIANTS[0].id;
+}
+
+/** The movement ids a plan actually asks for, or null for "all of them". */
+export function planExercises(plan, variantId) {
+  if (plan !== PLAN_SHORT) return null;
+  return new Set(shortVariant(variantId).exercises);
+}
+
 /** How many sessions between deload prompts. */
 export const DELOAD_EVERY = 7;
 
@@ -552,13 +645,23 @@ export function programmeState(sessions = []) {
 }
 
 /** What to actually do today, per exercise, in the order they are done. */
-export function todaysPlan(sessions = [], { deload = false, muted = [] } = {}) {
+export function todaysPlan(sessions = [], {
+  deload = false, muted = [], plan = PLAN_FULL, variant = null,
+} = {}) {
   const state = programmeState(sessions);
   const last = lastSessionFor(sessions);
+  // A movement outside today's plan is skipped exactly the way a muted one is —
+  // the engine already ignores a skipped entry, so its ladder pauses rather
+  // than counting the session as a miss. `offPlan` is carried alongside so the
+  // screen can say *why* it is off, which is a different sentence from "you
+  // muted this because your shoulder hurt".
+  const inPlan = planExercises(plan, variant);
   return EXERCISES.map(ex => {
     const s = state[ex.id];
     const sets = deload ? Math.max(1, Math.round(s.sets / 2)) : s.sets;
+    const offPlan = Boolean(inPlan && !inPlan.has(ex.id));
     return {
+      offPlan,
       exercise: ex,
       state: s,
       variation: variationOf(s, ex),
@@ -569,7 +672,7 @@ export function todaysPlan(sessions = [], { deload = false, muted = [] } = {}) {
       eccentricSec: s.eccentricSec,
       pauseSec: s.pauseSec,
       needsLoad: s.needsLoad,
-      muted: muted.includes(ex.id),
+      muted: offPlan || muted.includes(ex.id),
       last: last?.exercises?.find(e => e.exerciseId === ex.id) ?? null,
     };
   });
@@ -703,16 +806,23 @@ export function historyFor(sessions, exerciseId) {
  * and re-deriving it later from a log that has since moved on would rewrite
  * history.
  */
-export function newStrengthSession(date, sessions = [], { deload = false, muted = [] } = {}) {
+export function newStrengthSession(date, sessions = [], {
+  deload = false, muted = [], plan = PLAN_FULL, variant = null,
+} = {}) {
+  const chosen = plan === PLAN_SHORT ? (variant ?? nextShortVariant(sessions)) : null;
   return {
     id: `sx-${date}-${Math.random().toString(36).slice(2, 8)}`,
     date,
     deload,
+    // Recorded on the session so a resumed draft keeps the plan it started
+    // with, and so `nextShortVariant` can read the cycle back out of the log.
+    plan,
+    variant: chosen,
     // Ticked off as you go. Deliberately outside `exercises`, so it can never
     // reach the progression engine — a warm-up is not a set and must not move
     // a prescription in either direction.
     warmup: WARM_UP.map(w => ({ id: w.id, done: false })),
-    exercises: todaysPlan(sessions, { deload, muted }).map(plan => ({
+    exercises: todaysPlan(sessions, { deload, muted, plan, variant: chosen }).map(plan => ({
       exerciseId: plan.exercise.id,
       variationId: plan.variation.id,
       target: {
