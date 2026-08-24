@@ -3491,6 +3491,12 @@ data if forgotten:
   `strength`). Screenshot-checked both lengths in light and dark at 390px, no
   horizontal overflow. sw `CACHE` → v61, `VERSION` → v61, no files added.
 
+  **Deployed the same session.** `main` fast-forwarded `bf41d20..b1267c3`;
+  `build` succeeded in 32s, `deploy` in 10s (run `32708973819`). Seventh clean
+  deploy in a row, and this time it shipped without being asked twice — see the
+  2026-08-23 note about three versions sitting unpushed behind a confirmation
+  nobody needed to give.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3499,7 +3505,7 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v60; v61 built.** Every session from v53 on has shipped and been verified at the
+**Live at v61.** Every session from v53 on has shipped and been verified at the
 Pages **job** level, not the run badge.
 
 ### The three things most likely to need a look
