@@ -3508,6 +3508,70 @@ strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 **Live at v61.** Every session from v53 on has shipped and been verified at the
 Pages **job** level, not the run badge.
 
+### Parked feature — looping clips on the flashcards (2026-08-24)
+
+**Spitballed with the user, not built, and deliberately parked at their
+request.** Plan it properly before writing anything; the groundwork below was
+checked against the code rather than assumed, so don't re-derive it.
+
+**What they want.** A short looping video of a technique on a card in Working
+on. Source is a YouTube clip — they already use **NewPipe** to download. Their
+own answers to the questions asked: personal use, on the phone, **nothing goes
+public**, and it does **not** need to be on Home's tiles (that was
+spitballing) — so the deck at `#/focus` is the place.
+
+**Two findings that change the obvious design:**
+
+1. **The Web Share Target cannot carry the video.** `manifest.webmanifest`
+   declares `method: GET` with text params only; a file share needs POST +
+   multipart + `params.files`, and Firefox for Android's support is doubtful
+   anyway. Note the *existing* text share target has **never been confirmed
+   working on their phone** — added in v29, then the voice work pivoted to the
+   Sayboard keyboard before anyone tested it. So use a plain
+   `<input type="file" accept="video/*">`: one extra tap, no manifest change,
+   no uncertainty.
+2. **A focus card has no stable id.** `normalizeFocus` returns
+   `{front, back}` (+ the v60 flags) and everything keys off `front`, so a
+   rename would orphan an attached clip. **Cards need an id first** — additive,
+   minted on write, rides in `focuses` which syncs as `'whole'`. That is the
+   foundation, not an afterthought.
+
+**The shape, if it gets built.** Pick the file → play it into a hidden
+`<video>`, draw the chosen 2-4s window to a `<canvas>` scaled to ~360px, record
+with `canvas.captureStream()` + `MediaRecorder` → a ~200 KB WebM. All native, no
+dependencies, which is what keeps the "small files, no deps" shape. The original
+file is never stored. Recording is realtime (3s clip costs 3s). The trim screen
+should be a **lazy import** with a `LAZY` entry (the v58 mechanism) — only the
+deck editor reaches it. On the card: muted + `loop` + `playsinline`, so no
+autoplay policy problems.
+
+**Storage: a new `clips` object store in `js/db.js`, keyed by card id.** That is
+a **schema migration** — `db.js` has only had `entries` and `settings` since
+v0.1, so this needs care. Deliberately its own store rather than a settings row,
+so a blob can never be swept into the sync payload.
+
+**Three costs, all told to the user and accepted as the price of parking it:**
+
+- **Clips do not sync.** A blob in `app-state.md` would rewrite hundreds of KB
+  of git on every unrelated card edit. Store the source URL + in/out timestamps
+  *on the card* (tiny, syncs) so it remembers where its clip came from and can
+  be re-cut elsewhere.
+- **Clips are not in Library → Export either**, so a phone wipe loses them.
+  Everything else on a card survives. A zip export is the fix if that is not
+  acceptable, and it is a chunk more work.
+- **It is the first binary the app stores.** `docs/ENHANCEMENTS.md` costed and
+  rejected media once — but that rejection was about binaries in the *markdown
+  notes*, which this is not. Still a second storage story, and it should be
+  written down as a deliberate exception rather than done quietly.
+
+**Still open, ask before building:** one clip per card or several (one is
+simpler and probably enough), and how big it sits on the card (suggested: full
+card width at video aspect, cues underneath).
+
+**What the Chromium suite cannot tell us:** whether `MediaRecorder` and
+`canvas.captureStream()` behave on Firefox for Android. Same standing gap as the
+v55 drag gesture — check on the phone early, not late.
+
 ### The three things most likely to need a look
 
 1. **v57's voice level was judged too quiet on the phone and v59 answered it**
