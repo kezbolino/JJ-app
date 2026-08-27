@@ -733,6 +733,38 @@ await test('gi and no-gi still record, and clear when tapped again', async () =>
   await page.context().close();
 });
 
+await test('the log boxes grow to fit what you wrote, so nothing scrolls inside them', async () => {
+  const page = await newPage();
+  const long = Array.from({ length: 14 }, (_, i) =>
+    `Line ${i + 1}: knee slice pass, leg weave, cross face pressure, hip switch.`).join('\n');
+  await seed(page, [{ date: daysAgo(1), sections: { techniques: long, rolling: '', thoughts: '' } }]);
+
+  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  await go(page, `/log/${saved[0].id}`);
+  await page.waitForSelector('textarea');
+
+  const box = page.locator('.field textarea').first();
+  const fits = async () => box.evaluate(el => el.scrollHeight <= el.clientHeight + 1);
+  const height = async () => box.evaluate(el => el.clientHeight);
+
+  assert.ok(await fits(), 'the box still scrolls inside itself');
+  const opened = await height();
+  assert.ok(opened > 200, `a 14-line note opened in a ${opened}px box`);
+
+  // Still true after typing more into it.
+  await box.click();
+  await box.press('End');
+  await box.type('\nAnd one more line about the cross face.');
+  assert.ok(await fits(), 'the box stopped growing once you typed');
+  assert.ok(await height() > opened, 'the box did not grow with the new text');
+
+  // A short note is not blown up to match — the minimum is what it always was.
+  const short = page.locator('.field textarea').nth(1);
+  assert.ok(await short.evaluate(el => el.clientHeight <= 100),
+    'an empty box grew for no reason');
+  await page.context().close();
+});
+
 await test('the log form picks gi or no-gi from the day, and stops once you do', async () => {
   const page = await newPage();
   await go(page, '/log');

@@ -154,11 +154,41 @@ export default async function log(root, { id, date } = {}) {
   const suggestBox = h('div.tags');
   const advanced = h('div', { hidden: true });
 
-  const field = (key, placeholder) => h('textarea', {
-    placeholder,
-    value: entry.sections[key] ?? '',
-    oninput: e => { entry.sections[key] = e.target.value; scheduleSuggest(); },
-  });
+  // The boxes grow to fit what is in them, so reading an old class back is
+  // scrolling one page rather than scrolling inside three 92px windows. The
+  // height has to be measured from the DOM, so `grow` is called once after the
+  // view is appended (below) as well as on every keystroke — a detached
+  // textarea reports a scrollHeight of 0.
+  const areas = [];
+  const grow = el => {
+    el.style.height = 'auto';
+    // border-box: scrollHeight covers content + padding, so add the borders.
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  };
+  const growAll = () => areas.forEach(grow);
+
+  const field = (key, placeholder) => {
+    const el = h('textarea.autogrow', {
+      placeholder,
+      value: entry.sections[key] ?? '',
+      oninput: e => {
+        entry.sections[key] = e.target.value;
+        grow(e.target);
+        scheduleSuggest();
+      },
+    });
+    areas.push(el);
+    return el;
+  };
+
+  // Rotating the phone rewraps the text, so the boxes have to be remeasured.
+  // The listener removes itself once the screen it belongs to is gone — the
+  // router just empties #view, and one leaked listener per navigation adds up.
+  const onResize = () => {
+    if (!areas[0]?.isConnected) { window.removeEventListener('resize', onResize); return; }
+    growAll();
+  };
+  window.addEventListener('resize', onResize);
 
   const addChip = () => h('span.tag.add', {
     role: 'button', tabindex: 0,
@@ -401,6 +431,7 @@ export default async function log(root, { id, date } = {}) {
     id && h('div.btn-row', h('button.btn', { onclick: remove }, icon('trash'), 'Move to trash')),
   ].filter(Boolean));
 
+  growAll();
   renderTags();
   renderSuggestions();
   renderLinks();

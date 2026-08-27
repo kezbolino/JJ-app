@@ -460,6 +460,10 @@ input[type=text], input[type=date], input[type=password], textarea, select {
 }
 select { font-weight: 700; }
 textarea { resize: vertical; min-height: 92px; }
+/* A box that sizes itself to its text (js/views/log.js). No inner scrollbar,
+   and no drag handle — a manual height would be overwritten on the next
+   keystroke, and a handle that does not stick is worse than none. */
+textarea.autogrow { resize: none; overflow-y: hidden; }
 /* Focus swaps the border to primary and adds a soft ring — no hard outline. */
 input:focus, textarea:focus, select:focus {
   outline: none; border-color: var(--accent);
