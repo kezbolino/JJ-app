@@ -3497,6 +3497,59 @@ data if forgotten:
   2026-08-23 note about three versions sitting unpushed behind a confirmation
   nobody needed to give.
 
+- 2026-08-27 — **v62: the log nudge removed, and gi/no-gi picked from the day.**
+  Two asks off the back of reading the parked list. The clips feature stays
+  parked, and the three "most likely to need a look" items were closed out by
+  the user: v59's louder voice is fine, the beeps stay as they are, and the
+  `ninety-ninety-liftoff` drawing is *"just a prompt, that's fine"*.
+
+  **The nudge is gone whole, not hidden** — same call as the v18 timer and the
+  v21 rounds block. `store.logNudge`, `nudgePanel`, the `.banner.nudge` CSS and
+  the `nudgeDismissedOn` setting all went together, along with its line in the
+  `js/appstate.js` deliberately-absent list. A banner nobody renders would still
+  carry its dismissal row and its `?date=` query around forever, and the
+  half-removed state is the one that rots. A browser test pins it the way the
+  timer's did: seeded with the exact Tue/Thu-with-a-gap history that used to
+  fire it, Home renders no banner, and `store` exports no `logNudge`.
+
+  The router's `?date=` into the log form **stayed**. Nothing links to it now,
+  but it is generic plumbing rather than nudge-specific, and the date field is
+  editable either way. The comment at its use site says so, so nobody re-derives
+  that in six months.
+
+  **Gi/no-gi now defaults from the weekday.** `GI_BY_DAY` in `js/store.js` —
+  Tue/Thu gi, Wed/Fri/Sat no-gi, Mon/Sun unset. **It is deliberately not in
+  `js/ontology.js`:** that file is only for things true of BJJ generally, and
+  this is one gym's timetable. It is also not an override in `js/overrides.js`,
+  because it is not a correction to a suggestion — it is a default on a field.
+
+  Three rules, each tested, because a wrong guess here writes fiction straight
+  into the gi split and the coverage map:
+
+  - **A hand-picked answer always wins.** The form re-derives *while you change
+    the date* — so backfilling last Thursday selects Gi with no second thought —
+    and stops the moment you tap the control yourself. `giSelector` returns
+    `{ el, dateChanged() }` and holds an `auto` flag that the first tap clears.
+  - **Editing an existing entry never re-derives** (`auto: !id`). What is saved
+    is what happened; a guess must never rewrite an answer months later.
+  - **Only a class gets one.** Library writes notes and saved videos through the
+    same `newEntry`, and a note written on a Tuesday is not a gi session —
+    stamping one would put `gi: gi` in its backup file and count it in nothing.
+
+  **A trap worth knowing before writing any test that taps that control:** two
+  existing tests clicked the gi buttons blind, and tapping the *selected* one
+  clears it. With the day already filled in, both would have failed on five days
+  in seven — the same shape as the week-streak "flake" that turned out to be a
+  bad fixture (v50). They set the state now rather than toggling it.
+
+  Thirteen suites green by exit code (83 browser assertions in `features`;
+  `schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`). Both new
+  tests were verified to fail first by breaking the code they cover — the
+  sticky-override one caught "changing the date overwrote a hand-picked gi", the
+  removal pin caught "the nudge is back". Screenshot-checked Home and the log
+  form in light and dark at 390px. sw `CACHE` → v62, `VERSION` → v62, no files
+  added or removed.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3505,8 +3558,9 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v61.** Every session from v53 on has shipped and been verified at the
-Pages **job** level, not the run badge.
+**Live at v61; v62 is built and green on `claude/list-contents-7ewucl`.** Every
+session from v53 on has shipped and been verified at the Pages **job** level,
+not the run badge.
 
 ### Parked feature — looping clips on the flashcards (2026-08-24)
 
@@ -3572,28 +3626,23 @@ card width at video aspect, cues underneath).
 `canvas.captureStream()` behave on Firefox for Android. Same standing gap as the
 v55 drag gesture — check on the phone early, not late.
 
-### The three things most likely to need a look
+### The three things most likely to need a look — all closed (2026-08-27)
 
-1. **v57's voice level was judged too quiet on the phone and v59 answered it**
-   (+4.4 dB, plus a 2.6 kHz presence lift). **v59 is now live and has not been
-   heard yet** — it only reached the phone in the v58-59-60 deploy above. If
-   it is still short, the honest answer is that there is no level left — the
-   clips peak at -1 dBFS and the app is at digital maximum, so the next lever is
-   the phone's media volume or a hotter re-record. If it is now *too* loud or
-   sounds squashed, `TARGET_RMS` in `js/voice.js` is the one number (1 → 0.5
-   costs about a dB and buys back 2 dB of crest); if it sounds thin or shouty,
-   `PRESENCE_DB` is the other.
-2. **The beeps are now the quieter half**, for the first time — they peak at
-   -9 dBFS against the voice's -1. Deliberately left alone so v59 is judgeable
-   on its own; a one-line change in `js/beeps.js` if they need to catch up.
-3. **`ninety-ninety-liftoff` draws the position, not the lift-off.** Raised with
-   the user and explicitly accepted — *"it's just a prompt that's fine"*. Left
-   as it is; the corrected prompt stays in `docs/ART-PROMPTS.md` if it is ever
-   regenerated for another reason. **Not outstanding work.**
+Put to the user and answered, so nothing here is outstanding:
 
-**Answered this session:** the v55 drag-to-reorder gesture works on the user's
-own phone (Firefox for Android) — confirmed by them, so the standing
-Chromium-vs-Firefox gap is closed for that feature at least.
+1. **The voice level is fine.** v59's +4.4 dB reached the phone in the
+   v58-59-60 deploy and was judged good. If it ever needs moving again,
+   `TARGET_RMS` in `js/voice.js` is the loudness knob and `PRESENCE_DB` the
+   thin/shouty one — and the app is already at digital maximum, so the only
+   real levers left are the phone's media volume or a hotter re-record.
+2. **The beeps stay as they are** — quieter than the voice, deliberately. A
+   one-line change in `js/beeps.js` if that ever stops being right.
+3. **`ninety-ninety-liftoff` draws the position, not the lift-off.** Accepted:
+   *"it's just a prompt, that's fine."* **Not outstanding work.**
+
+**Answered earlier:** the v55 drag-to-reorder gesture works on the user's own
+phone (Firefox for Android), so the standing Chromium-vs-Firefox gap is closed
+for that feature at least.
 
 ### The size budget — addressed in v58, with a rule for next time
 
