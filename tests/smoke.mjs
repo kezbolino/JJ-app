@@ -53,7 +53,10 @@ await step('logs a class with auto-suggested tags', async () => {
   await page.click('a.btn.primary');            // "Log a class"
   await page.waitForSelector('textarea');
 
-  await page.click('.seg button:has-text("Gi")');
+  // Gi may already be selected from the day's timetable (store.GI_BY_DAY), and
+  // tapping the selected one clears it — so set the state, never toggle it.
+  const giBtn = page.locator('.seg button').first();
+  if (await giBtn.getAttribute('aria-pressed') !== 'true') await giBtn.click();
   const areas = page.locator('textarea');
   await areas.nth(0).fill('Knee slice pass, leg weave pass, cross face pressure');
   await areas.nth(1).fill('Passed Steve twice. Got guillotined three times. Lost chest pressure.');

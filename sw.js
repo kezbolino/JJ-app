@@ -22,7 +22,7 @@
 // said nothing about it. Never put an optional asset in the same `addAll` as
 // a required one.
 
-const CACHE = 'jj-app-v61';
+const CACHE = 'jj-app-v62';
 
 // The clips that exist on disk, per voice. See js/voices.js.
 //

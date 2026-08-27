@@ -14,8 +14,17 @@ import { suggestTags, tagKey } from '../tagger.js';
 import * as overrides from '../overrides.js';
 import * as store from '../store.js';
 
-/** Gi / no-gi. Tapping the active one clears it — not every entry is a class. */
-function giSelector(entry) {
+/**
+ * Gi / no-gi. Tapping the active one clears it — not every entry is a class.
+ *
+ * A new entry arrives with the day's usual kind already picked (store.GI_BY_DAY
+ * — Tue/Thu gi, Wed/Fri/Sat no-gi), and re-derives while you change the date,
+ * so backfilling last Thursday selects Gi without a second thought. The moment
+ * you touch the control yourself that stops: a guess must never overwrite an
+ * answer. Editing an existing entry never re-derives at all — what is saved is
+ * what happened.
+ */
+function giSelector(entry, { auto = false } = {}) {
   const buttons = ['gi', 'nogi'].map(value =>
     h('button', { type: 'button', value }, value === 'gi' ? 'Gi' : 'No-gi'));
 
@@ -25,12 +34,20 @@ function giSelector(entry) {
   for (const button of buttons) {
     button.addEventListener('click', () => {
       entry.gi = entry.gi === button.value ? null : button.value;
+      auto = false;
       sync();
       button.blur();
     });
   }
   sync();
-  return h('div.seg', ...buttons);
+  return {
+    el: h('div.seg', ...buttons),
+    dateChanged() {
+      if (!auto) return;
+      entry.gi = store.defaultGi(entry.date);
+      sync();
+    },
+  };
 }
 
 /**
@@ -103,8 +120,9 @@ function tagPicker() {
 }
 
 export default async function log(root, { id, date } = {}) {
-  // `date` comes from the Home nudge ("nothing logged for last Thursday"), so
-  // the entry opens already dated the day you actually missed.
+  // `?date=` opens the form on a day other than today — nothing in the app
+  // links to it since the Home nudge was removed in v62, but it is the router's
+  // one generic way in and the date field is editable either way.
   const entry = id ? await store.getEntry(id) : store.newEntry(date ? { date } : {});
   if (!entry) { root.append(empty('That entry no longer exists.')); return; }
   entry.sections ??= { techniques: '', rolling: '', thoughts: '' };
@@ -307,6 +325,10 @@ export default async function log(root, { id, date } = {}) {
       : [empty('Nothing links here yet.')]));
   };
 
+  // Not an existing entry, and not a typed-in gi from a share: only then is
+  // the day's usual kind still a guess we may keep revising.
+  const gi = giSelector(entry, { auto: !id });
+
   const save = async () => {
     await store.saveEntry(entry);
     toast(id ? 'Updated' : 'Logged');
@@ -330,9 +352,13 @@ export default async function log(root, { id, date } = {}) {
         icon('calendar'),
         h('input', {
           type: 'date', value: entry.date,
-          oninput: e => { entry.date = e.target.value; checkDuplicate(); },
+          oninput: e => {
+            entry.date = e.target.value;
+            gi.dateChanged();
+            checkDuplicate();
+          },
         })),
-      giSelector(entry)),
+      gi.el),
 
     dupeNotice,
 

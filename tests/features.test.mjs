@@ -713,7 +713,10 @@ await test('gi and no-gi still record, and clear when tapped again', async () =>
   const page = await newPage();
   await go(page, '/log');
   await page.waitForSelector('textarea');
-  await page.click('.seg button:has-text("No-gi")');
+  // The day's timetable may have picked No-gi already, and tapping the selected
+  // one clears it — so set the state rather than toggling blind.
+  const nogi = page.locator('.seg button').nth(1);
+  if (await nogi.getAttribute('aria-pressed') !== 'true') await nogi.click();
   await page.locator('textarea').first().fill('Just a normal class.');
   await page.click('button.btn.primary:has-text("Save entry")');
   await page.waitForSelector('.sbit-total');
@@ -722,11 +725,51 @@ await test('gi and no-gi still record, and clear when tapped again', async () =>
 
   await go(page, `/log/${saved[0].id}`);
   await page.waitForSelector('textarea');
-  await page.click('.seg button:has-text("No-gi")');
+  await page.click('.seg button:has-text("No-gi")');   // tapping it again clears
   await page.click('button.btn.primary:has-text("Save changes")');
   await page.waitForSelector('.sbit-total');
   saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
   assert.equal(saved[0].gi, null);
+  await page.context().close();
+});
+
+await test('the log form picks gi or no-gi from the day, and stops once you do', async () => {
+  const page = await newPage();
+  await go(page, '/log');
+  await page.waitForSelector('textarea');
+
+  const [gi, nogi] = [page.locator('.seg button').first(), page.locator('.seg button').nth(1)];
+  const pressed = async () =>
+    (await gi.getAttribute('aria-pressed')) === 'true' ? 'gi'
+      : (await nogi.getAttribute('aria-pressed')) === 'true' ? 'nogi' : null;
+
+  // 2026-08-25 is a Tuesday (gi), 2026-08-26 a Wednesday (no-gi), 2026-08-24 a
+  // Monday, which the timetable says nothing about.
+  const date = page.locator('input[type="date"]');
+  await date.fill('2026-08-25');
+  assert.equal(await pressed(), 'gi', 'Tuesday did not preselect gi');
+  await date.fill('2026-08-26');
+  assert.equal(await pressed(), 'nogi', 'Wednesday did not preselect no-gi');
+  await date.fill('2026-08-24');
+  assert.equal(await pressed(), null, 'Monday guessed at something');
+
+  // Answer it by hand and the guessing stops — a date change must never
+  // overwrite what you actually told it.
+  await gi.click();
+  await date.fill('2026-08-26');               // a no-gi day
+  assert.equal(await pressed(), 'gi', 'changing the date overwrote a hand-picked gi');
+
+  await page.locator('textarea').first().fill('Backfilled from memory.');
+  await page.click('button.btn.primary:has-text("Save entry")');
+  await page.waitForSelector('.sbit-total');
+  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  assert.equal(saved[0].gi, 'gi');
+  assert.equal(saved[0].date, '2026-08-26');
+
+  // Reopening it never re-derives: what is saved is what happened.
+  await go(page, `/log/${saved[0].id}`);
+  await page.waitForSelector('textarea');
+  assert.equal(await pressed(), 'gi', 'editing an entry re-guessed its gi');
   await page.context().close();
 });
 
@@ -760,12 +803,17 @@ await test('no promotion recorded means the app claims no rank', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. The nudge
+// 6. The log nudge, removed (v62)
 // ---------------------------------------------------------------------------
+// "Nothing logged for last Thursday — you usually train that day" is gone at
+// the user's request. Pinned the same way the v18 timer was: a half-removed
+// feature is worse than either state, and a banner nobody renders would still
+// carry its dismissal setting and its query around forever.
 
-await test('a missed usual training day is surfaced, and can be dismissed', async () => {
+await test('Home never nags about a missed training day', async () => {
   const page = await newPage();
-  // Build a Tue/Thu habit, then miss the most recent one.
+  // A Tue/Thu habit with the most recent one missing — exactly what used to
+  // trigger the banner.
   const today = new Date();
   const dow = (today.getDay() + 6) % 7;                 // Mon = 0
   const lastMonday = localISO(new Date(Date.now() - (dow + 7) * 864e5));
@@ -777,26 +825,19 @@ await test('a missed usual training day is surfaced, and can be dismissed', asyn
       if (localISO(d) < localISO(today)) entries.push({ date: localISO(d) });
     }
   }
-  // Drop the most recent one so there is a gap to notice.
   entries.sort((a, b) => a.date.localeCompare(b.date));
-  const missed = entries.pop().date;
+  entries.pop();
   await seed(page, entries);
 
   await go(page, '/');
-  const nudge = page.locator('.banner.nudge');
-  if (await nudge.count()) {
-    assert.match(await nudge.innerText(), /you usually train that day/i);
-    await page.click('.banner.nudge .b-close');
-    await page.waitForTimeout(120);
-    assert.equal(await page.locator('.banner.nudge').count(), 0);
-    await go(page, '/map');
-    await go(page, '/');
-    assert.equal(await page.locator('.banner.nudge').count(), 0, 'dismissal did not stick');
-  } else {
-    // The pattern depends on which weekday the suite runs; if today's calendar
-    // leaves no missed usual day, there is nothing to assert and that is correct.
-    assert.ok(missed, 'no nudge expected today');
-  }
+  assert.equal(await page.locator('.banner.nudge').count(), 0, 'the nudge is back');
+  assert.equal(await page.locator('.b-close').count(), 0, 'a dismissable banner is back');
+
+  const gone = await page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    return store.logNudge === undefined;
+  });
+  assert.ok(gone, 'store still exports logNudge');
   await page.context().close();
 });
 

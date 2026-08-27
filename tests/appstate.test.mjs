@@ -40,7 +40,7 @@ test('a lift in progress and the sync credentials never sync', () => {
   // strengthDraft is half a workout; the rest are this device's secrets and
   // bookkeeping. If any of these ever appear here it is a bug, not a feature.
   for (const key of ['strengthDraft', 'sync', 'syncState', 'tombstones',
-    'lastSyncAt', 'lastSyncError', 'settingsStamps', 'nudgeDismissedOn']) {
+    'lastSyncAt', 'lastSyncError', 'settingsStamps']) {
     assert.ok(!SYNCED_SETTINGS[key], `${key} must not sync`);
   }
 });

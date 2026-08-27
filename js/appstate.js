@@ -45,8 +45,6 @@ export const SYNCED_SETTINGS = {
 //
 //   strengthDraft      a lift in progress. Half a session arriving on another
 //                      phone mid-workout is worse than not having it.
-//   nudgeDismissedOn   "I saw today's nudge" is about this screen, not this
-//                      user.
 //   ontologyOverrides  already syncs, in its own file, since v0.2.
 //   settingsStamps     the bookkeeping below. Never travels; each device keeps
 //                      its own view of when it last changed something.

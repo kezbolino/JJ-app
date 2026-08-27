@@ -184,33 +184,35 @@ test('the calendar index counts gi and no-gi per day', () => {
   assert.equal(index.has('2026-07-29'), false, 'notes are not training days');
 });
 
-test('the nudge names a usual training day you did not log', () => {
-  // Tuesdays and Thursdays for four weeks, then last Thursday missed.
-  const entries = [];
-  for (const monday of ['2026-06-29', '2026-07-06', '2026-07-13', '2026-07-20']) {
-    entries.push(cls(dates.addDays(monday, 1)));   // Tuesday
-    entries.push(cls(dates.addDays(monday, 3)));   // Thursday
-  }
-  entries.push(cls('2026-07-28'));                 // Tuesday this week
-  // Thursday 30 July is missing. Today is Friday 31st.
-  const nudge = store.logNudge(entries, '2026-07-31');
-  assert.equal(nudge?.date, '2026-07-30');
+// ---- the gi/no-gi the timetable implies -----------------------------------
+// The gym runs gi on Tuesday and Thursday, no-gi on Wednesday, Friday and
+// Saturday. A new class entry arrives pre-set from its own date; the picker in
+// the form still overrides it, and a day the timetable says nothing about
+// stays unset rather than guessing.
+
+test('the weekday decides the default gi/no-gi', () => {
+  // 2026-08-24 is a Monday, so this week runs Mon..Sun in order.
+  const week = ['2026-08-24', '2026-08-25', '2026-08-26', '2026-08-27',
+                '2026-08-28', '2026-08-29', '2026-08-30'];
+  assert.deepEqual(week.map(store.defaultGi),
+    [null, 'gi', 'nogi', 'gi', 'nogi', 'nogi', null]);
 });
 
-test('the nudge stays quiet without enough history to know a pattern', () => {
-  assert.equal(store.logNudge([cls('2026-07-28'), cls('2026-07-30')], '2026-07-31'), null);
+test('a new class is dated and kitted from the same day', () => {
+  assert.equal(store.newEntry({ date: '2026-08-25' }).gi, 'gi');     // Tuesday
+  assert.equal(store.newEntry({ date: '2026-08-28' }).gi, 'nogi');   // Friday
+  assert.equal(store.newEntry({ date: '2026-08-24' }).gi, null);     // Monday
 });
 
-test('the nudge never fires for today', () => {
-  const entries = [];
-  for (const monday of ['2026-06-29', '2026-07-06', '2026-07-13', '2026-07-20']) {
-    entries.push(cls(dates.addDays(monday, 1)));
-    entries.push(cls(dates.addDays(monday, 3)));
-  }
-  entries.push(cls('2026-07-28'), cls('2026-07-30'));
-  // Today is Tuesday 4 Aug, a usual day, unlogged — but the day is not over.
-  const nudge = store.logNudge(entries, '2026-08-04');
-  assert.notEqual(nudge?.date, '2026-08-04');
+test('an explicit gi always beats the timetable', () => {
+  // Import, sync and the form all pass a gi through; a guess must never win.
+  assert.equal(store.newEntry({ date: '2026-08-25', gi: 'nogi' }).gi, 'nogi');
+  assert.equal(store.newEntry({ date: '2026-08-25', gi: null }).gi, null);
+});
+
+test('only a class gets one — a note or a video never does', () => {
+  assert.equal(store.newEntry({ date: '2026-08-25', type: 'note' }).gi, null);
+  assert.equal(store.newEntry({ date: '2026-08-25', type: 'video' }).gi, null);
 });
 
 // ---- what a class entry no longer carries ---------------------------------

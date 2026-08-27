@@ -39,13 +39,32 @@ export const ENTRY_TYPES = ['class', 'note', 'question', 'video', 'principle'];
  * IndexedDB on the user's phone for the sake of a word, and a migration that
  * goes wrong loses notes. `js/markdown.js` still parses the old heading.
  */
+/**
+ * Which kind of class the gym runs on each weekday. 0 = Monday … 6 = Sunday.
+ *
+ * This is the user's own timetable, not a fact about BJJ, so it does not belong
+ * in `js/ontology.js` — that file is only for things true of the sport
+ * generally. It is a default, never a rule: the picker in the log form is
+ * unchanged and tapping it always wins. A day the timetable says nothing about
+ * (Monday and Sunday, today) leaves the entry unset, exactly as before.
+ */
+export const GI_BY_DAY = [null, 'gi', 'nogi', 'gi', 'nogi', 'nogi', null];
+
+/** The gi/no-gi a class on `date` is most likely to have been. */
+export const defaultGi = (date = todayISO()) => GI_BY_DAY[dayOfWeek(date)] ?? null;
+
 export function newEntry(patch = {}) {
   const now = new Date().toISOString();
+  const date = patch.date ?? todayISO();
+  const type = patch.type ?? 'class';
   return {
     id: crypto.randomUUID(),
-    type: 'class',
-    date: todayISO(),
-    gi: null,
+    type,
+    date,
+    // Only a class has a gi/no-gi. A note or a saved video written on a Tuesday
+    // is not a gi session, and stamping one would put `gi: gi` in its backup
+    // file and count it in nothing.
+    gi: type === 'class' ? defaultGi(date) : null,
     title: '',
     sections: { techniques: '', rolling: '', thoughts: '' },
     body: '',
@@ -688,42 +707,6 @@ export function weekStreak(entries, today = todayISO()) {
   while (weeks.has(cursor)) { current++; cursor = addDays(cursor, -7); }
 
   return { current, longest, weeksTrained: weeks.size };
-}
-
-/**
- * A missed training day, or null.
- *
- * The honest version of a reminder. There is no notification here — Chrome's
- * web push needs Google's push service, and this phone is de-Googled, so a
- * scheduled notification is not a promise this app can keep (see
- * docs/ENHANCEMENTS.md §7). Instead: when you open the app, if a day you
- * usually train has gone by unlogged, say so and offer to log it.
- *
- * "Usually" is read off your own last eight weeks — a weekday you trained at
- * least twice. Below six classes there is no pattern to speak of and it stays
- * quiet rather than guessing.
- */
-export function logNudge(entries, today = todayISO()) {
-  const classes = entries.filter(e => e.type === 'class');
-  if (classes.length < 6) return null;
-
-  const since = addDays(today, -56);
-  const tally = {};
-  for (const entry of classes) {
-    if (entry.date < since) continue;
-    const day = dayOfWeek(entry.date);
-    tally[day] = (tally[day] ?? 0) + 1;
-  }
-  const usual = new Set(Object.entries(tally).filter(([, n]) => n >= 2).map(([d]) => Number(d)));
-  if (!usual.size) return null;
-
-  const logged = new Set(classes.map(e => e.date));
-  // From yesterday backwards: today isn't missed until it's over.
-  for (let back = 1; back <= 7; back++) {
-    const date = addDays(today, -back);
-    if (usual.has(dayOfWeek(date)) && !logged.has(date)) return { date };
-  }
-  return null;
 }
 
 // ---- attention over time --------------------------------------------------

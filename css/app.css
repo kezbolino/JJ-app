@@ -1205,17 +1205,6 @@ a.cal__day:active { transform: scale(.9); }
   text-transform: uppercase; letter-spacing: .05em; padding: 4px;
 }
 
-/* --- the "you usually train that day" nudge ----------------------------- */
-.banner.nudge { position: relative; padding-right: 40px; }
-.banner .b-close {
-  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-  border: 0; background: none; color: var(--warm-ink);
-  font-size: 1.1rem; line-height: 1; padding: 6px; cursor: pointer;
-}
-.banner.nudge { background: var(--warm-soft); box-shadow: 0 5px 0 var(--warm-line); }
-.banner.nudge .b-ico, .banner.nudge .b-edit { color: var(--warm-ink); }
-.banner.nudge .b-txt { color: var(--text); }
-
 /* --- belt -------------------------------------------------------------- */
 .belt.is-ranked i.is-future { opacity: .26; }
 .belt-dot {

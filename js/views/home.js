@@ -226,32 +226,6 @@ function calendarFace(entries, strengthSessions, mobilitySessions, today, onClos
 }
 
 /**
- * "You usually train Thursdays — nothing logged for last Thursday."
- *
- * The honest version of a reminder. Chrome's web push goes through Google's
- * push service and this phone is de-Googled, so a real scheduled notification
- * is not a promise this app can keep (docs/ENHANCEMENTS.md §7). This fires when
- * you open the app instead — a smaller promise it can actually keep.
- * Dismissible, and it stays dismissed for the rest of the day.
- */
-function nudgePanel(nudge, dismissedOn, today) {
-  if (!nudge || dismissedOn === today) return null;
-
-  const banner = h('div.banner.nudge',
-    h('span.b-ico', icon('calendar')),
-    h('span.b-txt', `Nothing logged for ${fmtDate(nudge.date)} — you usually train that day.`),
-    h('a.b-edit', { href: `#/log?date=${nudge.date}` }, 'Log it'),
-    h('button.b-close', {
-      type: 'button', 'aria-label': 'Dismiss',
-      onclick: async () => {
-        await store.setSetting('nudgeDismissedOn', today);
-        banner.remove();
-      },
-    }, '×'));
-  return banner;
-}
-
-/**
  * The backup has stopped working — say so, here, where it will be seen.
  *
  * This is deliberately not the pending dot. That dot means "you wrote something
@@ -388,7 +362,6 @@ export default async function home(root) {
   const mobilitySessions = await store.getMobilitySessions();
   const focuses = store.activeFocuses(await store.getFocuses());
   const promotions = await store.getPromotions();
-  const dismissedOn = await store.getSetting('nudgeDismissedOn', '');
 
   const config = await sync.getConfig();
   const configured = sync.isConfigured(config);
@@ -428,7 +401,6 @@ export default async function home(root) {
     workingOn(focuses),
     statsCard(store.countClasses(entries), store.giRatio(entries),
       store.weekStreak(entries, today), entries, strengthSessions, mobilitySessions, today),
-    nudgePanel(store.logNudge(entries, today), dismissedOn, today),
     beltPanel(standing),
     gapPanel(store.findGaps(entries)),
     sectionHead('Last session', h('a', { href: '#/library' }, 'History ›')),
