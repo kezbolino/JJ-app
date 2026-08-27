@@ -3542,13 +3542,36 @@ data if forgotten:
   in seven — the same shape as the week-streak "flake" that turned out to be a
   bad fixture (v50). They set the state now rather than toggling it.
 
-  Thirteen suites green by exit code (83 browser assertions in `features`;
+  Thirteen suites green by exit code (84 browser assertions in `features`;
   `schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`). Both new
   tests were verified to fail first by breaking the code they cover — the
   sticky-override one caught "changing the date overwrote a hand-picked gi", the
   removal pin caught "the nudge is back". Screenshot-checked Home and the log
   form in light and dark at 390px. sw `CACHE` → v62, `VERSION` → v62, no files
   added or removed.
+
+  **Same version, later the same day: the log boxes grow to fit their text.**
+  User: reading a class back is hard because the box is small — *"I would like
+  it to open up so I can see just the text box and I can edit it if needed."*
+  Offered four shapes (auto-growing boxes, a read view with an Edit pencil, a
+  fullscreen field editor, or both) and they picked the simplest: **no new mode
+  at all**, the same form with fields that size themselves to their content, on
+  new entries and old ones alike. One page scroll instead of three inner ones,
+  and it is still editable exactly where you are reading.
+
+  Three things the implementation turns on: `grow` runs on every keystroke
+  **and once after the view is appended** (a detached textarea reports a
+  `scrollHeight` of 0, so measuring at build time sizes every box to nothing);
+  `* { box-sizing: border-box }` means the borders have to be added back on top
+  of `scrollHeight`, hence the `offsetHeight - clientHeight` term; and a
+  **resize listener that removes itself** once the fields leave the DOM handles
+  rotation — the router empties `#view` without telling a view it is gone, and
+  one leaked listener per navigation is the same shape of bug as the v26
+  stretch interval.
+
+  `.autogrow` drops the drag handle and the inner scrollbar. A manual height
+  would be overwritten on the next keystroke, and a handle that does not stick
+  is worse than none. `min-height` is untouched, so a short note is unchanged.
 
 ## Parked — pick this up next session
 
