@@ -3573,6 +3573,38 @@ data if forgotten:
   would be overwritten on the next keystroke, and a handle that does not stick
   is worse than none. `min-height` is untouched, so a short note is unchanged.
 
+- 2026-08-28 — **v63: the plan screen carries the lift figures too.** User:
+  *"what happened to the images for the strength part?"* Nothing had — they
+  were on the session cards and not on the plan you read **before** tapping
+  Start, which is the screen they were looking at. That screen has been a list
+  of names since v56 put figures on the lift screen at all.
+
+  **The diagnosis was worth the ten minutes it took.** The obvious reading was
+  that v58's lazy `js/strength-art.js` was failing on Firefox, which the
+  Chromium suite could never see. Ruled it out by driving the lift screen under
+  a real service worker — 179 files cached, all ten figures, module served from
+  the worker with the right MIME — and then by asking the one question only the
+  user could answer: **do the stretch routines still draw?** They did, which
+  puts SVG, the theme and `currentColor` beyond suspicion and leaves only "you
+  are on a screen that never had them". Ask that question earlier next time; it
+  is one tap for them and it halves the search.
+
+  **`ctx.art` was not reaching `introScreen`** — the lazily imported artwork was
+  passed to `sessionScreen` only. So exactly *one* figure rendered on the plan
+  before this: `single-leg-rdl`, whose drawing lives with the routines' because
+  the rest-day mobility item is the same movement under the same id. A missing
+  `art` is silent by design (`stretchFigure` returns null), which is why nobody
+  noticed for five versions.
+
+  The figure is **its own flex column**, not a child of `.sx-plan-top`: that row
+  aligns on the baseline, and a drawing has no baseline to align to — it would
+  sit low against the name.
+
+  Thirteen suites green by exit code (85 browser assertions in `features`); the
+  new test verified to fail first by dropping `art` from the intro's context.
+  Screenshot-checked light and dark at 360px, no horizontal overflow. sw
+  `CACHE` → v63, `VERSION` → v63, no files added or removed.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3581,7 +3613,7 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v61; v62 is built and green on `claude/list-contents-7ewucl`.** Every
+**Live at v62; v63 is built and green on `claude/list-contents-7ewucl`.** Every
 session from v53 on has shipped and been verified at the Pages **job** level,
 not the run badge.
 
