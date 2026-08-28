@@ -1537,6 +1537,12 @@ body:has(.st.is-running) .appfoot { display: none; }
 }
 .sx-plan:last-child { border-bottom: 0; }
 .sx-plan.is-muted { opacity: .5; }
+/* Figure, then everything else. The figure is its own column rather than a
+   child of .sx-plan-top, which aligns on the baseline — a drawing has no
+   baseline to align to and would sit low against the name. */
+.sx-plan-row { display: flex; align-items: flex-start; gap: 10px; }
+.sx-plan-fig { width: 34px; height: 34px; flex-shrink: 0; color: var(--sub); margin-top: 1px; }
+.sx-plan-body { flex: 1; min-width: 0; }
 .sx-plan-top {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }

@@ -353,13 +353,21 @@ function mountAudio(day) {
 // Before you start
 // ---------------------------------------------------------------------------
 
-function planRow(plan, pairPos = null) {
+function planRow(plan, pairPos = null, art = null) {
   const last = lastLine(plan.last, plan.exercise);
   const pairClass = pairPos ? `.is-pair.is-pair-${pairPos}` : '';
+  // The same 34px figure the session cards carry, for the same reason: this is
+  // a list of names, and the drawing is what makes a row recognisable before
+  // you have read it. Null for a movement with no artwork — the row then has
+  // one fewer child, the contract PENDING_ART has had since v27.
+  const fig = stretchFigure(plan.exercise, plan.exercise.name, art);
   return h('li.sx-plan' + pairClass + (plan.muted ? '.is-muted' : ''),
     pairPos === 'top'
       ? h('span.sx-pair-tag', h('b', 'SUPERSET'), h('span', ` · ${PAIRED_REST}s between`))
       : null,
+    h('div.sx-plan-row',
+      ...(fig ? [h('div.sx-plan-fig', fig)] : []),
+      h('div.sx-plan-body',
     h('div.sx-plan-top',
       h('span.sx-plan-name', plan.exercise.name),
       h('span.sx-plan-target', prescriptionLine(plan))),
@@ -374,7 +382,7 @@ function planRow(plan, pairPos = null) {
       plan.offPlan ? h('span.sx-off-flag', 'Next week')
         : plan.muted ? h('span.sx-muted-flag', 'Muted') : null),
     plan.needsLoad ? h('p.sx-load', icon('flame'),
-      'Out of bodyweight road. Add weight — a kettlebell held between the feet, a loaded rucksack — or move to the next variation.') : null);
+      'Out of bodyweight road. Add weight — a kettlebell held between the feet, a loaded rucksack — or move to the next variation.') : null)));
 }
 
 function introScreen(mount, ctx) {
@@ -457,8 +465,8 @@ function introScreen(mount, ctx) {
       h('button.btn.primary.wide.cta', { type: 'button', onclick: () => ctx.start(false) },
         sessions.length ? 'Start session' : 'Start your first session')),
     h('ol.sx-plans', sessionBlocks(plans).flatMap(block => block.kind === 'pair'
-      ? [planRow(block.items[0], 'top'), planRow(block.items[1], 'bottom')]
-      : [planRow(block.items[0])])),
+      ? [planRow(block.items[0], 'top', ctx.art), planRow(block.items[1], 'bottom', ctx.art)]
+      : [planRow(block.items[0], null, ctx.art)])),
     muted.length
       ? h('p.sx-note', `${muted.length} ${muted.length === 1 ? 'movement is' : 'movements are'} muted. Unmute from inside a session.`)
       : null,
@@ -1008,7 +1016,7 @@ export default async function strength(root, { view } = {}) {
     const variant = planChoice === PLAN_SHORT
       ? (variantChoice ?? nextShortVariant(sessions)) : null;
     introScreen(mount, {
-      sessions, today, muted,
+      sessions, today, muted, art,
       plans: todaysPlan(sessions, { muted, plan: planChoice, variant }),
       plan: planChoice,
       variant,

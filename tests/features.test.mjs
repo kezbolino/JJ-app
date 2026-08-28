@@ -1682,6 +1682,26 @@ await test('every movement in the session carries its figure', async () => {
   await page.context().close();
 });
 
+await test('the plan screen carries the same figures as the session', async () => {
+  // v62: the plan you read *before* tapping Start was a list of names only,
+  // which is where the user was looking when they asked where the drawings had
+  // gone. Same contract as the session cards — a movement without artwork
+  // simply has one fewer child.
+  const page = await newPage();
+  await go(page, '/strength');
+  await page.waitForSelector('.sx-plans');
+
+  const drawn = await page.evaluate(async () => {
+    const { EXERCISES } = await import('/js/strength.js');
+    const { ART } = await import('/js/stretch-art.js');
+    const { STRENGTH_ART } = await import('/js/strength-art.js');
+    return EXERCISES.filter(e => ART[e.id] || STRENGTH_ART[e.id]).length;
+  });
+  assert.equal(await page.locator('.sx-plan-fig svg').count(), drawn,
+    'the plan screen is missing figures');
+  await page.context().close();
+});
+
 await test('a lift on a day with jiu jitsu already logged says lift after, never before', async () => {
   const page = await newPage();
   await seed(page, [{ sections: { techniques: 'armbar from guard' } }]);   // dated today
