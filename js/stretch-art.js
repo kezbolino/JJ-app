@@ -106,10 +106,46 @@ export const ART = {
  * its figure lands in ART; nothing else needs changing.
  */
 export const PENDING_ART = new Set([
-  // Empty as of v56: every movement in both routines has a figure. Keep the
-  // set — it is the contract that lets a new movement ship without artwork
-  // (stretchFigure returns null and the view leaves the slot out, rather than
-  // drawing an empty frame), and tests/stretches.test.mjs asserts every id is
-  // in ART *or* here, never both and never neither. Add an id when you add a
-  // movement; delete it when its figure lands.
+  // The Pilates routine, added in v64 with no artwork by design — the routine
+  // is useful the day it ships and the figures follow. `stretchFigure` returns
+  // null for these and the view leaves the slot out rather than drawing an
+  // empty frame, which is what this set has meant since v27.
+  //
+  // tests/stretches.test.mjs asserts every routine id is in ART *or* here,
+  // never both and never neither, so a typo shows up as a failure instead of a
+  // blank frame nobody notices. Delete an id the moment its figure lands in
+  // ART; nothing else needs changing.
+  //
+  // 27 of them. When they arrive, read the contact-sheet rules in
+  // docs/ART-PROMPTS.md first — no captions, no cell borders, ~300px a figure —
+  // and note the size budget at the top of this file: a batch this size is the
+  // one that should go into its own lazily imported module rather than in here,
+  // the way the lift figures did in v58.
+  'pil-breathing',
+  'pil-pelvic-tilt',
+  'pil-head-nod',
+  'pil-pelvic-curl',
+  'pil-chest-lift',
+  'pil-chest-lift-rot',
+  'pil-toe-taps',
+  'pil-hundred',
+  'pil-roll-up',
+  'pil-leg-circles',
+  'pil-rolling-ball',
+  'pil-single-leg-stretch',
+  'pil-double-leg-stretch',
+  'pil-scissors',
+  'pil-lower-lift',
+  'pil-criss-cross',
+  'pil-teaser',
+  'pil-side-kick',
+  'pil-clam',
+  'pil-side-bend',
+  'pil-swan',
+  'pil-single-leg-kick',
+  'pil-swimming',
+  'pil-leg-pull-front',
+  'pil-saw',
+  'pil-spine-stretch',
+  'pil-mermaid',
 ]);

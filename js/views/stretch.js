@@ -53,7 +53,7 @@ import { createWakeLock } from '../wakelock.js';
 import { logMobilitySession } from '../store.js';
 import {
   DEFAULT_ROUTINE, getRoutine, segments, routineMs,
-  clock, stretchFigure, pickOtherSide, pickHype, pickFinish, segmentAt,
+  clock, stretchFigure, pickOtherSide, pickHype, pickFinish, segmentAt, phasesFor,
 } from '../stretches.js';
 
 // ---------------------------------------------------------------------------
@@ -282,7 +282,7 @@ function attachRunning(mount, token, onExit) {
   // ---- the screen -------------------------------------------------------
   const figSlot = h('div.st-fig');
   const nameEl = h('h2.st-name');
-  const warmupEl = h('span.st-warmup', 'Warm-up');
+  const warmupEl = h('span.st-warmup', routine.warmupLabel ?? 'Warm-up');
   const nextEl = h('span.st-next', 'Next up');
   const sideEl = h('span.st-side');
   const doseEl = h('span.st-dose');
@@ -450,7 +450,15 @@ function attachRunning(mount, token, onExit) {
 }
 
 /** One `<ol>` of items, the shared rendering for the intro's list(s). */
-function itemList(items) {
+function itemList(routine, items) {
+  // What the right-hand chip says, in order of preference: the movement's own
+  // dose, then "Both sides", then the routine's own words for one segment.
+  // The fallback used to be the literal string "1 hold", which was true of the
+  // cool-down and nothing else — Pilates rows came out reading "1 hold" for a
+  // chest lift. It is built from the routine now, so a routine that works
+  // rather than holds says so.
+  const oneGo = `${Math.round(phasesFor(routine, items[0] ?? {}).work / 1000)}s `
+    + routine.workLabel.toLowerCase();
   return h('ol.st-list', items.map(item => {
     const fig = stretchFigure(item);
     return h('li.st-item',
@@ -458,7 +466,7 @@ function itemList(items) {
       h('span.st-item-txt',
         h('span.st-item-name', item.name),
         h('span.st-item-sub', item.targets)),
-      h('span.st-item-side', item.dose ?? (item.bilateral ? 'Both sides' : '1 hold')));
+      h('span.st-item-side', item.dose ?? (item.bilateral ? 'Both sides' : oneGo)));
   }));
 }
 
@@ -469,14 +477,18 @@ function itemList(items) {
  * undifferentiated items. */
 function overview(routine) {
   const warmups = routine.items.filter(i => i.warmup);
-  if (!warmups.length) return itemList(routine.items);
+  if (!warmups.length) return itemList(routine, routine.items);
 
   const main = routine.items.filter(i => !i.warmup);
   return h('div',
-    h('div.section-head', h('h3', 'Warm-up')),
-    itemList(warmups),
+    // The heading is the routine's word for it. Rest day warms you up before it
+    // loads you cold; Pilates' first three are breathing and pelvic tilts, which
+    // are setting the position, not raising a temperature. Same flag, same
+    // engine, honest label either way.
+    h('div.section-head', h('h3', routine.warmupLabel ?? 'Warm-up')),
+    itemList(routine, warmups),
     h('div.section-head', h('h3', 'Main session')),
-    itemList(main));
+    itemList(routine, main));
 }
 
 export default async function stretch(root, { routine: routineId } = {}) {

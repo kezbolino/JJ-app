@@ -2,8 +2,19 @@
 
 Every spoken cue in the app, per voice.
 
-**Status.** Both voices are complete and shipped: 62 clips each, every movement
-in both routines and every strength lift nameable in either. Arnold landed in
+**Status.** Both voices cover everything that shipped before v64: 62 clips each,
+every movement in the two original routines and every strength lift nameable in
+either.
+
+**Outstanding: the 27 Pilates lines, in both voices** (54 clips). The routine
+shipped in v64 without audio on purpose — it runs on beeps, and a missing clip
+has always been silent by design. What makes that deliberate rather than broken
+is `PENDING_CUES` in `js/voices.js`: every Pilates id is listed there, and
+`tests/stretches.test.mjs` asserts a pending id is one that genuinely has no
+recording, in any voice. **Delete an id from that set the moment its line lands
+in *both* voices** — a cue recorded in one voice only goes missing on half your
+sessions, which is the hardest kind of gap to notice. The script is at the
+bottom of this file. Arnold landed in
 v52; Snoop's last three (`kb-getup`, `kb-swing`, `wu-press-ups`) landed with it.
 There is a test asserting every voice can name everything the app speaks, so a
 future movement cannot quietly ship in one voice and not the other.
@@ -229,3 +240,47 @@ Snoop versions to match.
 - Say the names plainly. "Ninety ninety" not "90/90", "Romanian deadlift" not
   "R-D-L" — the cut is verified by transcribing each clip and matching it against
   its own movement, and initialisms do not survive that check.
+
+---
+
+## Pilates — both voices, still to record (27 each)
+
+The routine is at `#/stretch?r=pilates`. Same rule as everywhere else: **the
+movement name first, clearly**, then the character. These play while the
+phone is on the floor and you are on your back, so the name is the payload.
+
+Written as the *cue*, not the joke — put each voice's own spin on it at the
+microphone. The app's on-screen cue for each is in `js/stretches.js` and is
+the fallback if a line needs shortening: keep every clip under about 5
+seconds, because the spoken countdown fires with 3s of the get-ready left and
+will cut a longer name off (see the v52 note on Arnold's longest clips).
+
+| id | say |
+|---|---|
+| `pil-breathing` | Lateral breathing. Hands on the ribs, breathe wide. |
+| `pil-pelvic-tilt` | Pelvic tilts. Flatten the back, then let go. |
+| `pil-head-nod` | Head nods. Tiny. The neck is not the abs. |
+| `pil-pelvic-curl` | Pelvic curl. One bone at a time, up and down. |
+| `pil-chest-lift` | Chest lift. Ribs to hips, elbows wide. |
+| `pil-chest-lift-rot` | Chest lift with rotation. Turn the whole ribcage. |
+| `pil-toe-taps` | Toe taps. Keep the back on the floor. |
+| `pil-hundred` | The Hundred. Breathe in for five, out for five. |
+| `pil-roll-up` | Roll-up. Slow all the way up, slower on the way down. |
+| `pil-leg-circles` | Single leg circles. Keep the hips dead still. |
+| `pil-rolling-ball` | Rolling like a ball. Tuck tight, never the neck. |
+| `pil-single-leg-stretch` | Single leg stretch. One knee in, one leg long. |
+| `pil-double-leg-stretch` | Double leg stretch. Reach long, then pull it in. |
+| `pil-scissors` | Scissors. Switch the legs, chest stays up. |
+| `pil-lower-lift` | Lower lift. Only as low as the back stays down. |
+| `pil-criss-cross` | Criss-cross. Elbow to the opposite knee, slowly. |
+| `pil-teaser` | Teaser. Up to the V, and back down with control. |
+| `pil-side-kick` | Side kick series. The torso does not move. |
+| `pil-clam` | Clam. Open the knee, keep the hips stacked. |
+| `pil-side-bend` | Side bend. Hips to the ceiling, long arc. |
+| `pil-swan` | Swan. Lift the chest. This is the one your back has been asking for. |
+| `pil-single-leg-kick` | Single leg kick. Heel to the seat, double pulse. |
+| `pil-swimming` | Swimming. Small and fast, and keep breathing. |
+| `pil-leg-pull-front` | Leg pull front. Plank. Lift one leg, hips level. |
+| `pil-saw` | Saw. Rotate, reach past the little toe, breathe it all out. |
+| `pil-spine-stretch` | Spine stretch forward. Curl over, then restack. |
+| `pil-mermaid` | Mermaid. Reach over, breathe into the ribs. |

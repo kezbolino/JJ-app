@@ -308,6 +308,243 @@ const REST_DAY_ITEMS = [
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Routine 3 — Pilates. Mat work, floor only, nothing else in the room.
+//
+// **Why it is here at all, in one line: jiu jitsu is hours of spinal flexion
+// and one-sided load, and this is the repertoire that answers both.** The
+// roll-up and the teaser are literally how you come up off your back in guard;
+// the side-kick series is hip stability under load, which is shrimping; the
+// swan and swimming are the extension work that hours folded under side
+// control never gives you.
+//
+// It is the third *kind* of thing in this tab, and the distinction matters as
+// much as the one between the other two. The cool-down keeps range you have.
+// The rest day builds range by loading its end. This trains **control** —
+// moving one segment of the spine at a time, and keeping the pelvis still
+// while the legs move. Nothing else in the app asks for that.
+//
+// TIMING, and the compromise in it. Classical mat work is counted in reps at a
+// tempo, and this engine runs a clock. Rather than teach it reps — which would
+// mean per-item durations, i.e. the accumulator the timeline has been designed
+// against since v39 — each movement gets a fixed 45s window and you do what
+// you get. `dose` says the target where a number is meaningful (the Hundred is
+// five breaths in, five out) and is left off where it is not. This costs
+// nothing in the engine and is honest on screen: it is a window, not a rep
+// count.
+//
+// The three preparation items carry `warmup: true`, so they flow one into the
+// next with no countdown and no rest, exactly as the rest day's do. They are
+// not filler — lateral breathing and the head nod are the two things that
+// decide whether the next 25 minutes work on the right muscles.
+//
+// Ordering is the classical progression: supine, then side, then prone, then
+// seated. You change position five times in half an hour rather than thirty.
+// ---------------------------------------------------------------------------
+
+const PILATES_ITEMS = [
+  {
+    id: 'pil-breathing',
+    name: 'Lateral breathing',
+    targets: 'Ribs · diaphragm',
+    dose: '10 slow breaths',
+    cue: 'Lie on your back, knees bent, hands on the sides of your ribs. Breathe wide into your hands, not up into your belly. This is the whole method in one movement.',
+    bilateral: false,
+    warmup: true,
+  },
+  {
+    id: 'pil-pelvic-tilt',
+    name: 'Pelvic tilts',
+    targets: 'Lower back · deep abdominals',
+    dose: 'Continuous, small',
+    cue: 'Rock the pelvis so the lower back flattens to the floor, then release. Slow and small — you are finding the range, not forcing it.',
+    bilateral: false,
+    warmup: true,
+  },
+  {
+    id: 'pil-head-nod',
+    name: 'Head nods',
+    targets: 'Neck · deep neck flexors',
+    dose: 'Continuous, tiny',
+    cue: 'Nod the chin a centimetre, as if you were holding a peach under it. This teaches the neck to stop doing the abs\' job, which is how most people wreck a mat class.',
+    bilateral: false,
+    warmup: true,
+  },
+  {
+    id: 'pil-pelvic-curl',
+    name: 'Pelvic curl',
+    targets: 'Glutes · hamstrings · spine',
+    cue: 'Roll the spine off the floor one vertebra at a time, ribs down, then roll back down the same way. Bones, not a lift.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-chest-lift',
+    name: 'Chest lift',
+    targets: 'Upper abdominals',
+    cue: 'Hands behind the head, elbows wide. Curl the ribs toward the hips and lower halfway. If your neck aches, your abs were not working.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-chest-lift-rot',
+    name: 'Chest lift with rotation',
+    targets: 'Obliques',
+    cue: 'Curled up, rotate the ribcage toward one knee — the whole ribcage, not just the elbow. Stay high as you turn.',
+    bilateral: true,
+  },
+  {
+    id: 'pil-toe-taps',
+    name: 'Toe taps',
+    targets: 'Deep abdominals · hip flexors',
+    cue: 'Tabletop legs. Lower one toe to the floor and back without the lower back lifting. The back not moving is the exercise.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-hundred',
+    name: 'The Hundred',
+    targets: 'Abdominals · breath',
+    dose: '5 in, 5 out',
+    cue: 'Curled up, legs at whatever height keeps your back down, arms pumping by your sides. Breathe in for five, out for five.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-roll-up',
+    name: 'Roll-up',
+    targets: 'Abdominals · spinal articulation',
+    dose: '6 slow reps',
+    cue: 'Roll up one vertebra at a time, reach past the toes, and roll back down just as slowly. This is exactly how you come up off your back in guard.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-leg-circles',
+    name: 'Single leg circles',
+    targets: 'Hips · pelvic stability',
+    cue: 'One leg to the ceiling, circle it. The pelvis must not rock — the circle is small enough when it stays still.',
+    bilateral: true,
+  },
+  {
+    id: 'pil-rolling-ball',
+    name: 'Rolling like a ball',
+    targets: 'Spine · balance',
+    dose: '8 reps',
+    cue: 'Tucked tight, hands on your shins. Roll to the shoulder blades and back up to balance. Never onto the neck.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-single-leg-stretch',
+    name: 'Single leg stretch',
+    targets: 'Abdominals · coordination',
+    cue: 'Curled up, one knee in, the other long and low. Switch. The lower the long leg goes, the harder it is.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-double-leg-stretch',
+    name: 'Double leg stretch',
+    targets: 'Abdominals',
+    cue: 'Reach arms and legs long in opposite directions, then circle the arms and pull the knees back in. Keep the back on the floor.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-scissors',
+    name: 'Scissors',
+    targets: 'Abdominals · hamstrings',
+    cue: 'Legs to the ceiling, switch them past each other with a small double pulse. Chest stays lifted.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-lower-lift',
+    name: 'Lower lift',
+    targets: 'Lower abdominals',
+    cue: 'Legs together, lower them as far as your back stays down, then lift. That limit is the whole point.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-criss-cross',
+    name: 'Criss-cross',
+    targets: 'Obliques',
+    cue: 'Elbow toward the opposite knee, rotating from the ribs. Slow beats fast here.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-teaser',
+    name: 'Teaser',
+    targets: 'Abdominals · hip flexors',
+    dose: '5 reps',
+    cue: 'Knees bent, feet down. Roll up to a V, reach past the knees, roll down with control. Bend the knees as much as you need to.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-side-kick',
+    name: 'Side kick series',
+    targets: 'Outer hip · glutes',
+    cue: 'On your side, body in one line. Swing the top leg forward and back, then lift and lower it. The torso does not move — that is the exercise.',
+    bilateral: true,
+  },
+  {
+    id: 'pil-clam',
+    name: 'Clam',
+    targets: 'Glute medius',
+    cue: 'On your side, knees bent and stacked, feet together. Open the top knee without letting the hips roll back.',
+    bilateral: true,
+  },
+  {
+    id: 'pil-side-bend',
+    name: 'Side bend',
+    targets: 'Obliques · shoulders',
+    cue: 'Side sitting, one hand down. Press the hips to the ceiling into a long arc, then lower. Drop to a forearm if the wrist complains.',
+    bilateral: true,
+  },
+  {
+    id: 'pil-swan',
+    name: 'Swan',
+    targets: 'Back extensors · chest',
+    cue: 'Hands under the shoulders, lengthen forward and lift the chest. This is the direct antidote to hours folded under side control.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-single-leg-kick',
+    name: 'Single leg kick',
+    targets: 'Hamstrings · back',
+    cue: 'On your forearms, chest lifted. Kick one heel toward your seat with a double pulse, then switch.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-swimming',
+    name: 'Swimming',
+    targets: 'Whole back chain',
+    dose: 'Small and fast',
+    cue: 'Face down, opposite arm and leg lifted, flutter them small and fast while you breathe.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-leg-pull-front',
+    name: 'Leg pull front',
+    targets: 'Shoulders · core',
+    cue: 'A plank. Lift one leg a few centimetres without the hips shifting, then the other.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-saw',
+    name: 'Saw',
+    targets: 'Obliques · hamstrings',
+    cue: 'Sitting tall, legs wide. Rotate and reach the opposite hand past the little toe, exhaling everything out. Sit back up tall.',
+    bilateral: true,
+  },
+  {
+    id: 'pil-spine-stretch',
+    name: 'Spine stretch forward',
+    targets: 'Spine · hamstrings',
+    cue: 'Sitting tall, legs wide. Curl forward over an imaginary beach ball, then restack the spine from the bottom.',
+    bilateral: false,
+  },
+  {
+    id: 'pil-mermaid',
+    name: 'Mermaid',
+    targets: 'Side body · lats',
+    cue: 'Side sitting. Reach one arm overhead and over, breathing into the ribs that are stretching.',
+    bilateral: true,
+  },
+];
+
 /**
  * The routines. `phases` is what makes the timeline arithmetic: every segment
  * in a routine is `ready + work + rest` long, so the current segment is a
@@ -338,6 +575,23 @@ export const ROUTINES = [
     note: 'General guidance, not physio. This is the session that actually builds range — go slow, stop at anything sharp.',
     doneNote: 'Marked on your calendar as off-mat work.',
     items: REST_DAY_ITEMS,
+  },
+  {
+    id: 'pilates',
+    name: 'Pilates',
+    blurb: 'Mat work for control — floor only',
+    workLabel: 'Work',
+    unit: 'movements',
+    // No rest phase, like the cool-down: mat work flows, and the 8s between
+    // movements is the position change rather than a recovery.
+    phases: { ready: 8_000, work: 45_000, rest: 0 },
+    needs: ['Floor'],
+    // Not "Warm-up": these three set the position and the breath rather than
+    // raise a temperature, and calling them a warm-up invites skipping them.
+    warmupLabel: 'Set up',
+    note: 'General guidance, not physio. Breathe into the ribs, and stop if your neck is doing the work.',
+    doneNote: 'Marked on your calendar as off-mat work.',
+    items: PILATES_ITEMS,
   },
 ];
 

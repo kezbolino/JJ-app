@@ -1223,8 +1223,12 @@ await test('the picker swaps to the rest-day routine, which is a different sessi
   const page = await newPage();
   await go(page, '/stretch');
 
-  // Two routines, cool-down selected by default.
-  assert.equal(await page.locator('.st-pick button').count(), 2);
+  // One in-place button per routine, cool-down selected by default. Derived
+  // from the data rather than hard-coded, so adding a fourth routine does not
+  // fail a test that is about the swap, not the count.
+  const routines = await page.evaluate(async () =>
+    (await import('/js/stretches.js')).ROUTINES.length);
+  assert.equal(await page.locator('.st-pick button').count(), routines);
   assert.equal(await page.locator('.st-pick button.is-on').innerText(), 'After class');
   assert.equal(await page.locator('.st-needs').count(), 0, 'the cool-down needs no equipment');
 
@@ -1246,6 +1250,40 @@ await test('the picker swaps to the rest-day routine, which is a different sessi
 
   // The hash carries the choice so a reload stays put.
   assert.match(await page.evaluate(() => location.hash), /r=rest-day/);
+  await page.context().close();
+});
+
+await test('pilates is a third routine under the same tab, and runs', async () => {
+  const page = await newPage();
+  await go(page, '/stretch?r=pilates');
+
+  // Four tabs now, and the Off mat tab lights for all of them.
+  const tabs = await page.locator('.st-pick > *').allTextContents();
+  assert.deepEqual(tabs, ['After class', 'Rest day', 'Pilates', 'Strength']);
+  assert.equal(await page.locator('.st-pick .is-on').innerText(), 'Pilates');
+  assert.equal(await page.locator('.tabbar a[data-tab="/stretch"][aria-current]').count(), 1,
+    'the Off mat tab does not light for pilates');
+
+  // Roughly half an hour, floor only, and its set-up section is called what it
+  // is rather than borrowing the rest day's word.
+  assert.match(await page.locator('.st-intro-n').innerText(), /^2[6-9]:\d\d|^3[01]:\d\d/);
+  assert.match(await page.locator('.st-needs').innerText(), /floor/i);
+  assert.deepEqual(await page.locator('.section-head h3').allTextContents(),
+    ['Set up', 'Main session']);
+
+  // No artwork yet, by design: a movement awaiting art draws no frame at all
+  // rather than an empty box (PENDING_ART, since v27).
+  assert.equal(await page.locator('.st-item-fig').count(), 0,
+    'pilates has figures it is not supposed to have yet');
+
+  // And it actually starts, on the movement the list opens with.
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st.is-running');
+  assert.equal(await page.locator('.st-name').innerText(), 'Lateral breathing');
+  assert.match(await page.locator('.st-step').innerText(), /1 of 34/i);
+  assert.ok(await page.locator('.st-fig').evaluate(el => el.hidden),
+    'the figure slot should be hidden while there is no artwork');
+  await page.click('.st-end');
   await page.context().close();
 });
 
@@ -1589,11 +1627,15 @@ await test('the two routines announce their own first move, not each other\'s', 
 // finishing actually moves next week's target.
 // ---------------------------------------------------------------------------
 
-await test('the Off mat section has three tabs and Strength is one of them', async () => {
+await test('the Off mat section is one tab per routine plus Strength', async () => {
   const page = await newPage();
   await go(page, '/stretch');
 
-  assert.equal(await page.locator('.st-pick button, .st-pick a').count(), 3);
+  // Every routine, then the lift. Counted off the data: the routines are the
+  // thing that changes, and Strength being exactly one extra is the assertion.
+  const routines = await page.evaluate(async () =>
+    (await import('/js/stretches.js')).ROUTINES.length);
+  assert.equal(await page.locator('.st-pick button, .st-pick a').count(), routines + 1);
   assert.match(await page.locator('.page-title').innerText(), /off mat/i);
   assert.match(await page.locator('.tabbar a[data-tab="/stretch"] span').innerText(), /off mat/i);
 

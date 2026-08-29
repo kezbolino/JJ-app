@@ -12,7 +12,7 @@ import {
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
 import { STRENGTH_ART } from '../js/strength-art.js';
-import { VOICE_IDS, VOICES, pickVoice } from '../js/voices.js';
+import { VOICE_IDS, VOICES, pickVoice, PENDING_CUES } from '../js/voices.js';
 import { EXERCISES, WARM_UP } from '../js/strength.js';
 
 let passed = 0;
@@ -23,6 +23,7 @@ const test = (name, fn) => {
 
 const postClass = getRoutine('post-class');
 const restDay = getRoutine('rest-day');
+const pilates = getRoutine('pilates');
 const allItems = ROUTINES.flatMap(r => r.items);
 
 test('the cool-down cycle is 10 seconds to get ready and 30 to hold', () => {
@@ -155,6 +156,51 @@ test('the rest-day session loads the end of the range, not just the neck', () =>
   }
 });
 
+test('pilates trains the things jiu jitsu does not', () => {
+  // The argument for the routine existing, pinned so trimming it cannot
+  // quietly drop the half that justifies it: trunk flexion and rotation, the
+  // extension that hours under side control never gives you, lateral hip work,
+  // and segmental control of the spine itself.
+  const all = pilates.items.map(s => `${s.name} ${s.targets}`).join(' ').toLowerCase();
+  for (const area of ['abdominal', 'oblique', 'back extensor', 'hip', 'glute',
+    'spine', 'neck', 'hamstring', 'shoulder', 'rib']) {
+    assert.ok(all.includes(area), `nothing in pilates targets the ${area}s`);
+  }
+  // The two movements the whole method rests on. Lose either and it is just
+  // floor exercises: lateral breathing is the technique, and the roll-up is
+  // the one that transfers directly to coming up off your back in guard.
+  const ids = pilates.items.map(i => i.id);
+  for (const id of ['pil-breathing', 'pil-roll-up']) {
+    assert.ok(ids.includes(id), `pilates has lost ${id}`);
+  }
+});
+
+test('pilates flows: no rest phase, and its set-up runs work only', () => {
+  assert.equal(pilates.phases.rest, 0, 'mat work does not stop to rest between movements');
+  const prep = pilates.items.filter(i => i.warmup);
+  assert.equal(prep.length, 3, 'the set-up is the three preparation movements');
+  for (const item of prep) {
+    const { ready, work, rest } = phasesFor(pilates, item);
+    assert.equal(ready, 0, `${item.id} counts down into a movement that needs no setup`);
+    assert.equal(rest, 0, `${item.id} rests`);
+    assert.equal(work, pilates.phases.work);
+  }
+  // And its own word for that section, since "warm-up" is not what breathing
+  // and pelvic tilts are.
+  assert.equal(pilates.warmupLabel, 'Set up');
+});
+
+test('every pilates movement is awaiting art and audio, and says so', () => {
+  // Shipped without either, on purpose. Both absences are silent by design —
+  // stretchFigure returns null, a missing clip 404s and is swallowed — so the
+  // only thing standing between "deliberate" and "broken" is that they are
+  // declared. Delete these ids from both sets as the assets land.
+  for (const item of pilates.items) {
+    assert.ok(PENDING_ART.has(item.id), `${item.id} is not declared as awaiting artwork`);
+    assert.ok(PENDING_CUES.has(item.id), `${item.id} is not declared as awaiting audio`);
+  }
+});
+
 test('a two-sided item becomes two sets, one-sided becomes one', () => {
   for (const routine of ROUTINES) {
     const bilateral = routine.items.filter(i => i.bilateral).length;
@@ -193,6 +239,10 @@ test('both routines land in the window they were asked for', () => {
   assert.ok(cool >= 10 && cool <= 15, `cool-down is ${cool} min, outside 10–15`);
   const rest = routineMs(restDay) / 60_000;
   assert.ok(rest >= 15 && rest <= 26, `rest day is ${rest} min, outside 15–26`);
+  // Pilates was specified as "a 30 minute session". A routine that quietly
+  // becomes 40 is a different promise, and the number is on the intro screen.
+  const pil = routineMs(pilates) / 60_000;
+  assert.ok(pil >= 27 && pil <= 31, `pilates is ${pil} min, outside 27–31`);
   // The total is the sum of the segments, which is no longer count × length:
   // the warm-up runs work only. Assert the timeline, not the old shortcut.
   for (const r of ROUTINES) {
@@ -420,15 +470,43 @@ test('every voice names every movement the app can speak', () => {
   //
   // Both routines *and* the strength module: the lifts are cues too, and they
   // were the three that were missing.
+  //
+  // A movement may be silent *on purpose* — a routine shipped before its audio
+  // is recorded — but only if it says so in PENDING_CUES. That is the whole
+  // point of the set: a deliberate silence is written down, an accidental one
+  // fails here.
   const spoken = [
     ...ROUTINES.flatMap(r => r.items.map(i => i.id)),
     ...EXERCISES.map(e => e.id),
     ...WARM_UP.map(w => w.cue).filter(Boolean),
-  ];
+  ].filter(id => !PENDING_CUES.has(id));
   for (const [voice, ids] of Object.entries(swCues())) {
     for (const id of spoken) {
       assert.ok(ids.includes(id), `${voice} cannot say "${id}" — it is silent on that movement`);
     }
+  }
+});
+
+test('a pending cue is one that genuinely has no recording', () => {
+  // The mirror of PENDING_ART's "never both" rule. An id left on this list
+  // after its clip lands would keep the real guard above switched off for that
+  // movement forever — which is how a cue goes missing in one voice and not the
+  // other, the hardest kind of gap to notice.
+  const voices = Object.entries(swCues());
+  for (const id of PENDING_CUES) {
+    for (const [voice, ids] of voices) {
+      assert.ok(!ids.includes(id),
+        `${voice}/${id}.webm exists — take "${id}" off PENDING_CUES`);
+    }
+  }
+  // And nothing may be pending that no routine or lift actually asks for.
+  const known = new Set([
+    ...ROUTINES.flatMap(r => r.items.map(i => i.id)),
+    ...EXERCISES.map(e => e.id),
+    ...WARM_UP.map(w => w.cue).filter(Boolean),
+  ]);
+  for (const id of PENDING_CUES) {
+    assert.ok(known.has(id), `PENDING_CUES lists "${id}", which nothing in the app speaks`);
   }
 });
 

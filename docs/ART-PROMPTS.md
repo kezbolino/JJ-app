@@ -1,20 +1,61 @@
 # Image prompts for the figures
 
-> **DONE, 2026-08-21. Nothing is missing.** All 39 movements across both
-> routines and the strength session have artwork. `PENDING_ART` in
-> `js/stretch-art.js` is empty.
+> **OUTSTANDING, 2026-08-29: the 27 Pilates movements.** The routine shipped in
+> v64 with no artwork on purpose — it is useful the day it ships and the figures
+> follow. Every id is in `PENDING_ART` in `js/stretch-art.js`, and there is a
+> test asserting each one is declared rather than accidentally undrawn.
 >
-> The last 16 came from two contact sheets generated in one sitting and
-> uploaded to the `art-inbox` branch as `JJ 1.png` and `JJ 2.png`. **That is the
-> route that finally worked, and it contradicts the advice this file used to
-> give** — a contact sheet was rejected in v48 because its tiles were ~150×130px
-> with captions and cell borders traced in. These sheets had no captions, no
-> borders, and tiles at 300–450px, which is plenty. So the rule is not "never a
-> sheet"; it is **"no captions, no borders, and at least ~300px per figure"**.
+> **Read "How to send them back" and "What was learned tracing these" below
+> before generating anything** — the rules that worked are: no captions, no cell
+> borders, at least ~300px per figure, and one movement per drawing.
 >
-> The prompts below are kept for regenerating any single figure that turns out
-> wrong at 52px. See "What was learned tracing these" at the bottom before
-> running the pipeline again.
+> **Size warning, and it is the real constraint.** `js/stretch-art.js` is 166 KB
+> and sits in `CORE`, which is precached atomically and re-downloaded on every
+> version bump. 27 more figures at ~6 KB each is another ~160 KB — a doubling.
+> **This batch should go into its own module** (`js/pilates-art.js`), lazily
+> imported by the routine view and listed in `LAZY`/`EXTRAS` in `sw.js`, exactly
+> as the lift figures did in v58. `tests/offline.test.mjs` already enforces what
+> LAZY is allowed to mean.
+
+## The 27 Pilates figures still wanted
+
+Same house style as the existing set: **single continuous contour line drawing,
+one person, plain white background, no shading, no text, no border, side-on
+unless noted, the whole body in frame**. Draw the moment that *shows the
+movement*, not the rest position — for anything with a range, that is the end of
+the range.
+
+| id | draw this |
+|---|---|
+| `pil-breathing` | **Lateral breathing** — lying on the back, knees bent, feet flat, both hands flat on the sides of the ribcage — seen from the side, ribs visibly wide |
+| `pil-pelvic-tilt` | **Pelvic tilts** — lying on the back, knees bent, pelvis tucked so the lower back is flat to the floor |
+| `pil-head-nod` | **Head nods** — lying on the back, knees bent, chin nodding a fraction toward the chest — head still on the floor |
+| `pil-pelvic-curl` | **Pelvic curl** — the top of a shoulder bridge: shoulders down, hips high, one long diagonal from knee to shoulder |
+| `pil-chest-lift` | **Chest lift** — lying on the back, knees bent, head and shoulders curled off the floor, hands cradling the head, elbows wide |
+| `pil-chest-lift-rot` | **Chest lift with rotation** — the same curl, ribcage rotated so one elbow points across toward the opposite knee — drawn from a high three-quarter angle so the twist reads *(one side only; the app runs it twice)* |
+| `pil-toe-taps` | **Toe taps** — lying on the back, legs in tabletop, one toe touching the floor, the other knee still stacked over the hip |
+| `pil-hundred` | **The Hundred** — lying on the back curled up, legs straight and low at about 45 degrees, arms straight and hovering by the hips |
+| `pil-roll-up` | **Roll-up** — mid roll-up — spine in a deep C-curve halfway between lying and sitting, arms reaching forward past the knees |
+| `pil-leg-circles` | **Single leg circles** — lying on the back, one leg straight up to the ceiling, the other long on the floor; a faint circular arrow at the raised foot *(one side only; the app runs it twice)* |
+| `pil-rolling-ball` | **Rolling like a ball** — tucked in a tight ball, hands holding the shins, balanced on the tailbone with the feet off the floor |
+| `pil-single-leg-stretch` | **Single leg stretch** — curled up, both hands drawing one bent knee in to the chest, the other leg straight and low |
+| `pil-double-leg-stretch` | **Double leg stretch** — curled up at full reach — arms straight overhead, both legs straight and low, body a long shallow arc |
+| `pil-scissors` | **Scissors** — lying on the back curled up, legs split — one vertical, one low — hands holding the ankle of the high leg |
+| `pil-lower-lift` | **Lower lift** — lying on the back, both legs straight and together, lowered to about 45 degrees, hands under the hips |
+| `pil-criss-cross` | **Criss-cross** — curled up, one knee in, torso rotated so the opposite elbow crosses toward it — high three-quarter angle |
+| `pil-teaser` | **Teaser** — the top of a teaser: balanced on the tailbone in a V, legs at 45 degrees, arms reaching parallel to the legs |
+| `pil-side-kick` | **Side kick series** — lying on one side, body in one long line propped on the forearm, top leg swung forward at hip height *(one side only; the app runs it twice)* |
+| `pil-clam` | **Clam** — lying on one side, knees bent and stacked, feet together, the top knee opened upward *(one side only; the app runs it twice)* |
+| `pil-side-bend` | **Side bend** — the top of a side bend: one hand and the outside of one foot on the floor, hips lifted high, top arm sweeping overhead in a long arc *(one side only; the app runs it twice)* |
+| `pil-swan` | **Swan** — face down, hands under the shoulders, chest and head lifted into a long back extension, hips staying down |
+| `pil-single-leg-kick` | **Single leg kick** — face down propped on both forearms, chest lifted, one heel kicked in toward the seat |
+| `pil-swimming` | **Swimming** — face down, opposite arm and leg lifted off the floor, head just clear of the floor |
+| `pil-leg-pull-front` | **Leg pull front** — a straight-arm plank with one leg lifted a few centimetres, hips level |
+| `pil-saw` | **Saw** — sitting tall, legs wide, torso rotated and folded so one hand reaches past the opposite foot, the other arm reaching back *(one side only; the app runs it twice)* |
+| `pil-spine-stretch` | **Spine stretch forward** — sitting with legs wide, spine curled forward into a deep C over the legs, arms reaching along the floor |
+| `pil-mermaid` | **Mermaid** — side sitting with the legs folded to one side, one arm reaching overhead and over into a long side bend *(one side only; the app runs it twice)* |
+
+---
 
 ## Where each figure came from
 
