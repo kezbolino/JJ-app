@@ -3605,6 +3605,67 @@ data if forgotten:
   Screenshot-checked light and dark at 360px, no horizontal overflow. sw
   `CACHE` → v63, `VERSION` → v63, no files added or removed.
 
+- 2026-08-29 — **v64: Pilates, a third routine under Off mat.** User asked what a
+  30-minute no-equipment session would look like, then *"Spec it up build it
+  without the assets for now they will come later."* 27 movements, 34 sets,
+  **29:38**, floor only. **No artwork and no audio, on purpose.**
+
+  **Why it earns a place rather than being more of what is there.** The
+  cool-down keeps range you have. The rest day builds range by loading its end.
+  This trains **control** — one segment of the spine at a time, pelvis still
+  while the legs move — and nothing else in the app asks for that. It is also
+  the answer to what BJJ does to you specifically: the roll-up and teaser are
+  how you come up off your back in guard, the side-kick series is hip stability
+  under load, and swan/swimming are the extension work that hours folded under
+  side control never gives. A test pins those areas, so trimming the routine
+  cannot quietly drop the half that justifies it.
+
+  **The engine did not change, and that was the test of the design.** Segments
+  are `ready + work + rest` with rest at 0, exactly like the cool-down.
+  Classical mat work is counted in **reps at a tempo** and this runs a clock, so
+  the compromise is explicit: each movement gets a fixed **45s window** and
+  `dose` states the target where a number means something ("5 in, 5 out" for the
+  Hundred), left off where it does not. Teaching the engine reps means per-item
+  durations, which is the accumulator the timeline has been designed against
+  since v39 — a lot of risk for a routine that flows fine on a window.
+
+  The three preparation items reuse `warmup: true` (work only, no countdown, no
+  rest). Their heading is new `warmupLabel` — **"Set up"**, not "Warm-up",
+  because breathing and pelvic tilts set the position rather than raise a
+  temperature, and the wrong word there invites skipping them.
+
+  **Two absences, both declared rather than silent — this is the transferable
+  bit.** `PENDING_ART` has meant "deliberately undrawn" since v27 and now holds
+  27 ids. Audio had no equivalent and needed one: a missing clip 404s and is
+  swallowed by design, so nothing on screen differs between "not recorded yet"
+  and "wired wrong". **`PENDING_CUES` in `js/voices.js`** is the record, the
+  every-voice-names-every-movement guard now skips exactly what is declared, and
+  a second test asserts a pending id has no recording in *any* voice — the
+  mirror of PENDING_ART's never-both rule. Both verified by breaking them first.
+
+  **A bug the routine exposed.** The intro list's dose chip fell back to the
+  literal `'1 hold'`, which was true of the cool-down and nothing else — every
+  rest-day item happens to carry its own `dose`, so it never showed. Pilates
+  rows came out reading "1 hold" for a chest lift. It is built from the routine
+  now: "30s hold" for the cool-down, "45s work" for Pilates.
+
+  Two tab-count assertions (3 tabs, 4 tabs) now derive from `ROUTINES` — a
+  number copied out of the data fails on every future change to the data
+  without ever finding a bug, which is the v44 lesson.
+
+  **The assets are specced, not hand-waved.** `docs/ART-PROMPTS.md` carries all
+  27 drawing briefs and is un-marked as done; `docs/VOICE-SCRIPTS.md` carries
+  the 27 lines to record in **both** voices. The art doc leads with the size
+  constraint: `js/stretch-art.js` is 166 KB in `CORE`, and this batch would
+  roughly double it — **it should land in its own `js/pilates-art.js`, lazily
+  imported and in `LAZY`**, exactly as the lift figures did in v58.
+
+  Thirteen suites green by exit code (86 browser assertions in `features`, 38 in
+  `stretches`). Drove it end to end at 400× — finishes, logs one mobility
+  session, leaves the class total alone. Screenshot-checked intro and running
+  screens in light and dark at 360px; four tabs fit with no overflow, so
+  `.st-pick` needed no change.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3613,9 +3674,15 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v62; v63 is built and green on `claude/list-contents-7ewucl`.** Every
-session from v53 on has shipped and been verified at the Pages **job** level,
-not the run badge.
+**Live at v62; v63 and v64 are built and green on `claude/list-contents-7ewucl`.**
+Every session from v53 on has shipped and been verified at the Pages **job**
+level, not the run badge.
+
+**Outstanding assets for v64's Pilates routine:** 27 figures
+(`docs/ART-PROMPTS.md`, and put them in a new lazily-imported
+`js/pilates-art.js`, not in `stretch-art.js`) and 27 lines × 2 voices
+(`docs/VOICE-SCRIPTS.md`). Both absences are declared in `PENDING_ART` and
+`PENDING_CUES` and tested; delete an id from each set as its asset lands.
 
 ### Parked feature — looping clips on the flashcards (2026-08-24)
 
