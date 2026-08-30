@@ -3666,6 +3666,34 @@ data if forgotten:
   screens in light and dark at 360px; four tabs fit with no overflow, so
   `.st-pick` needed no change.
 
+- 2026-08-30 — **v63 and v64 deployed.** `main` fast-forwarded `11ea139..a2ee37e`
+  and pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 26s, `deploy` succeeded in 6s (07:01:23→07:01:29Z, run
+  `33298202339`). Tenth clean deploy in a row.
+
+  Ship gate: thirteen suites green *by exit code* (86 browser assertions in
+  `features`, 38 in `stretches`), `CACHE` == `VERSION` == v64, clean tree,
+  fast-forward confirmed rather than a merge.
+
+  **The visible tells:** the footer reads `JUJI v64`; Off mat has a fourth tab,
+  **Pilates**, between Rest day and Strength; and the strength **plan** screen —
+  the one before you tap Start — now shows a figure beside every movement.
+
+  **A process slip worth not repeating.** v63 was built while still checked out
+  on `main` from the previous deploy, so its two commits landed there instead of
+  on the work branch, where a `git push` would have shipped it unasked. The stop
+  hook caught it. Fixed by pointing the branch at those commits and resetting
+  `main` to the deployed sha — but the lesson is `git checkout` back to the work
+  branch immediately after a deploy, not later.
+
+  **No churn expected in `jj-app-data`** — neither version touches
+  `js/markdown.js`, the entry model or `js/appstate.js`. Pilates sessions log
+  through `mobilitySessions`, which has synced as `byId` since v46, so the first
+  sync after a session just carries it across.
+
+  **Nothing new to download beyond the shell.** v64 adds no artwork and no audio
+  by design, and v63 is a view change — so this is a small update, unlike v56.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3674,9 +3702,8 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v62; v63 and v64 are built and green on `claude/list-contents-7ewucl`.**
-Every session from v53 on has shipped and been verified at the Pages **job**
-level, not the run badge.
+**Live at v64.** Every session from v53 on has shipped and been verified at the
+Pages **job** level, not the run badge.
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported
