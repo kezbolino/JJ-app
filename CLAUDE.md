@@ -3737,6 +3737,56 @@ has shipped and been verified at the Pages **job** level, not the run badge.
 (`docs/VOICE-SCRIPTS.md`). Both absences are declared in `PENDING_ART` and
 `PENDING_CUES` and tested; delete an id from each set as its asset lands.
 
+### Parked feature — AI summarising the log notes in-app (2026-09-02)
+
+**Spitballed and parked at the user's request** after v65's copy/paste buttons —
+*"I'd like it to auto summarise my jibberish in the app without having to
+copy/paste it to Claude."* Nothing built. The findings below were checked
+against the live API docs, not recalled, so don't re-derive them.
+
+**It is feasible, and the cost is not the obstacle.** A browser can call
+`https://api.anthropic.com/v1/messages` directly with plain `fetch` — no server,
+no SDK, no build step — by sending the header
+**`anthropic-dangerous-direct-browser-access: true`**, which is what the
+official SDK's `dangerouslyAllowBrowser` flag sets under the hood. Anthropic's
+docs gate it because it exposes a key in client-side code and name the case
+where that is acceptable: a tool used by trusted users. One user, their own key,
+their own phone is that case.
+
+**The key storage problem is already solved here.** It is the same shape as the
+GitHub sync token — entered in Settings, living in IndexedDB, on
+`DEVICE_LOCAL_SETTINGS` in `js/backup.js` so it can never ride into
+`app-state.md` and reach either repo.
+
+**Costed at ~600 tokens in / ~150 out per class note:** about $0.007 a class on
+Claude Opus 5, so **roughly £1 a year** at three classes a week. Haiku 4.5 would
+be ~$0.20 a year — the gap is pennies, so there is no cost argument for the
+weaker model. Pricing is in the `claude-api` skill; re-check it rather than
+trusting these numbers years later.
+
+**Effort: about half a session.** A `js/ai.js` provider (~80 lines), a key field
+in Settings, and a Summarise button whose result lands in a panel with "Use
+this", inserting through the same path v65's Paste uses — no model change, no
+front-matter change, nothing overwritten. **Reuse Distill's `LLMProvider`
+interface with its keyless `mock` provider** (CLAUDE.md has said so since v0.1):
+that is what keeps the suites green with no key, no network and no spend.
+
+**The three objections, and the first one is the real one:**
+
+1. **It points the opposite way from a decision already made.** §14 rejected
+   in-browser Whisper and chose Sayboard precisely because the phone is
+   de-Googled CalyxOS and transcription should stay **on-device**. This sends
+   class notes off the phone to an API. That is the question to answer before
+   any code — not a technical one.
+2. **It cannot work offline**, and v53 was an entire version about the app
+   working on a train. It has to be strictly additive: a button simply absent
+   with no signal, never a screen that breaks.
+3. **Keep it away from the tagger and the map.** The tagger is literal on
+   purpose, and the app reports what you *wrote about*, never what you are good
+   at. Rewording your own notes is fine; a model inventing tags would put
+   fiction in the coverage map. Any tag it proposes needs an explicit tap, same
+   as today's suggestions.
+
 ### Parked feature — looping clips on the flashcards (2026-08-24)
 
 **Spitballed with the user, not built, and deliberately parked at their
