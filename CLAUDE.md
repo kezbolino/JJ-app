@@ -3758,6 +3758,27 @@ data if forgotten:
   `js/stretch-art.js` 166 KB → **146 KB**, which is 20 KB off every update since
   it is precached atomically in `CORE`.
 
+  **"Cropped" is a second, separate fault — and it is in the artwork, not the
+  app.** User followed up: *"some of them are accurate but the image is
+  cropped."* Two things could cause that and they were both measured, so don't
+  re-derive it. **The framing is correct**: every figure sits exactly 4.5%
+  inside its own viewBox on its tightest side, which is the documented 5% less
+  antialiasing — no figure is flush, none spills. **The app does not crop
+  either**: `.stretch-fig` sets no `preserveAspectRatio`, so the default
+  `xMidYMid meet` fits the whole viewBox inside the box and letterboxes. So a
+  cropped figure was cropped *before* it was traced, and the only fix is a
+  redraw.
+
+  A detector for it: the longest contiguous ink run in the 2px band just inside
+  each bbox edge, as a share of the figure's extent along that edge. A sliced
+  limb leaves a long straight run; a hand or foot touches at a point. It needs
+  eyes on the result, though — a figure lying on the floor has a legitimately
+  flat bottom, and `inverted-row` scores 100% because the bar's upright post
+  runs the full height. Confirmed crops so far: **`jefferson-curl`** and
+  **`wall-slide`**, both losing their feet at the bottom edge, both from the
+  **v56** batch — whose own notes record a grid crop taking the bar off
+  `hanging-leg-raise`, the same mechanism caught once and missed twice.
+
   **Still open:** the other seven v48 figures (`sphinx`, `deep-squat-hold`,
   `cossack-squat`, `glute-bridge-single`, `single-leg-rdl`, `bear-crawl`,
   `side-plank`) are intact but from the same low-resolution extraction, which
