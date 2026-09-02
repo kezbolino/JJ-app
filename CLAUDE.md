@@ -3674,9 +3674,9 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v62; v63 and v64 are built and green on `claude/list-contents-7ewucl`.**
-Every session from v53 on has shipped and been verified at the Pages **job**
-level, not the run badge.
+**Live at v64.** v63 and v64 deployed on 2026-08-30 (`main` at `a2ee37e`,
+Pages run `33298202339`, build and deploy both green). Every session from v53 on
+has shipped and been verified at the Pages **job** level, not the run badge.
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported
