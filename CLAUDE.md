@@ -3719,6 +3719,60 @@ data if forgotten:
   `features`). Screenshot-checked light at 390px and dark at 360px, no
   horizontal overflow. sw `CACHE` → v65, `VERSION` → v65, no files added.
 
+- 2026-09-02 — **v66: four damaged figures withdrawn, and the batch that broke
+  them identified.** User: *"the majority of the rest ones are cut off,
+  bodyweight squats the guy's head's cut off."* Right, and it is systematic.
+
+  **The cause is the v48 batch, not scattered bad luck.** Those eleven were
+  salvaged from a 6×6 contact sheet at ~150px a tile, and the margin band
+  painted over each cell to remove its border — the erase v48 itself recorded as
+  eating a pull-up bar and a wall — also took the tops of the tall figures'
+  heads. `git log -S` on each id against `js/stretch-art.js` pins it: every
+  decapitated figure is from `ad2aed9`, none from the v56 batch, whose sheets
+  were 300–450px a tile with no captions or borders.
+
+  Withdrawn from `ART` and returned to `PENDING_ART`: **`warmup-arm-circle`**
+  and **`warmup-leg-swing`** (no head at all, a neck and two stubs),
+  **`warmup-squat`** (scalp sliced flat, stray line out of frame) and
+  **`neck-isometric`** (unreadable blob, cropped right). Those movements now
+  draw nothing — *a wrong figure is worse than none*, the same call v44 made
+  leaving the kettlebell cues silent rather than play the wrong name. Driven in
+  a browser to confirm the frame is `hidden` rather than an empty box: the cue
+  text moves up, no gap, no error.
+
+  **No automated check could have caught this, and that is the finding.** Every
+  path is well-formed and sits inside its own viewBox, so the geometry comes
+  back clean — 0 of 39 figures spilled their frame. A top-row ink-width
+  heuristic (a guillotined head leaves a wide flat run where a rounded one
+  touches at a point) flagged `inverted-row` and `dead-hang` hardest, and both
+  are fine: they have a pull-up bar across the top. **It took rendering them
+  large and looking**, which has been the standing rule for this artwork since
+  v26 and is the rule that was skipped.
+
+  **The deeper miss:** v56 recorded the artwork job as *finished* and this file
+  has said so ever since — measured as *renders without erroring*, never as
+  *shows the right position*. The user had been quietly doing the correct
+  movement and ignoring the drawing. `ninety-ninety-liftoff` was logged as the
+  one known-imperfect figure and written off; it was not the only one.
+
+  `js/stretch-art.js` 166 KB → **146 KB**, which is 20 KB off every update since
+  it is precached atomically in `CORE`.
+
+  **Still open:** the other seven v48 figures (`sphinx`, `deep-squat-hold`,
+  `cossack-squat`, `glute-bridge-single`, `single-leg-rdl`, `bear-crawl`,
+  `side-plank`) are intact but from the same low-resolution extraction, which
+  v48 measured as visibly worse than a full-size trace — regenerate the batch
+  together. And the user is marking up which of the surviving 35 show the wrong
+  *movement*, which none of this can detect. A numbered contact sheet was
+  rendered for that (`/tmp/sheet2.mjs` in this session — ~40 lines, reads `ART`,
+  `STRENGTH_ART` and `ROUTINES`, prints each figure with the app's own cue
+  underneath so the drawing can be judged against what it tells you to do;
+  rebuild it rather than keeping it). Note `js/strength-art.js` exports
+  **`STRENGTH_ART`**, not `ART`.
+
+  Thirteen suites green by exit code (88 browser assertions in `features`, 16 in
+  `sync`, smoke clean). sw `CACHE` → v66, `VERSION` → v66, no files added.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
