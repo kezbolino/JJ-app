@@ -3737,6 +3737,71 @@ has shipped and been verified at the Pages **job** level, not the run badge.
 (`docs/VOICE-SCRIPTS.md`). Both absences are declared in `PENDING_ART` and
 `PENDING_CUES` and tested; delete an id from each set as its asset lands.
 
+### Illustration sources surveyed — none of them solve this (2026-09-02)
+
+User asked whether an existing dataset could replace the artwork rather than
+recreating work that already exists — a sound instinct, and worth the ten
+minutes. **It does not exist for the part we need.** Checked properly (dataset
+downloaded, licence read, sample images rendered, all 67 movements matched by
+name), so don't re-derive it:
+
+| Source | Licence | Media | Our Pilates 27 |
+|---|---|---|---|
+| `RepDB/exercise-dataset` | free, attribution | 512px flat colour WebP | **~5** |
+| `yuhonas/free-exercise-db` | public domain | photographs | **0** |
+| `exercemus/exercises` | open | **no images at all** | 0 |
+| wger.de | CC-BY-SA 3.0 | community | **unchecked** |
+| `hasaneyldrm/exercises-dataset` | MIT *code*, media © Gym Visual | 180px GIFs | ~0 |
+
+**Every open exercise database is a gym-lift database.** RepDB covers our
+strength ten completely and about ten of the thirteen cool-down stretches — all
+of which have been drawn since v56 — and has exactly nine Pilates entries in its
+whole 601-exercise catalogue. The mat repertoire (Hundred, Teaser, Swan, Roll-up,
+Criss-cross, Swimming, pelvic curl, chest lift) is in none of them.
+
+**Two traps worth remembering.** The popular "free exercise API" listings —
+ExerciseDB, `hasaneyldrm/exercises-dataset` and most RapidAPI wrappers — serve
+the same **© Gym Visual** media; the MIT badge covers the code, not the
+pictures. And RepDB's licence term 5 forbids using its images as reference or
+conditioning for a generative model, which closes the obvious workaround of
+generating matching line art from them.
+
+**wger.de is blocked by this session's egress proxy** and is the one source left
+unchecked. It is CC-BY-SA and community-contributed, so mat Pilates is at least
+plausible. `wger.de/api/v2/exercise/search/?term=teaser` from any normal browser
+settles it.
+
+**Style, if one is ever adopted anyway:** RepDB's are full-colour rasters on an
+opaque pale-blue ground. Ours are monochrome SVG paths in `currentColor` that
+invert for dark mode. Mixing the two would read as broken — it is the v26 rule
+again, *white is not a colour this app is allowed to assume*. Adopting a set
+wholesale is a deliberate design change that costs theme-awareness, not an asset
+shortcut.
+
+### The real artwork problem — accuracy, not coverage (2026-09-02)
+
+**The user has been quietly working around wrong drawings.** *"The existing ones
+aren't perfect. There are some which are slightly misleading but I've 'lived'
+with it and do the correct move and ignore the illustrations. Also some are
+inaccurate."* v56 logged the artwork job as **finished** and this file has said
+so ever since — measured as *renders without erroring*, never as *shows the
+right position*. `ninety-ninety-liftoff` was the one known case and it was
+written off as accepted; it was not the only one.
+
+**A wrong figure is worse than no figure**, and this repo already holds that
+line everywhere else: v44 left the kettlebell movements silent rather than play
+the wrong name, and `stretchFigure` returns null so a movement with no artwork
+draws one fewer child, not an empty box. The mechanism to withdraw a bad drawing
+already exists — delete the id from `ART` and add it to `PENDING_ART`, and the
+test suite tracks it as outstanding again.
+
+**Next step, waiting on the user:** they are compiling the list of which are
+wrong. A contact sheet of all 39 shipped figures with names and ids was rendered
+and sent to them for that purpose (`/tmp/sheet.mjs` in that session — it reads
+`ART`, `STRENGTH_ART` and `ROUTINES` directly and screenshots a grid; worth
+rebuilding rather than keeping, it is ~40 lines). Note `js/strength-art.js`
+exports **`STRENGTH_ART`**, not `ART`.
+
 ### Parked feature — AI summarising the log notes in-app (2026-09-02)
 
 **Spitballed and parked at the user's request** after v65's copy/paste buttons —
