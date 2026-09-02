@@ -943,6 +943,16 @@ a.banner .b-txt.muted { color: var(--muted); }
   color: var(--muted); font-weight: 800; margin: 0 0 8px;
 }
 
+/* Label on the left, Copy/Paste on the right. The buttons carry padding for a
+   thumb and pull it back with a negative margin, so the row stays the height of
+   its label rather than growing 18px on every field. */
+.field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.field-head .field-label { margin: 0; }
+.field-acts { display: flex; gap: 2px; flex-shrink: 0; }
+.field-acts button.link { display: inline-flex; align-items: center; gap: 5px; padding: 6px; margin: -6px 0; }
+.field-acts button.link:last-child { margin-right: -6px; }
+.field-acts svg { width: 14px; height: 14px; }
+
 .tags-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .tags-head .field-label { margin: 0; }
 .tags-head button.link, button.link {

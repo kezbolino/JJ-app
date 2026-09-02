@@ -42,6 +42,71 @@ export function toast(message) {
   setTimeout(() => el.remove(), 2600);
 }
 
+/**
+ * Copy text to the clipboard, resolving to whether it landed.
+ *
+ * The async Clipboard API needs a secure context — https from Pages, and
+ * localhost for the tests, both qualify. The execCommand fallback covers
+ * anything that does not (the files opened over a LAN address, say), and is
+ * why this answers with a boolean instead of letting a rejection out: the
+ * caller has to be able to say "copied" or "could not" and mean it.
+ */
+export async function copyText(text) {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch { /* no clipboard write — try the old way */ }
+  try {
+    const scratch = h('textarea', { value: text, style: 'position:fixed;top:-1000px;opacity:0' });
+    document.body.append(scratch);
+    scratch.select();
+    const ok = document.execCommand('copy');
+    scratch.remove();
+    return ok;
+  } catch { return false; }
+}
+
+/**
+ * Whether this browser will let a page *read* the clipboard.
+ *
+ * Reading is the half browsers guard: writing is a user gesture away, reading
+ * is a page helping itself to whatever you last copied. Firefox — which is the
+ * engine this app actually runs on — has only exposed readText recently and
+ * puts a confirmation in front of it. So callers feature-detect and simply do
+ * not draw a Paste button where it cannot work: a control that silently does
+ * nothing is worse than one that isn't there.
+ */
+export function canPaste() {
+  return typeof navigator !== 'undefined' && !!navigator.clipboard?.readText;
+}
+
+/**
+ * Paste the clipboard into a textarea at the cursor — never over the whole
+ * field. A mis-tap then costs nothing: what you had written is still there,
+ * and insertText goes through the browser's own editing stack, so the
+ * keyboard's undo takes it straight back out. Assigning `.value` would do
+ * neither, and would also skip the `input` event that re-measures the box and
+ * re-runs the tagger — hence the explicit dispatch on the fallback path.
+ */
+export async function pasteInto(el) {
+  let text = '';
+  try { text = await navigator.clipboard.readText(); }
+  catch { return 'denied'; }
+  if (!text) return 'empty';
+
+  el.focus();
+  let inserted = false;
+  try { inserted = document.execCommand('insertText', false, text); } catch { inserted = false; }
+  if (!inserted) {
+    const from = el.selectionStart ?? el.value.length;
+    const to = el.selectionEnd ?? from;
+    el.setRangeText(text, from, to, 'end');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  return 'ok';
+}
+
 export function card(title, ...children) {
   return h('section.card', title && h('div.card-title', title), ...children);
 }
@@ -297,7 +362,11 @@ const SHAPES = {
   // which is a menu everywhere else in the world.
   grip:     [['line', 5, 9.5, 19, 9.5], ['line', 5, 14.5, 19, 14.5]],
   // A stack of cards, for the deck.
+  // Two overlapping cards: the flashcard deck, and — the same glyph the rest
+  // of the world uses — copy.
   cards:    [['rect', 4, 7, 12, 13, 2], ['path', 'M8 5h9a2 2 0 0 1 2 2v10']],
+  paste:    [['path', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2'],
+             ['rect', 9, 3, 6, 4, 1]],
   // Speaker + waves, and the muted twin. Not the mic: that one means "record",
   // which is the opposite end of the audio chain from "the app is beeping".
   sound:    [['path', 'M4 9.5h3.5L11 6v12L7.5 14.5H4Z'],

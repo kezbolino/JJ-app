@@ -3666,6 +3666,59 @@ data if forgotten:
   screens in light and dark at 360px; four tabs fit with no overflow, so
   `.st-pick` needed no change.
 
+- 2026-09-02 — **v65: Copy and Paste on the three log fields.** User: they paste
+  their notes into a chat to be summarised, and wanted buttons for it. Selecting
+  a long textarea by hand on a phone is long-press → drag two handles → Copy,
+  with a mis-grab at the end of each; the button is one tap.
+
+  **Copy is always offered, Paste only where the browser will actually hand a
+  page the clipboard.** Writing is a gesture away; *reading* is the half
+  browsers guard, and Firefox — the engine this app actually runs on — has only
+  exposed `readText` recently and puts a confirmation in front of it. So
+  `canPaste()` feature-detects and the button simply is not drawn where it
+  cannot work. A control that silently does nothing is the state this repo has
+  twice decided is worse than either alternative (v36's dead `Skip rest`, v18's
+  half-removed timer). **Whether it appears on the user's own phone is the one
+  thing the Chromium suite cannot answer** — same standing gap as the v55 drag.
+
+  **Paste inserts at the cursor and never replaces the box.** A mis-tap then
+  costs nothing, which matters because a log field is unsaved work — and it goes
+  in through `document.execCommand('insertText')`, which uses the browser's own
+  editing stack, so the keyboard's undo takes it straight back out. Assigning
+  `.value` would lose the undo *and* skip the `input` event that re-measures the
+  auto-growing box and re-runs the tagger; the `setRangeText` fallback therefore
+  dispatches one by hand. There is a test asserting a pasted technique reaches
+  the suggestions, and it fails on exactly that mistake.
+
+  **Copying an empty field does not touch the clipboard.** The whole point is
+  carrying text to a chat and back, so a stray tap on an empty box must not wipe
+  what you were carrying. Tested.
+
+  `copyText` / `canPaste` / `pasteInto` live in `js/ui.js` with `toast`, since
+  none of it is log-specific. `copyText` falls back to a scratch textarea +
+  `execCommand('copy')` for a non-secure context and returns a boolean, so the
+  toast can say "Copied" and mean it.
+
+  **A false lead worth not repeating.** The paste test failed on its first run
+  and I went looking for a focus bug — the tap leaves the selection inside a
+  `<button>`, so `focus()` not restoring the caret was a plausible story, and I
+  wrote a `setSelectionRange` fix with a comment claiming it was verified. It
+  was not: instrumenting showed the handler ran fine and the assertion was
+  simply racing the async `readText`. The fix belonged in the test. Reverted.
+  **Don't write "verified" into a comment for something you inferred.**
+
+  Also: `git checkout <file>` to undo a deliberately-introduced break reverts
+  the *whole* file, including the feature under test. Two of the three
+  break-verifications were fine; the third silently wiped the change and the
+  suite kept passing on code that no longer had the buttons in it. Stash the
+  break, or edit it back out.
+
+  Three failure modes verified by breaking the code first: paste replacing the
+  field, paste skipping the input event, and copy taking the whole form instead
+  of the field. Thirteen suites green by exit code (86 browser assertions in
+  `features`). Screenshot-checked light at 390px and dark at 360px, no
+  horizontal overflow. sw `CACHE` → v65, `VERSION` → v65, no files added.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,

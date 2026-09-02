@@ -805,6 +805,62 @@ await test('the log form picks gi or no-gi from the day, and stops once you do',
   await page.context().close();
 });
 
+await test('a log field copies its text to the clipboard', async () => {
+  const page = await newPage();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  await go(page, '/log');
+  await page.waitForSelector('textarea');
+
+  const read = () => page.evaluate(() => navigator.clipboard.readText());
+
+  // An empty field must not quietly wipe whatever you had on the clipboard —
+  // the whole point of these buttons is moving text into a chat and back.
+  await page.evaluate(() => navigator.clipboard.writeText('something you were carrying'));
+  await page.locator('.field').first().locator('button.link:has-text("Copy")').click();
+  assert.equal(await read(), 'something you were carrying', 'copying an empty field cleared the clipboard');
+
+  await page.locator('textarea').first().fill('Knee slice, cross face, hip pressure.');
+  await page.locator('.field').first().locator('button.link:has-text("Copy")').click();
+  assert.equal(await read(), 'Knee slice, cross face, hip pressure.');
+
+  // Each box copies its own text, not the form's.
+  await page.locator('textarea').nth(1).fill('Head on the far side before you pass.');
+  await page.locator('.field').nth(1).locator('button.link:has-text("Copy")').click();
+  assert.equal(await read(), 'Head on the far side before you pass.');
+  await page.context().close();
+});
+
+await test('pasting adds to a field at the cursor and still runs the tagger', async () => {
+  const page = await newPage();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  await go(page, '/log');
+  await page.waitForSelector('textarea');
+
+  const box = page.locator('textarea').first();
+  await box.fill('Drilled: ');
+  await page.evaluate(() => navigator.clipboard.writeText('kimura from side control'));
+  await page.locator('.field').first().locator('button.link:has-text("Paste")').click();
+  // Reading the clipboard is async, so the click returns before the text lands.
+  await page.waitForFunction(() => document.querySelector('textarea').value.length > 9);
+
+  // Appended, never replacing — a mis-tap must not eat what you wrote.
+  assert.equal(await box.inputValue(), 'Drilled: kimura from side control');
+
+  // And it arrived through the same input event as typing would, so the
+  // suggestions caught up. Setting .value directly is what would skip this.
+  await page.waitForTimeout(500);
+  const suggested = await page.locator('.tags .tag').allTextContents();
+  assert.equal(suggested.some(t => /kimura/i.test(t)), true,
+    `pasted text never reached the tagger — suggestions were ${JSON.stringify(suggested)}`);
+
+  // It is real text in the entry, not just on screen.
+  await page.click('button.btn.primary:has-text("Save entry")');
+  await page.waitForSelector('.sbit-total');
+  const saved = await page.evaluate(async () => (await import('/js/store.js')).allEntries());
+  assert.equal(saved[0].sections.techniques, 'Drilled: kimura from side control');
+  await page.context().close();
+});
+
 // ---------------------------------------------------------------------------
 // 5. Belt and promotions
 // ---------------------------------------------------------------------------

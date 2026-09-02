@@ -8,7 +8,7 @@
 // they're wrong. ⊘ on a suggestion stops that word being suggested ever again;
 // "Teach a word" maps your gym's name for something onto the real technique.
 
-import { h, card, toast, tagChip, empty, icon, fmtDate } from '../ui.js';
+import { h, card, toast, tagChip, empty, icon, fmtDate, copyText, canPaste, pasteInto } from '../ui.js';
 import { POSITIONS, POSITION_BY_ID, CONCEPTS, rolesFor } from '../ontology.js';
 import { suggestTags, tagKey } from '../tagger.js';
 import * as overrides from '../overrides.js';
@@ -179,6 +179,46 @@ export default async function log(root, { id, date } = {}) {
     });
     areas.push(el);
     return el;
+  };
+
+  /**
+   * A field, with Copy and Paste beside its label.
+   *
+   * These exist because the notes get pasted into a chat to be summarised, and
+   * selecting a long textarea by hand on a phone is three fiddly gestures with
+   * a mis-grab at the end of each. Copy is always offered; Paste only where the
+   * browser will actually hand a page the clipboard (js/ui.js canPaste), since
+   * a button that silently does nothing is worse than one that isn't drawn.
+   *
+   * Paste inserts at the cursor rather than replacing the box, so a mis-tap
+   * costs nothing — and it goes in through the same `input` event as typing,
+   * which is what re-measures the box and re-runs the tagger.
+   */
+  const fieldBlock = (label, key, placeholder) => {
+    const el = field(key, placeholder);
+
+    const copyBtn = h('button.link', {
+      type: 'button',
+      onclick: async () => {
+        if (!el.value.trim()) return toast('Nothing to copy yet');
+        toast(await copyText(el.value) ? 'Copied' : 'Could not reach the clipboard');
+      },
+    }, icon('cards'), 'Copy');
+
+    const pasteBtn = canPaste() && h('button.link', {
+      type: 'button',
+      onclick: async () => {
+        const result = await pasteInto(el);
+        if (result === 'denied') toast('The browser would not share the clipboard');
+        else if (result === 'empty') toast('The clipboard is empty');
+      },
+    }, icon('paste'), 'Paste');
+
+    return h('div.field',
+      h('div.field-head',
+        h('label.field-label', label),
+        h('div.field-acts', copyBtn, pasteBtn || null)),
+      el);
   };
 
   // Rotating the phone rewraps the text, so the boxes have to be remeasured.
@@ -392,15 +432,12 @@ export default async function log(root, { id, date } = {}) {
 
     dupeNotice,
 
-    h('div.field',
-      h('label.field-label', 'What we drilled'),
-      field('techniques', 'Knee slice pass, leg weave, cross face pressure…')),
-    h('div.field',
-      h('label.field-label', 'Key details'),
-      field('rolling', 'Grip the collar before you sit. Head on the far side…')),
-    h('div.field',
-      h('label.field-label', 'Key thoughts & adjustments'),
-      field('thoughts', 'Need to keep my hips lower when passing.')),
+    fieldBlock('What we drilled', 'techniques',
+      'Knee slice pass, leg weave, cross face pressure…'),
+    fieldBlock('Key details', 'rolling',
+      'Grip the collar before you sit. Head on the far side…'),
+    fieldBlock('Key thoughts & adjustments', 'thoughts',
+      'Need to keep my hips lower when passing.'),
 
     h('p.mic-hint', icon('mic'),
       'Tip: tap a field and switch to your voice keyboard to talk your notes in.'),
