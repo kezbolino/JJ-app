@@ -3794,6 +3794,58 @@ data if forgotten:
   Thirteen suites green by exit code (88 browser assertions in `features`, 16 in
   `sync`, smoke clean). sw `CACHE` → v66, `VERSION` → v66, no files added.
 
+- 2026-09-12 — **v67: the cool-down opens the front of the shoulder.** User:
+  *"When I do it I feel like my arms and shoulders are missing out."* They were
+  right, and the shape of it is worth keeping.
+
+  **Four of 21 holds were upper-limb, and every one of them was the wrong
+  side.** Child's pose (lats, overhead), thread the needle ×2 (**rear** shoulder,
+  posterior capsule) and the kneeling wrist stretch (forearm **flexors**). Grip
+  fighting, framing, posting and being stacked all pull you into internal
+  rotation and protraction, so the tissue that shortens is anterior — and the
+  routine was diligently stretching the side that was already long. Nothing in
+  it touched the chest. `sphinx` names "chest" in its targets but is a prone
+  thoracic press-up, which is how the gap stayed invisible.
+
+  **Two stretches, +2:00, 14:00 → 16:00, 13 items → 15, 21 holds → 24.**
+  `wrist-reverse` (Reverse wrist stretch) sits immediately after the existing
+  one — same kneel, hands flipped, backs down — so it closes the forearm
+  extensors for a position change of nothing. `pec-floor` (Prone chest opener,
+  two-sided) goes between `sphinx` and `supine-twist`, the two floor positions
+  the routine already passes through, and is the only hold in it that takes the
+  shoulder into horizontal extension. Biceps and triceps are still uncovered:
+  a dedicated overhead reach is another 80 seconds for much less return, and
+  the chest opener catches the biceps at the shoulder end.
+
+  **The existing test passed the whole time, and that is the finding.**
+  `the cool-down covers the areas grappling actually taxes` asserts the word
+  "shoulder" appears in the routine's targets — it appeared twice, and both were
+  the back of it. **Asking whether a word is named is not asking for coverage**,
+  which is the same shape as v56 recording the artwork as finished because the
+  figures rendered. Two new tests ask for the *direction* instead: one requires
+  a chest/pec target **and** that something other than `sphinx`/`supine-twist`
+  carries it (or the next person deletes the stretch and the suite shrugs), the
+  other requires both `flexor` and `extensor` in the forearm targets. All three
+  failure modes verified by breaking the data first.
+
+  **The cool-down's asserted window moved 10–15 → 10–17 minutes**, deliberately
+  and once: the two minutes were the user's call, and 17 is the line past which
+  this stops being something you actually do after a class.
+
+  **Three browser assertions hard-coded `hold N of 21` and all three broke** —
+  the v44 lesson again, a number copied out of the data failing on every change
+  to the data without ever finding a bug. There is a `holdCount(page)` helper
+  now that asks the module.
+
+  Both movements ship with **no figure and no voice clip**, declared in
+  `PENDING_ART` (33) and `PENDING_CUES` (29) rather than left silent. Drove the
+  whole routine at 30× in a browser: all 15 in order, the two new ones drawing
+  no frame rather than an empty box, no page errors. Thirteen suites green by
+  exit code (88 browser assertions in `features`, 40 in `stretches`, 16 in
+  `sync`; `schedule` under UTC, LA and Sydney). Screenshot-checked the intro
+  and the new running screens in light and dark at 390px, no horizontal
+  overflow. sw `CACHE` → v67, `VERSION` → v67, no files added.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,

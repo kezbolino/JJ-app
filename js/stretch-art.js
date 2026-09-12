@@ -137,6 +137,12 @@ export const PENDING_ART = new Set([
   // but came out of the same low-resolution extraction, which v48 itself
   // measured as visibly worse than a full-size trace. Regenerate the batch
   // together when there is a reason to touch it.
+  // Added in v67 to close the cool-down's front-of-shoulder gap. Never drawn
+  // rather than withdrawn — the two are indistinguishable to the tests, which
+  // is the point of this set, but not to anyone reading it.
+  'wrist-reverse',
+  'pec-floor',
+
   'warmup-squat',
   'warmup-arm-circle',
   'warmup-leg-swing',

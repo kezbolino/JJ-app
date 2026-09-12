@@ -53,6 +53,10 @@ export function pickVoice(setting, rand = Math.random) {
  * docs/VOICE-SCRIPTS.md before anyone sits down at a microphone.
  */
 export const PENDING_CUES = new Set([
+  // v67's two cool-down additions. Two lines to record in both voices when
+  // the Pilates batch is done — see docs/VOICE-SCRIPTS.md.
+  'wrist-reverse',
+  'pec-floor',
   // The Pilates routine (v64), shipped without audio on purpose — the routine
   // works from day one with beeps, and 27 lines × 2 voices is its own job.
   'pil-breathing',

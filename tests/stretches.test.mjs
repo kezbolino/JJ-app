@@ -149,6 +149,35 @@ test('the cool-down covers the areas grappling actually taxes', () => {
   }
 });
 
+/**
+ * The shoulder, in the direction that actually shortens.
+ *
+ * The test above passed for eleven versions while the front of the shoulder was
+ * untouched, because naming "shoulder" twice satisfied it — and both of those
+ * were the *back* (thread the needle, child's pose). Grip fighting, framing,
+ * posting and being stacked all pull you into internal rotation, so the routine
+ * was diligently opening the side that was already long. Asking for a word is
+ * not asking for coverage; these two ask for the direction.
+ */
+test('the cool-down opens the front of the shoulder, not only the back', () => {
+  const all = postClass.items.map(s => `${s.name} ${s.targets}`).join(' ').toLowerCase();
+  assert.ok(/chest|pec/.test(all), 'nothing in the cool-down opens the chest');
+  assert.ok(all.includes('front of shoulder'),
+    'nothing in the cool-down targets the front of the shoulder');
+  // Sphinx names "chest" but is a thoracic press-up, so it must not be the only
+  // thing carrying this — the point is a hold whose whole job is the chest.
+  const chestItems = postClass.items.filter(s => /chest|pec/.test(s.targets.toLowerCase()));
+  assert.ok(chestItems.some(s => s.id !== 'sphinx' && s.id !== 'supine-twist'),
+    'only sphinx and the twist mention the chest, and neither is a chest stretch');
+});
+
+/** Gripping shortens both sides of the forearm; only one was being opened. */
+test('the cool-down stretches both sides of the forearm', () => {
+  const targets = postClass.items.map(s => s.targets.toLowerCase());
+  assert.ok(targets.some(t => t.includes('flexor')), 'nothing opens the forearm flexors');
+  assert.ok(targets.some(t => t.includes('extensor')), 'nothing opens the forearm extensors');
+});
+
 test('the rest-day session loads the end of the range, not just the neck', () => {
   const all = restDay.items.map(s => `${s.name} ${s.targets}`).join(' ').toLowerCase();
   for (const area of ['adductor', 'hamstring', 'glute', 'hip', 'shoulder', 'neck', 'thoracic']) {
@@ -235,8 +264,12 @@ test('every side of every item gets a set', () => {
 });
 
 test('both routines land in the window they were asked for', () => {
+  // Asked for as 10–15 minutes and built at 14:00. v67 bought the front of the
+  // shoulder for two more minutes, which was the user's call — the ceiling
+  // moved once, on purpose, and 17 is still the line past which this stops
+  // being something you will actually do after a class.
   const cool = routineMs(postClass) / 60_000;
-  assert.ok(cool >= 10 && cool <= 15, `cool-down is ${cool} min, outside 10–15`);
+  assert.ok(cool >= 10 && cool <= 17, `cool-down is ${cool} min, outside 10–17`);
   const rest = routineMs(restDay) / 60_000;
   assert.ok(rest >= 15 && rest <= 26, `rest day is ${rest} min, outside 15–26`);
   // Pilates was specified as "a 30 minute session". A routine that quietly

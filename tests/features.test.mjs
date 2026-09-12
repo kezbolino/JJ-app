@@ -85,6 +85,17 @@ const setSetting = (page, key, value) => page.evaluate(async ([k, v]) => {
   await store.setSetting(k, v);
 }, [key, value]);
 
+/**
+ * How many holds the cool-down actually has, asked of the module rather than
+ * typed in. Three assertions below hard-coded the total, and all three broke
+ * the day a stretch was added — a number copied out of the data fails on every
+ * future change to it without ever finding a bug (the v44 lesson).
+ */
+const holdCount = (page, routineId = 'post-class') => page.evaluate(async id => {
+  const m = await import('/js/stretches.js');
+  return m.segments(m.ROUTINES.find(r => r.id === id)).length;
+}, routineId);
+
 const go = async (page, hash) => {
   await page.evaluate(h => { location.hash = h; }, hash);
   await page.waitForTimeout(260);
@@ -1187,7 +1198,8 @@ await test('starting the routine opens on the first stretch, getting ready', asy
   // innerText reports them shouting. The words are the contract, not the case.
   assert.match(await page.locator('.st-phase').innerText(), /get ready/i);
   assert.equal(await page.locator('.st-count').innerText(), '0:10');
-  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 21/i);
+  assert.match(await page.locator('.st-step').innerText(),
+    new RegExp(`hold 1 of ${await holdCount(page)}`, 'i'));
   assert.ok(await page.locator('.st-fig svg').isVisible(), 'no illustration while stretching');
   assert.ok((await page.locator('.st-cue').innerText()).length > 20, 'no coaching cue on screen');
   await page.context().close();
@@ -1206,12 +1218,14 @@ await test('a two-sided stretch runs the same stretch twice, left then right', a
   await page.waitForTimeout(200);
   assert.equal(await page.locator('.st-name').innerText(), first, 'the second side changed stretch');
   assert.match(await page.locator('.st-side').innerText(), /right side/i);
-  assert.match(await page.locator('.st-step').innerText(), /hold 2 of 21/i);
+  assert.match(await page.locator('.st-step').innerText(),
+    new RegExp(`hold 2 of ${await holdCount(page)}`, 'i'));
 
   // Back returns to the side you just came from rather than the start.
   await page.click('.st-back');
   await page.waitForTimeout(200);
-  assert.match(await page.locator('.st-step').innerText(), /hold 1 of 21/i);
+  assert.match(await page.locator('.st-step').innerText(),
+    new RegExp(`hold 1 of ${await holdCount(page)}`, 'i'));
   await page.context().close();
 });
 

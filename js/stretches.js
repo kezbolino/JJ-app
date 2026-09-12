@@ -60,8 +60,19 @@ const POST_CLASS_ITEMS = [
   {
     id: 'wrist-floor',
     name: 'Kneeling wrist stretch',
-    targets: 'Wrists · forearms',
+    targets: 'Wrists · forearm flexors',
     cue: 'Kneel, palms flat on the floor, fingers pointing back at your knees. Rock your weight back gently.',
+    bilateral: false,
+  },
+  // The other half of the one above, and it is deliberately adjacent: same
+  // kneeling set-up, hands flipped, so it costs a position change of nothing.
+  // Palms-down stretches the flexors; a two-hour grip battle shortens both
+  // sides and only one of them was ever being opened.
+  {
+    id: 'wrist-reverse',
+    name: 'Reverse wrist stretch',
+    targets: 'Wrists · forearm extensors',
+    cue: 'Same kneel, hands flipped — backs of the hands down, fingers toward your knees. Ease back until the tops of the forearms pull.',
     bilateral: false,
   },
   {
@@ -138,6 +149,20 @@ const POST_CLASS_ITEMS = [
     targets: 'Thoracic extension · chest · abs',
     cue: 'Lie face down, forearms under your shoulders. Lift the chest and lengthen up — open the ribs, don’t crunch the low back.',
     bilateral: false,
+  },
+  // The gap this routine had until v67: every other upper-body hold in it opens
+  // the *back* of the shoulder (thread the needle, child's pose) or the
+  // underside of the forearm, while grip fighting, framing, posting and being
+  // stacked all shorten the front. Sphinx names "chest" but is a thoracic
+  // press-up — this is the only thing here that actually takes the shoulder
+  // into horizontal extension. Placed between the two floor positions the
+  // routine already passes through, so it adds no position change.
+  {
+    id: 'pec-floor',
+    name: 'Prone chest opener',
+    targets: 'Chest · front of shoulder · biceps',
+    cue: 'Face down, one arm straight out at shoulder height, palm down. Roll onto that shoulder and let the other hand walk you over until the chest opens.',
+    bilateral: true,
   },
   {
     id: 'supine-twist',
