@@ -3938,6 +3938,38 @@ data if forgotten:
   `PENDING_ART` (40) and `PENDING_CUES` (36). One asset per *movement*, not per
   level.
 
+- 2026-09-13 — **v65, v66, v67 and v68 deployed.** `main` fast-forwarded
+  `a2ee37e..ad08f68` and pushed. Checked at the **job** level per the 2026-08-06
+  note: `build` succeeded in 24s, `report-build-status` in 4s, `deploy` in 11s
+  (16:31:17→16:31:28Z, run `34768800099`). Eighth clean deploy in a row.
+
+  Ship gate: thirteen suites green *by exit code* (91 browser assertions in
+  `features`, 49 in `stretches`, 16 in `sync`, smoke clean; `schedule` under
+  UTC, LA and Sydney), `CACHE` == `VERSION` == v68, clean tree, fast-forward
+  confirmed with `git merge-base --is-ancestor` rather than assumed.
+
+  **Four versions had accumulated on the branch**, which is the v58–v60 pattern
+  again: each ended on an offer to ship rather than shipping. The user's phone
+  read v64 correctly the whole time. The standing rule holds — if the work is
+  finished and green, ship it rather than parking it behind a confirmation.
+
+  **The visible tells:** the footer reads `JUJI v68`; the three log fields carry
+  **Copy** and **Paste** beside their labels (v65); the after-class cool-down is
+  **16:00** and ends Sphinx → Prone chest opener → Supine spinal twist (v67);
+  Off mat has a fifth tab, **Knees**, whose intro says *Level 1 of 3* (v68). Four
+  rest-day movements now draw no figure at all — `warmup-squat`, `warmup-arm-circle`,
+  `warmup-leg-swing` and `neck-isometric` were withdrawn in v66 because their
+  heads were cut off, and they stay blank until redrawn.
+
+  **The first open wants a moment on wifi.** `js/stretch-art.js` shrank 166 KB →
+  146 KB but `CACHE` changed, so the whole atomically-precached `CORE` comes
+  down again. Settings → Offline use is where to confirm it settled.
+
+  **No churn expected in `jj-app-data`** — none of the four touches
+  `js/markdown.js`, the entry model or `js/appstate.js`. v68's knee levels ride
+  on `mobilitySessions`, which has synced as `byId` since v46, so the first sync
+  just carries whatever the phone has.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3946,9 +3978,9 @@ and the artwork job — parked since 2026-08-07 with seven mobility and ten
 strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 `docs/ART-PROMPTS.md` is marked done.
 
-**Live at v64.** v63 and v64 deployed on 2026-08-30 (`main` at `a2ee37e`,
-Pages run `33298202339`, build and deploy both green). Every session from v53 on
-has shipped and been verified at the Pages **job** level, not the run badge.
+**Live at v68.** v65–v68 deployed together on 2026-09-13 (`main` at `ad08f68`,
+Pages run `34768800099`). Every session from v53 on has shipped and been
+verified at the Pages **job** level, not the run badge.
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported
