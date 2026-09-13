@@ -937,6 +937,15 @@ a.banner .b-txt.muted { color: var(--muted); }
 }
 .st-volume-hint svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--accent); }
 
+/* The knee routine's level readout. Same shape as the volume hint below it,
+   accent rather than amber — earning a level is progress, not a gap. */
+.st-level {
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 0; font-size: .8rem; color: var(--sub);
+}
+.st-level b { color: var(--text); font-weight: 800; }
+.st-level svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--accent); }
+
 .field { margin-bottom: 20px; }
 .field-label {
   display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
@@ -1331,13 +1340,18 @@ a.cal__day:active { transform: scale(.9); }
    is a <button> (it swaps in place, so a running routine survives); the
    strength tab is an <a> (a different screen). Both are styled here, because
    which element a tab is says nothing about how it should look. */
+/* Four tabs fitted one row comfortably; the fifth (v68's Knees) clipped
+   Strength by 3px at 360 and 43px at 320. It wraps rather than scrolls: a tab
+   pushed off the side of a scroller is a screen you cannot find, and this
+   picker is the only route to the lift. Tighter side padding buys back the
+   360px row, and `flex-wrap` catches anything narrower. */
 .st-pick {
-  display: flex; gap: 4px; padding: 4px; margin-bottom: var(--gap);
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin-bottom: var(--gap);
   background: var(--surface-2); border-radius: var(--r-tile);
 }
 .st-pick button, .st-pick a {
-  flex: 1; border: 0; cursor: pointer; font-family: inherit; text-align: center;
-  padding: 9px 6px; border-radius: 10px; background: none; color: var(--muted);
+  flex: 1 1 auto; border: 0; cursor: pointer; font-family: inherit; text-align: center;
+  padding: 9px 4px; border-radius: 10px; background: none; color: var(--muted);
   font-size: .82rem; font-weight: 800; text-decoration: none; white-space: nowrap;
   transition: background .16s var(--spring), color .16s var(--spring);
 }

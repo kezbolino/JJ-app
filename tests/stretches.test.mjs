@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
   ROUTINES, DEFAULT_ROUTINE, getRoutine, segments, segmentMs, routineMs, clock,
+  levelFor, itemAt, routineAt, completionsOf, sessionsToNextLevel, SESSIONS_PER_LEVEL,
   READY_MS, HOLD_MS, SEGMENT_MS, OTHER_SIDE_CUES, HYPE_CUES, FINISH_CUES,
   pickOtherSide, pickHype, pickFinish,
   phasesFor, segmentAt, stretchFigure,
@@ -48,15 +49,34 @@ test('an unknown routine id falls back to the cool-down instead of crashing', ()
   assert.equal(getRoutine(undefined).id, DEFAULT_ROUTINE);
 });
 
-test('every item is complete, and ids are unique across both routines', () => {
-  const ids = new Set();
+test('every item is complete, and an id always names the same movement', () => {
+  // Ids may repeat *across* routines and deliberately do: the knee routine's
+  // warm-up reuses the rest day's three, exactly as `single-leg-rdl` is one
+  // movement shared by the rest day and the lift (v49). One id is one figure
+  // and one voice clip, so sharing is the point — what must never happen is
+  // the same id naming two different movements, which would put the wrong
+  // drawing and the wrong spoken name on screen with nothing to notice.
+  const seen = new Map();
   for (const item of allItems) {
-    assert.ok(item.id && !ids.has(item.id), `duplicate or missing id: ${item.id}`);
-    ids.add(item.id);
+    assert.ok(item.id, 'an item has no id');
+    const prior = seen.get(item.id);
+    if (prior) {
+      assert.equal(item.name, prior.name, `${item.id} names two different movements`);
+      assert.equal(item.targets, prior.targets, `${item.id} targets two different things`);
+    }
+    seen.set(item.id, item);
     assert.ok(item.name, `${item.id} has no name`);
     assert.ok(item.targets, `${item.id} names no muscle group`);
     assert.ok(item.cue && item.cue.length > 20, `${item.id} has no usable cue`);
     assert.equal(typeof item.bilateral, 'boolean', `${item.id} does not say whether it has sides`);
+  }
+});
+
+/** Within one routine an id must still be unique, or the counter lies. */
+test('no routine lists the same movement twice', () => {
+  for (const r of ROUTINES) {
+    const ids = r.items.map(i => i.id);
+    assert.equal(new Set(ids).size, ids.length, `${r.id} lists a movement twice`);
   }
 });
 
@@ -139,6 +159,95 @@ test('the artwork that exists is square-framed and theme-neutral', () => {
     // No baked colours: a figure with its own fill vanishes against one theme.
     assert.doesNotMatch(art.d, /#[0-9a-f]{3,6}/i, `${id} has a colour in its path data`);
   }
+});
+
+const knees = ROUTINES.find(r => r.id === 'knees');
+
+test('the knee routine warms itself up, because it may be the only thing done', () => {
+  // The cool-down needs no warm-up: a class just provided one. This loads
+  // knees under a bell and through deep flexion and is explicitly the "no time
+  // for anything else" session, so it cannot assume you are warm.
+  const warmups = knees.items.filter(i => i.warmup);
+  assert.equal(warmups.length, 3, 'the knee routine lost its warm-up');
+  assert.ok(warmups.every(w => restDay.items.some(r => r.id === w.id)),
+    'a knee warm-up id is not one the rest day already defines — it would need its own clip');
+});
+
+test('a level costs more than one good day', () => {
+  // Every other assertion here reads SESSIONS_PER_LEVEL, so none of them can
+  // catch it being changed — the constant *is* the policy, and dropping it to
+  // 1 means a level per session, which is not a progression, it is a treadmill.
+  // Ranged rather than pinned, so tuning it deliberately is not a test failure.
+  assert.ok(SESSIONS_PER_LEVEL >= 2,
+    'one session buys a level — the same instinct as the strength ladder needing two good sessions');
+  assert.ok(SESSIONS_PER_LEVEL <= 10,
+    `${SESSIONS_PER_LEVEL} sessions a level is months to the top — nobody will see level 3`);
+});
+
+test('a knee level is earned by finishing, and nothing else', () => {
+  const item = knees.items.find(i => i.id === 'slider-curl');
+  const n = item.levels.length;
+  assert.equal(itemAt(item, 0).level, 0);
+  assert.equal(itemAt(item, SESSIONS_PER_LEVEL - 1).level, 0, 'levelled up one session early');
+  assert.equal(itemAt(item, SESSIONS_PER_LEVEL).level, 1);
+  assert.equal(itemAt(item, SESSIONS_PER_LEVEL * 2).level, 2);
+  // Running out of levels is the routine being finished with you, not an error.
+  assert.equal(itemAt(item, 9999).level, n - 1, 'ran off the end of the levels');
+  assert.equal(sessionsToNextLevel(0, n), SESSIONS_PER_LEVEL);
+  assert.equal(sessionsToNextLevel(SESSIONS_PER_LEVEL - 1, n), 1);
+  assert.equal(sessionsToNextLevel(SESSIONS_PER_LEVEL * 2, n), null, 'top level still promises another');
+});
+
+test('a level changes the dose and the cue, never the id or the name', () => {
+  // This is what keeps the routine at seven figures and seven voice lines
+  // rather than twenty-one. Break it and every level needs its own asset.
+  for (const item of knees.items.filter(i => i.levels?.length)) {
+    for (let c = 0; c < item.levels.length * SESSIONS_PER_LEVEL; c += SESSIONS_PER_LEVEL) {
+      const at = itemAt(item, c);
+      assert.equal(at.id, item.id, `${item.id} changes id at ${c} sessions`);
+      assert.equal(at.name, item.name, `${item.id} changes name at ${c} sessions`);
+      assert.ok(at.dose, `${item.id} has no dose at ${c} sessions`);
+      assert.ok(at.cue.length > 20, `${item.id} has no usable cue at ${c} sessions`);
+    }
+  }
+});
+
+test('every level is a real step up, not the same text twice', () => {
+  for (const item of knees.items.filter(i => i.levels?.length)) {
+    const doses = item.levels.map(l => l.dose);
+    const cues = item.levels.map(l => l.cue);
+    assert.equal(new Set(doses).size, doses.length, `${item.id} repeats a dose between levels`);
+    assert.equal(new Set(cues).size, cues.length, `${item.id} repeats a cue between levels`);
+  }
+});
+
+test('only the knee routine progresses, and the others are untouched by it', () => {
+  for (const r of ROUTINES) {
+    const levelled = r.items.some(i => i.levels?.length);
+    assert.equal(!!r.progresses, levelled, `${r.id}: progresses flag and levels disagree`);
+    // routineAt is identity for a routine without levels — that is the whole
+    // reason the other three needed no changes.
+    if (!levelled) assert.equal(routineAt(r, 12), r, `${r.id} was rebuilt by routineAt for nothing`);
+  }
+});
+
+test('completions are counted from the mobility log, per routine', () => {
+  const log = [
+    { id: 'a', date: '2026-09-01', routine: 'knees' },
+    { id: 'b', date: '2026-09-02', routine: 'rest-day' },
+    { id: 'c', date: '2026-09-03', routine: 'knees' },
+  ];
+  assert.equal(completionsOf('knees', log), 2);
+  assert.equal(completionsOf('rest-day', log), 1);
+  assert.equal(completionsOf('pilates', log), 0);
+  assert.equal(completionsOf('knees', []), 0, 'an empty log is level 1, not a crash');
+});
+
+test('the knee routine fits the gap it was asked for', () => {
+  // "Not enough time for the others, enough for this one." Past ~15 it stops
+  // being the short option and starts competing with the rest day.
+  const mins = routineMs(knees) / 60_000;
+  assert.ok(mins >= 9 && mins <= 15, `knees is ${mins} min, outside 9–15`);
 });
 
 test('the cool-down covers the areas grappling actually taxes', () => {

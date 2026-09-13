@@ -3846,6 +3846,98 @@ data if forgotten:
   and the new running screens in light and dark at 390px, no horizontal
   overflow. sw `CACHE` → v67, `VERSION` → v67, no files added.
 
+- 2026-09-13 — **v68: a knee routine, and the first progression outside the
+  lift.** User asked for knee work from kettlebells and bodyweight, then the
+  question that decided the shape: *"What if I don't have time to do the others
+  but enough time to do just knee strengthening ones."*
+
+  **Seven movements, chosen against what the app already had.** The lower body
+  was well covered — squat pattern, hip hinge, adductors, glute med — but every
+  one of them works the **hip**. The hamstring is two-joint, and a single-leg
+  RDL loads it at the hip; its action at the **knee** has been untrained since
+  v49 removed the Nordic curl for want of an ankle anchor, and nothing replaced
+  it. So: `slider-curl` (heels on a towel — no anchor, which is exactly what
+  killed the Nordic), `sissy-squat` as its quad counterpart, `goblet-squat` for
+  loaded deep flexion, `step-down` and `lateral-step-down` for single-leg and
+  frontal-plane control, and `tib-raise` / `soleus-raise` for the shin — the
+  soleus resists the tibia sliding forward, which is the ACL's own job.
+
+  **The user asked for a reverse Nordic to be dropped "as I don't have the
+  equipment".** It needs none — they were thinking of the *regular* Nordic curl.
+  Said so, then swapped it anyway for the supported sissy squat, because the
+  real objection underneath was sound: kneeling with your weight through your
+  kneecaps on a hard floor is unpleasant. Correct the fact, take the decision.
+
+  **What it is honestly for**, and the intro screen says it: general
+  knee-resilience work, not grappling-specific. The injuries that stop BJJ
+  players are **acute and rotational** — heel hooks, reaps, a body on a planted
+  foot — and no strength holds a ligament against a torque it is not built for.
+  This is for the grinding half. Same line as coverage-is-attention-not-skill.
+
+  **It carries its own warm-up, and that is why it is separate rather than
+  bolted onto the rest day.** The cool-down needs none because a class just
+  warmed you up; this loads knees under a bell and may be the only thing done
+  that day. Its three set-up items are **taken by reference from
+  `REST_DAY_ITEMS`** via `sharedWarmup()`, overriding only the cue — so a shared
+  id can never drift into naming two different movements, which would put the
+  wrong figure and the wrong spoken name on screen with nothing to notice. They
+  already have clips in both voices, so the session is not mute from the off.
+
+  **LEVELS — the first progression outside `js/strength.js`, and deliberately
+  not that ladder.** The lift advances on reps hit at a tempo, which needs
+  per-set logging and makes the screen a form. A timeline records nothing per
+  set, so the only honest signal is *did you finish* — which
+  `logMobilitySession` has stored as one row per routine per day since v40, and
+  which already syncs (`byId`, v46). **So the progression needed no new storage
+  and no change to `js/appstate.js`**, the module this repo is most careful
+  about. Four completions buy a level; three levels; `levelFor`, `itemAt`,
+  `routineAt`, `completionsOf` and `sessionsToNextLevel` are all pure.
+
+  **A level changes `dose` and `cue`, never `name` or `id`.** That is what keeps
+  this at seven figures and seven voice lines instead of twenty-one, and there
+  is a test on it. `routineAt` is identity for a routine without levels, which
+  is why the other three needed no changes at all.
+
+  **Two tests were asserting the wrong invariant and both were rewritten, not
+  patched.** `ids are unique across both routines` forbade the id sharing that
+  is the whole point of one-movement-one-figure (`single-leg-rdl` has been
+  shared since v49); it now asserts a repeated id names the *same* movement,
+  with a second test keeping ids unique *within* a routine. And a browser test
+  hard-coded the four tab labels — the v44 lesson in a test v64 had already
+  fixed the *count* of; it derives from `ROUTINES` now.
+
+  **A test that could not fail, and the fix.** Every level assertion reads
+  `SESSIONS_PER_LEVEL`, so changing the constant changes the tests with it —
+  dropping it to 1 stayed green. The value *is* the policy here, so it needed
+  its own ranged guard (2–10): pinning it to 4 would fail on a deliberate tune,
+  ranging it catches a level-per-session treadmill.
+
+  **Five tabs needed a real fix, found by measuring rather than by the
+  screenshot looking fine.** `Strength` clipped by 3px at 360 and 43px at 320.
+  `.st-pick` now wraps and has tighter side padding — it **wraps rather than
+  scrolls** on purpose: a tab pushed off the side of a scroller is a screen you
+  cannot find, and that picker is the only route to the lift.
+
+  **I hit the v65 `git checkout` trap again, in the session that wrote it down.**
+  Undoing a deliberate break with `git checkout js/stretches.js` reverted the
+  whole file and wiped the routine; recovered from a `cp` taken beforehand.
+  Sharper rule: **never `git checkout` a file that has uncommitted work in it** —
+  copy it first, restore with `cp`.
+
+  10 movements, 13 sets, **12:05**. Four failure modes verified by breaking the
+  data first (no advance, id changing per level, warm-up dropped, levelling past
+  the last level), plus the constant guard. Drove the whole routine at 40× — all
+  ten in order, both new absences drawing no frame, logged `knees` on the
+  calendar — then drove the progression itself: 0→L1, 3→L1, 4→L2, 8→L3, with the
+  intro list's doses hardening in step. Thirteen suites green by exit code (91
+  browser assertions in `features`, 49 in `stretches`, 16 in `sync`; `schedule`
+  under UTC, LA and Sydney). Screenshot-checked light 390 / dark 360, tab picker
+  measured at 412/390/360/320. sw `CACHE` → v68, `VERSION` → v68, no files added.
+
+  **Outstanding:** seven figures and seven voice lines × 2 voices, declared in
+  `PENDING_ART` (40) and `PENDING_CUES` (36). One asset per *movement*, not per
+  level.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,

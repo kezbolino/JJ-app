@@ -1327,9 +1327,14 @@ await test('pilates is a third routine under the same tab, and runs', async () =
   const page = await newPage();
   await go(page, '/stretch?r=pilates');
 
-  // Four tabs now, and the Off mat tab lights for all of them.
-  const tabs = await page.locator('.st-pick > *').allTextContents();
-  assert.deepEqual(tabs, ['After class', 'Rest day', 'Pilates', 'Strength']);
+  // Every routine gets a tab, in order, then Strength — derived, because a
+  // hard-coded list breaks on every routine ever added and finds no bug doing
+  // it. That is the v44 lesson, and v64 already fixed the *count* here.
+  const expected = await page.evaluate(async () => {
+    const m = await import('/js/stretches.js');
+    return [...m.ROUTINES.map(r => r.name), 'Strength'];
+  });
+  assert.deepEqual(await page.locator('.st-pick > *').allTextContents(), expected);
   assert.equal(await page.locator('.st-pick .is-on').innerText(), 'Pilates');
   assert.equal(await page.locator('.tabbar a[data-tab="/stretch"][aria-current]').count(), 1,
     'the Off mat tab does not light for pilates');
@@ -1354,6 +1359,63 @@ await test('pilates is a third routine under the same tab, and runs', async () =
   assert.ok(await page.locator('.st-fig').evaluate(el => el.hidden),
     'the figure slot should be hidden while there is no artwork');
   await page.click('.st-end');
+  await page.context().close();
+});
+
+await test('the knee routine carries its own warm-up and says what level it is on', async () => {
+  const page = await newPage();
+  await go(page, '/stretch?r=knees');
+
+  // It exists to be the session you do when there is time for nothing else, so
+  // it cannot borrow the rest day's warm-up by being run after it.
+  assert.deepEqual(await page.locator('.section-head h3').allTextContents(),
+    ['Warm up', 'Main session']);
+  assert.match(await page.locator('.st-needs').innerText(), /kettlebell/i);
+  assert.match(await page.locator('.st-intro-n').innerText(), /^1[0-4]:\d\d/);
+
+  // Level 1 on a fresh device, and it states the rule as well as the position —
+  // a progression whose trigger is invisible reads as the app changing its mind.
+  const line = await page.locator('.st-level').innerText();
+  assert.match(line, /level 1 of 3/i);
+  assert.match(line, /more sessions to level 2/i);
+  await page.context().close();
+});
+
+await test('finishing the knee routine logs it and buys a level', async () => {
+  const page = await newPage();
+  const perLevel = await page.evaluate(async () => {
+    const m = await import('/js/stretches.js');
+    return m.SESSIONS_PER_LEVEL;
+  });
+
+  // One short of a level: still level 1, and the dose is the easy one.
+  await page.evaluate(async n => {
+    const store = await import('/js/store.js');
+    for (let i = 0; i < n; i++) await store.logMobilitySession('knees', `2026-08-0${i + 1}`);
+  }, perLevel - 1);
+  await go(page, '/stretch?r=knees');
+  assert.match(await page.locator('.st-level').innerText(), /level 1 of 3/i);
+  assert.match(await page.locator('.st-item', { hasText: 'Goblet squat' }).innerText(), /10kg/i);
+
+  // One more completion crosses it, and the whole list hardens together.
+  await page.evaluate(async () => {
+    const store = await import('/js/store.js');
+    await store.logMobilitySession('knees', '2026-08-20');
+  });
+  await go(page, '/home');
+  await go(page, '/stretch?r=knees');
+  assert.match(await page.locator('.st-level').innerText(), /level 2 of 3/i);
+  assert.match(await page.locator('.st-item', { hasText: 'Goblet squat' }).innerText(), /16kg/i);
+  await page.context().close();
+});
+
+await test('only the knee routine shows a level — the others have none', async () => {
+  const page = await newPage();
+  for (const r of ['post-class', 'rest-day', 'pilates']) {
+    await go(page, `/stretch?r=${r}`);
+    assert.equal(await page.locator('.st-level').count(), 0,
+      `${r} claims a level it does not have`);
+  }
   await page.context().close();
 });
 

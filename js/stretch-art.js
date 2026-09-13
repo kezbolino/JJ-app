@@ -137,6 +137,16 @@ export const PENDING_ART = new Set([
   // but came out of the same low-resolution extraction, which v48 itself
   // measured as visibly worse than a full-size trace. Regenerate the batch
   // together when there is a reason to touch it.
+  // v68's knee routine. Seven movements, seven figures — one per movement, not
+  // one per level: a level changes the dose and the cue, never the id.
+  'goblet-squat',
+  'step-down',
+  'lateral-step-down',
+  'sissy-squat',
+  'slider-curl',
+  'tib-raise',
+  'soleus-raise',
+
   // Added in v67 to close the cool-down's front-of-shoulder gap. Never drawn
   // rather than withdrawn — the two are indistinguishable to the tests, which
   // is the point of this set, but not to anyone reading it.

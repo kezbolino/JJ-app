@@ -53,6 +53,15 @@ export function pickVoice(setting, rand = Math.random) {
  * docs/VOICE-SCRIPTS.md before anyone sits down at a microphone.
  */
 export const PENDING_CUES = new Set([
+  // v68's knee routine. Its three warm-up items reuse rest-day ids, so those
+  // already have clips in both voices — the session is not mute from the off.
+  'goblet-squat',
+  'step-down',
+  'lateral-step-down',
+  'sissy-squat',
+  'slider-curl',
+  'tib-raise',
+  'soleus-raise',
   // v67's two cool-down additions. Two lines to record in both voices when
   // the Pilates batch is done — see docs/VOICE-SCRIPTS.md.
   'wrist-reverse',

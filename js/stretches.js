@@ -576,6 +576,206 @@ const PILATES_ITEMS = [
  * division rather than a running count, and a phone that sleeps mid-session
  * resumes in the right place instead of drifting.
  */
+/**
+ * Rest-day warm-up items, re-cued for another routine.
+ *
+ * By reference on purpose: an id is one movement, one figure and one voice
+ * clip everywhere it appears, so the identity fields must have exactly one
+ * definition. Throws on a typo rather than silently dropping a warm-up.
+ */
+function sharedWarmup(cues) {
+  return Object.entries(cues).map(([id, cue]) => {
+    const base = REST_DAY_ITEMS.find(i => i.id === id);
+    if (!base) throw new Error(`sharedWarmup: no rest-day item "${id}"`);
+    return { ...base, cue };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Routine 4 — knees. Loaded, and the only routine that progresses.
+// ---------------------------------------------------------------------------
+//
+// **What it is for, stated honestly, because the intro screen says it too.**
+// These are general knee-resilience movements, not grappling-specific ones —
+// the same material behind ACL-prevention work. What made *these* seven the
+// list is the sport's exposures: hours in deep flexion (heels, knee-on-belly,
+// shrimping), the hamstring's job at the knee, the soleus resisting the shin
+// sliding forward, and single-leg control in a scramble.
+//
+// **What it cannot do.** The knee injuries that stop BJJ players are mostly
+// acute and rotational — heel hooks, reaps, a body landing on a planted foot.
+// No amount of strength holds a ligament against a torque it is not built for;
+// tapping early does. This routine is for the grinding half: capacity in deep
+// flexion, and enough robustness that a bad scramble is a wobble.
+//
+// **It carries its own warm-up, and that is the whole reason it is separate.**
+// The cool-down gets away without one because a class just warmed you up. This
+// loads knees under a bell and through deep flexion, so it cannot assume you
+// are warm — it may be the only thing you do that day, which is exactly why it
+// exists as a short standalone rather than being folded into the rest day.
+// Its three set-up items are ids the rest day already uses, so they already
+// have voice clips in both voices.
+//
+// **LEVELS — the only progression in any routine, and it is deliberately not
+// the strength ladder.** js/strength.js advances on reps hit at a tempo, which
+// needs per-set logging and makes the screen a form. A timeline records
+// nothing per set, so the only honest signal here is *did you finish*, which
+// `logMobilitySession` already stores one row per routine per day. So a level
+// is earned by completing the routine SESSIONS_PER_LEVEL times, and every
+// movement steps together — see `levelFor` below.
+//
+// **A level changes `dose` and `cue`, never `name` or `id`.** That is what
+// keeps this at seven new figures and seven new voice lines instead of
+// twenty-one: the movement is one movement, done harder.
+const KNEE_ITEMS = [
+  // Taken *from* the rest day rather than retyped, so a shared id can never
+  // drift into naming two different movements — which is the one thing the id
+  // test forbids, and the failure would be a wrong figure and a wrong spoken
+  // name with nothing on screen to notice. Only the cue is overridden, because
+  // why you are marching differs between the two sessions; name, targets,
+  // bilateral and the warm-up flag all come from the single definition.
+  ...sharedWarmup({
+    'warmup-march': 'Knees to hip height, easy arms. Just get some blood into the legs.',
+    'warmup-squat': 'Sink to a comfortable depth and pulse. Take the knee through its range with nothing on it.',
+    'warmup-leg-swing': 'Hold something. Swing front to back, loose, and build the range as you go.',
+  }),
+
+  {
+    id: 'goblet-squat',
+    name: 'Goblet squat',
+    targets: 'Quads · glutes · deep knee flexion',
+    cue: 'Bell at the chest, elbows inside the knees. All the way down, pause at the bottom, stand up.',
+    bilateral: false,
+    dose: '10kg · 2s pause',
+    levels: [
+      { dose: '10kg · 2s pause', cue: 'Bell at the chest, elbows inside the knees. Down to a comfortable depth, pause 2 seconds, stand.' },
+      { dose: '16kg · 2s pause', cue: 'Bell at the chest. All the way down now — hips below the knees if they let you — pause 2 seconds.' },
+      { dose: '16kg · 5s pause', cue: 'Full depth, and hold the bottom for five. Stay upright; the bell is the counterweight that lets you.' },
+    ],
+  },
+  {
+    id: 'step-down',
+    name: 'Eccentric step-down',
+    targets: 'Quads · knee control · single leg',
+    cue: 'Stand on the chair on one leg. Lower slowly until the other heel touches, then drive back up.',
+    bilateral: true,
+    dose: '3s lower',
+    levels: [
+      { dose: '3s lower', cue: 'One foot on the chair, hands free or lightly held. Lower for three seconds until the other heel taps the floor.' },
+      { dose: '5s lower', cue: 'Same, five seconds down. Keep the knee tracking over the middle of the foot — no collapsing inward.' },
+      { dose: '8kg · 5s lower', cue: 'Hold the 8kg at your chest. Five seconds down, and the heel touches — it does not land.' },
+    ],
+  },
+  {
+    id: 'lateral-step-down',
+    name: 'Lateral step-down',
+    targets: 'Outer hip · knee control · frontal plane',
+    cue: 'Stand sideways on the chair. Lower off the side slowly, tap, and drive back up.',
+    bilateral: true,
+    dose: 'Hold support',
+    levels: [
+      { dose: 'Hold support', cue: 'Sideways on the chair, one hand on something. Lower off the side until the free heel taps.' },
+      { dose: 'No hands', cue: 'Same, hands off. The hip has to do the work now — keep the pelvis level, do not drop the free side.' },
+      { dose: '8kg at the chest', cue: 'Hands off, 8kg held at the chest. Slow down on the way out and keep the knee over the foot.' },
+    ],
+  },
+  {
+    id: 'sissy-squat',
+    name: 'Supported sissy squat',
+    targets: 'Quads · knee in deep flexion',
+    cue: 'Hold a door frame. Rise onto the balls of your feet and lean back, letting the knees travel forward.',
+    bilateral: false,
+    dose: 'Feet flat · shallow',
+    levels: [
+      { dose: 'Feet flat · shallow', cue: 'Hold the frame, feet flat. Let the knees travel forward and lean back, hips and shoulders in one line. Go shallow.' },
+      { dose: 'Heels raised · deeper', cue: 'Up on the balls of your feet now, and go deeper. Squeeze the glutes so the hips do not break — the lean is the exercise.' },
+      { dose: 'Fingertips · full range', cue: 'Fingertips on the frame for balance only, full range down. Slow on the way down; that is where the work is.' },
+    ],
+  },
+  {
+    id: 'slider-curl',
+    name: 'Slider leg curl',
+    targets: 'Hamstrings at the knee',
+    cue: 'Heels on a towel, smooth floor. Bridge up, slide the heels out, and drag them back in.',
+    bilateral: false,
+    dose: 'Both legs',
+    levels: [
+      { dose: 'Both legs', cue: 'Heels on a towel, hips up. Slide both heels out until you are nearly flat, then drag them back. Hips stay up throughout.' },
+      { dose: 'Out on two, back on one', cue: 'Slide out on both, then drag back on one. Alternate legs. This is the hamstring working at the knee, not the hip.' },
+      { dose: 'Single leg', cue: 'One heel on the towel, the other knee tucked. Out and back on one leg, hips up the whole time.' },
+    ],
+  },
+  {
+    id: 'tib-raise',
+    name: 'Tibialis raise',
+    targets: 'Tibialis anterior · front of the shin',
+    cue: 'Back against a wall, feet a step out. Lift the toes toward your shins, slow on the way down.',
+    bilateral: false,
+    dose: 'Feet close',
+    levels: [
+      { dose: 'Feet close', cue: 'Back on the wall, heels about a hand from it. Lift the toes as high as they go, lower slowly.' },
+      { dose: 'Feet further out', cue: 'Walk the feet further from the wall — more lean, more load. Same slow lower.' },
+      { dose: 'Seated · 8kg on the foot', cue: 'Sit, hook the 8kg handle over your toes, heel on the floor. Lift, and take three seconds down.' },
+    ],
+  },
+  {
+    id: 'soleus-raise',
+    name: 'Seated soleus raise',
+    targets: 'Soleus · resists the shin sliding forward',
+    cue: 'Seated, knees bent square, bell across the thighs. Drive through the ball of the foot.',
+    bilateral: false,
+    dose: '10kg both legs',
+    levels: [
+      { dose: '10kg both legs', cue: 'Sit with knees bent square, 10kg across the thighs. Push the heels up, pause at the top, lower slowly.' },
+      { dose: '16kg both legs', cue: '16kg across the thighs now. Bent knee is the point — this is the soleus, not the calf you can see.' },
+      { dose: '16kg single leg', cue: 'One leg at a time, 16kg on that thigh. Full range, and pause at the top of every rep.' },
+    ],
+  },
+];
+
+/**
+ * How many completed sessions buy the next level.
+ *
+ * Four is a fortnight at twice a week, and it is the same instinct as the
+ * strength ladder's "one bad session holds, two in a row regress": a level is
+ * not earned on one good day.
+ */
+export const SESSIONS_PER_LEVEL = 4;
+
+/**
+ * Which level a routine is on, from how many times it has been completed.
+ *
+ * Pure, and clamped at the top: running out of levels is not an error, it is
+ * the routine being finished with you. `levels` is per item, so a movement
+ * with three levels tops out while one with five keeps going — today they all
+ * have three, and nothing here assumes that.
+ */
+export function levelFor(completions, levelCount, perLevel = SESSIONS_PER_LEVEL) {
+  if (!levelCount) return 0;
+  return Math.max(0, Math.min(levelCount - 1, Math.floor(completions / perLevel)));
+}
+
+/**
+ * An item as it should be performed at `completions` sessions in.
+ *
+ * Returns the item itself when it has no levels, so every other routine is
+ * untouched by this and the callers need no branch. The id and the name never
+ * change — only `dose` and `cue` — which is what keeps a movement one movement
+ * for artwork, voice cues and PENDING_ART/PENDING_CUES alike.
+ */
+export function itemAt(item, completions = 0) {
+  if (!item?.levels?.length) return item;
+  const i = levelFor(completions, item.levels.length);
+  const { dose, cue } = item.levels[i];
+  return { ...item, dose: dose ?? item.dose, cue: cue ?? item.cue, level: i, levels: item.levels };
+}
+
+/** Sessions still to do before the next level. Null once every level is reached. */
+export function sessionsToNextLevel(completions, levelCount, perLevel = SESSIONS_PER_LEVEL) {
+  if (!levelCount || levelFor(completions, levelCount, perLevel) >= levelCount - 1) return null;
+  return perLevel - (completions % perLevel);
+}
+
 export const ROUTINES = [
   {
     id: 'post-class',
@@ -618,6 +818,21 @@ export const ROUTINES = [
     doneNote: 'Marked on your calendar as off-mat work.',
     items: PILATES_ITEMS,
   },
+  {
+    id: 'knees',
+    name: 'Knees',
+    blurb: 'Loaded knee work — it progresses as you finish it',
+    workLabel: 'Work',
+    unit: 'movements',
+    phases: { ready: 10_000, work: 35_000, rest: 20_000 },
+    needs: ['Floor', 'Chair', 'Kettlebells', 'Towel'],
+    warmupLabel: 'Warm up',
+    // The only routine with levels, so it is the only one that says so.
+    progresses: true,
+    note: 'General guidance, not physio. This builds capacity in deep flexion — it cannot protect a knee from a heel hook, and nothing can. Stop at anything sharp.',
+    doneNote: 'Marked on your calendar as off-mat work.',
+    items: KNEE_ITEMS,
+  },
 ];
 
 export const DEFAULT_ROUTINE = 'post-class';
@@ -625,6 +840,24 @@ export const DEFAULT_ROUTINE = 'post-class';
 /** Look a routine up by id, falling back to the cool-down. */
 export function getRoutine(id) {
   return ROUTINES.find(r => r.id === id) ?? ROUTINES.find(r => r.id === DEFAULT_ROUTINE);
+}
+
+/**
+ * A routine with every item resolved to the level `completions` has earned.
+ *
+ * Resolved **once**, at the point the screen mounts or a session starts, so
+ * the intro list, `segments()` and the running screen all read the same thing
+ * and none of them needs to know levels exist. A routine without levels comes
+ * back untouched, which is why the three older ones needed no changes at all.
+ */
+export function routineAt(routine, completions = 0) {
+  if (!routine?.items?.some(i => i.levels?.length)) return routine;
+  return { ...routine, items: routine.items.map(i => itemAt(i, completions)) };
+}
+
+/** How many times this routine has been finished, from the mobility log. */
+export function completionsOf(routineId, sessions = []) {
+  return sessions.filter(s => s?.routine === routineId).length;
 }
 
 /** A routine's normal segment length — every movement except the warm-up. */

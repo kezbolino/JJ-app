@@ -50,9 +50,10 @@ import { createVoice } from '../voice.js';
 import { pickVoice } from '../voices.js';
 import { getVoicePref } from '../appearance.js';
 import { createWakeLock } from '../wakelock.js';
-import { logMobilitySession } from '../store.js';
+import { logMobilitySession, getMobilitySessions } from '../store.js';
 import {
-  DEFAULT_ROUTINE, getRoutine, segments, routineMs,
+  DEFAULT_ROUTINE, getRoutine, segments, routineMs, routineAt, completionsOf,
+  levelFor, sessionsToNextLevel, SESSIONS_PER_LEVEL,
   clock, stretchFigure, pickOtherSide, pickHype, pickFinish, segmentAt, phasesFor,
 } from '../stretches.js';
 
@@ -491,13 +492,51 @@ function overview(routine) {
     itemList(routine, main));
 }
 
+/**
+ * "Level 2 of 3 · 3 more sessions to level 3", or nothing at all.
+ *
+ * Only the knee routine has levels, so every other intro is untouched — the
+ * null return is the whole compatibility story. Deliberately states the *rule*
+ * as well as the position: a progression you cannot see the trigger for reads
+ * as the app changing its mind at random.
+ */
+function levelLine(routine, completions) {
+  if (!routine.progresses) return null;
+  const levelled = routine.items.filter(i => i.levels?.length);
+  if (!levelled.length) return null;
+
+  const max = Math.max(...levelled.map(i => i.levels.length));
+  const level = levelFor(completions, max) + 1;
+  const togo = sessionsToNextLevel(completions, max);
+
+  return h('p.st-level',
+    icon('flame'),
+    h('span',
+      h('b', `Level ${level} of ${max}`),
+      togo === null
+        ? ' · top level — every movement is at its hardest'
+        : ` · ${togo} more ${togo === 1 ? 'session' : 'sessions'} to level ${level + 1}`));
+}
+
 export default async function stretch(root, { routine: routineId } = {}) {
   const token = renderToken();
 
+  // The mobility log is the *only* input the levels have — one row per routine
+  // per day, already written by finishing and already synced (`byId`, v46).
+  // Read before anything is built, and checked after, because the router
+  // clears #view without telling a view it is gone (js/render.js).
+  const logged = await getMobilitySessions().catch(() => []);
+  if (!isCurrent(token)) return;
+
+  /** Resolve a routine to the level its own completion count has earned. */
+  const atLevel = r => routineAt(r, completionsOf(r.id, logged));
+
   // A routine already running takes priority over whatever was in the URL —
   // you can't switch what's running mid-session, and this is how coming back
-  // to the tab resumes it instead of restarting at the intro.
-  let routine = session ? session.routine : getRoutine(routineId ?? DEFAULT_ROUTINE);
+  // to the tab resumes it instead of restarting at the intro. A running
+  // session already holds its resolved copy, so it is never re-levelled
+  // mid-routine — finishing must not change what is on screen under you.
+  let routine = session ? session.routine : atLevel(getRoutine(routineId ?? DEFAULT_ROUTINE));
   const mount = h('div.st');
   let teardown = null;
 
@@ -507,7 +546,7 @@ export default async function stretch(root, { routine: routineId } = {}) {
   // reload still lands on the routine you picked. The Strength tab is a real
   // link, because that is a different screen entirely.
   const picker = () => offMatTabs(routine.id, id => {
-    routine = getRoutine(id);
+    routine = atLevel(getRoutine(id));
     history.replaceState(null, '', `#/stretch?r=${id}`);
     showIntro();
   });
@@ -535,6 +574,7 @@ export default async function stretch(root, { routine: routineId } = {}) {
         routine.needs.length
           ? h('p.st-needs', `You'll need: ${routine.needs.join(' · ')}`)
           : null,
+        levelLine(routine, completionsOf(routine.id, logged)),
         h('p.st-volume-hint', icon('sound'), 'Turn your volume up — cues and beeps can’t be heard on silent.'),
         h('button.btn.primary.wide.cta', { type: 'button', onclick: begin }, 'Start')),
       overview(routine),
