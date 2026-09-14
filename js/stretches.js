@@ -697,17 +697,29 @@ const KNEE_ITEMS = [
     ],
   },
   {
-    id: 'slider-curl',
-    name: 'Slider leg curl',
+    // The third movement to hold this slot, and the constraint that decided it
+    // is worth writing down: the job is the hamstring at the KNEE, and every
+    // obvious way to load that needs something the user does not have. A slider
+    // needs a floor a towel will actually slide on. A Nordic needs an ankle
+    // anchor (v49 dropped it for exactly that). A prone curl needs a bell
+    // balanced on the feet, face down, where you cannot see it.
+    //
+    // A heel dig needs none of them. Knee bent square and the drive through the
+    // heel rather than the flat foot is what puts it on the hamstring instead
+    // of the glute — that distinction IS the exercise, so the cue leads with it
+    // at every level. Load goes on the hips, which is somewhere a bell can
+    // simply rest.
+    id: 'heel-dig-bridge',
+    name: 'Heel-dig hamstring bridge',
     targets: 'Hamstrings at the knee',
-    cue: 'Heels on a towel, smooth floor. Bridge up, slide the heels out, and drag them back in.',
+    cue: 'Heels on the chair, knees bent square. Dig the heels down and lift the hips.',
     bilateral: false,
-    dose: 'Both legs',
-    reps: '9–10 reps',
+    dose: 'Both feet',
+    reps: '12–15 reps',
     levels: [
-      { dose: 'Both legs', reps: '9–10 reps', cue: 'Heels on a towel, hips up. Slide both heels out until you are nearly flat, then drag them back. Hips stay up throughout.' },
-      { dose: 'Out on two, back on one', reps: '8–9 reps', cue: 'Slide out on both, then drag back on one. Alternate legs. This is the hamstring working at the knee, not the hip.' },
-      { dose: 'Single leg', reps: '7–8 reps', cue: 'One heel on the towel, the other knee tucked. Out and back on one leg, hips up the whole time.' },
+      { dose: 'Both feet', reps: '12–15 reps', cue: 'Heels on the chair, toes lifted, knees bent square. Dig the heels down and drive the hips up. Behind the knee, not the glutes.' },
+      { dose: 'Single leg', reps: '8–10 reps', cue: 'One heel on the chair, the other knee pulled to your chest. Same dig, one leg. Keep the hips level as you go up.' },
+      { dose: '10kg on the hips', reps: '6–8 reps', cue: 'One leg, 10kg resting across your hips with a hand on it to steady. Slow on the way down — that is the half that counts.' },
     ],
   },
   {
@@ -839,7 +851,7 @@ export const ROUTINES = [
     workLabel: 'Work',
     unit: 'movements',
     phases: { ready: 10_000, work: 35_000, rest: 20_000 },
-    needs: ['Floor', 'Chair', 'Kettlebells', 'Towel'],
+    needs: ['Floor', 'Chair', 'Kettlebells'],
     warmupLabel: 'Warm up',
     // The only routine with levels, so it is the only one that says so.
     progresses: true,

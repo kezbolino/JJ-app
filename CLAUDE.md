@@ -4046,6 +4046,65 @@ data if forgotten:
   **No churn expected in `jj-app-data`** — v69 touches neither
   `js/markdown.js`, the entry model nor `js/appstate.js`.
 
+- 2026-09-14 — **v70: the slider leg curl replaced by a heel-dig hamstring
+  bridge.** User: replace it with something that does the same job. The job is
+  narrow and worth restating, because it is the only reason that movement is in
+  the routine at all — **the hamstring working at the knee**, in knee flexion.
+  Every other lower-body movement in this app loads the hamstring at the *hip*,
+  and its action at the knee has been untrained since v49 dropped the Nordic
+  curl.
+
+  **Three candidates held this slot in one session, and the constraint that
+  settled it is the transferable part: every obvious way to load a hamstring at
+  the knee needs equipment this user does not have.** A slider needs a floor a
+  towel will actually slide on. A Nordic needs an ankle anchor — which is
+  precisely why v49 dropped it. I shipped a **prone kettlebell curl** first,
+  reasoning that the bell hooks over the feet the way the tibialis raise's top
+  level already does; the user pushed back — *"I don't have anything that would
+  safely hook the kettlebell"* — and they were right. Those two positions are
+  not the same proposition at all: the tib raise has you **seated, looking at**
+  a bell hooked over your toes, and the prone curl has you **face down** with
+  one balanced on your feet where you cannot see it. A precedent in the data is
+  not a precedent for safety; check the position, not the mechanism.
+
+  **A heel dig needs none of it.** Heels on the chair already in the kit, knees
+  bent square, drive through the heel and lift. **The heel rather than the flat
+  foot is what puts it on the hamstring instead of the glute** — that
+  distinction *is* the exercise, so the cue leads with it at every level rather
+  than mentioning it once. Levels climb by leverage then load, and the load
+  goes **on the hips**, which is somewhere a bell can simply rest: both feet →
+  single leg → single leg with 10kg across the hips, 12–15 → 8–10 → 6–8 reps.
+  `Towel` came off the routine's `needs`.
+
+  **Worth knowing before someone "deduplicates" it:** the rest day already has
+  `glute-bridge-single`, and at a glance this is another single-leg bridge. It
+  is not the same movement — that one is a flat foot and a glute, this one is a
+  dug heel at 90° and a hamstring — but they will look alike in a contact sheet,
+  so the artwork for this one has to show the bent knee and the lifted toes or
+  it will read as a duplicate. Same trap as `ankle-rock` vs the hip-flexor lunge
+  in v47.
+
+  **`slider-curl` is gone from `PENDING_ART` and `PENDING_CUES` and
+  `heel-dig-bridge` is in both** — the id changes because the movement changes,
+  and leaving the old one would show up as artwork nothing uses. The outstanding
+  asset count is unchanged at seven figures and seven lines × 2 voices.
+
+  Three failure modes verified by breaking the data first (a level losing its
+  rep guide, the art id left as the old one, the cue id left as the old one —
+  that last fails twice, once for the voice that cannot say it and once for the
+  pending entry nothing speaks). Thirteen suites green by exit code (92 browser
+  assertions in `features`, 50 in `stretches`, 16 in `sync`). Drove the routine
+  in a browser in both themes: the new movement renders with no figure rather
+  than an empty box, both chips read correctly, no page errors, no overflow at
+  360px. sw `CACHE` → v70, `VERSION` → v70, no files added.
+
+  **Noticed while doing this, not fixed:** the knee routine's seven movements
+  were never written into `docs/ART-PROMPTS.md` or `docs/VOICE-SCRIPTS.md`. They
+  are correctly declared in `PENDING_ART`/`PENDING_CUES` and tracked by the
+  suite, so nothing is broken — but anyone going to those docs to generate the
+  assets will find only the 27 Pilates entries. Write the seven briefs and seven
+  lines before the next asset batch.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -4059,7 +4118,7 @@ Pages run `34768800099`). Every session from v53 on has shipped and been
 verified at the Pages **job** level, not the run badge.
 
 **Live at v69** as of 2026-09-14 (`main` at `bfebfcb`, Pages run
-`34828139178`).
+`34828139178`). **v70 is built and unpushed.**
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported

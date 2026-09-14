@@ -143,7 +143,7 @@ export const PENDING_ART = new Set([
   'step-down',
   'lateral-step-down',
   'sissy-squat',
-  'slider-curl',
+  'heel-dig-bridge',
   'tib-raise',
   'soleus-raise',
 

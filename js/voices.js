@@ -59,7 +59,7 @@ export const PENDING_CUES = new Set([
   'step-down',
   'lateral-step-down',
   'sissy-squat',
-  'slider-curl',
+  'heel-dig-bridge',
   'tib-raise',
   'soleus-raise',
   // v67's two cool-down additions. Two lines to record in both voices when
