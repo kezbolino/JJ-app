@@ -4020,6 +4020,32 @@ data if forgotten:
   light and dark at 360px, no horizontal overflow. sw `CACHE` → v69, `VERSION`
   → v69, no files added.
 
+- 2026-09-14 — **v69 deployed.** `main` fast-forwarded `8f14a6c..bfebfcb` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 24s, `report-build-status` in 4s, `deploy` in 9s
+  (09:28:52→09:29:01Z, run `34828139178`). Ninth clean deploy in a row.
+
+  Ship gate: thirteen suites green *by exit code* (92 browser assertions in
+  `features`, 50 in `stretches`; `schedule` under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`), `CACHE` == `VERSION` == v69, clean tree, fast-forward
+  confirmed with `git merge-base --is-ancestor` rather than assumed.
+
+  **A note on reading the Actions API while a run is live:** it lagged several
+  minutes behind reality on this deploy — steps read `in_progress` long after
+  their own recorded `completed_at`, and the run itself still said `queued`
+  after every job had finished. The step timestamps are the truth; the status
+  field is cached. Don't read a slow-looking poll as the ten-minute Pages
+  timeout from the 2026-08-06 note — check the timestamps before concluding
+  anything is stuck.
+
+  **The visible tells:** the footer reads `JUJI v69`; Off mat → Knees shows two
+  chips on every movement row — the loading and a rep count ("10KG · 2S PAUSE"
+  then "7–8 REPS") — on the plan list and again under the figure while a set
+  runs. Nothing else in the app changed.
+
+  **No churn expected in `jj-app-data`** — v69 touches neither
+  `js/markdown.js`, the entry model nor `js/appstate.js`.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -4030,9 +4056,10 @@ strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 
 **Live at v68.** v65–v68 deployed together on 2026-09-13 (`main` at `ad08f68`,
 Pages run `34768800099`). Every session from v53 on has shipped and been
-verified at the Pages **job** level, not the run badge. **v69 is built and
-unpushed** — see the standing rule from 2026-08-23 and 2026-09-13: if the work
-is finished and green, ship it rather than parking it behind a confirmation.
+verified at the Pages **job** level, not the run badge.
+
+**Live at v69** as of 2026-09-14 (`main` at `bfebfcb`, Pages run
+`34828139178`).
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported
