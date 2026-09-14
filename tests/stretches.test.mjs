@@ -185,7 +185,7 @@ test('a level costs more than one good day', () => {
 });
 
 test('a knee level is earned by finishing, and nothing else', () => {
-  const item = knees.items.find(i => i.id === 'slider-curl');
+  const item = knees.items.find(i => i.id === 'step-down');
   const n = item.levels.length;
   assert.equal(itemAt(item, 0).level, 0);
   assert.equal(itemAt(item, SESSIONS_PER_LEVEL - 1).level, 0, 'levelled up one session early');

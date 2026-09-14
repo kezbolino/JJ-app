@@ -4046,6 +4046,49 @@ data if forgotten:
   **No churn expected in `jj-app-data`** — v69 touches neither
   `js/markdown.js`, the entry model nor `js/appstate.js`.
 
+- 2026-09-18 — **v70: the hamstring-at-the-knee slot is empty, not refilled.**
+  Three movements held it in two sessions and the user ended it: *"remove the
+  leg slider curl for now."* The knee routine is 9 items, 12 sets, **11:00**.
+
+  **What that slot was for, because the gap is now open again.** The hamstring
+  is two-joint, and everything else in this app — the single-leg RDL, the
+  hinges, the bridges — loads it at the **hip**. Its action at the **knee** has
+  been untrained since v49 dropped the Nordic curl, and closing that was the
+  whole reason v68 put a movement here. Nothing trains it today. That is a
+  deliberate, stated cost rather than an oversight.
+
+  **The three that failed, and the constraint they share:** `slider-curl`
+  needed a floor a towel will actually slide on; a Nordic needs an ankle anchor
+  (v49's reason); a **prone kettlebell curl** needed something to hook a bell
+  over — I shipped that one reasoning from the tibialis raise, which hooks the
+  8kg over the toes, and the user was right to refuse it: **the tib raise has
+  you seated and looking at the bell, the prone curl has you face down with one
+  balanced on your feet.** A precedent in the data is not a precedent for
+  safety; check the position, not the mechanism. A **heel-dig bridge** avoided
+  all of it and was still one substitution too many.
+
+  **Re-adding one is a data change and nothing else** — an item in `KNEE_ITEMS`,
+  its id in `PENDING_ART` and `PENDING_CUES`. A comment at the empty slot says
+  so, and says why each candidate failed, so the next attempt does not rediscover
+  it. The heel-dig bridge is recoverable from `8b4846e` if it turns out to have
+  been fine.
+
+  Two failure modes verified by breaking the data first — a stale id left in
+  `PENDING_ART` or `PENDING_CUES` now fails the suite, which is what stops a
+  removal leaving artwork nothing renders or a cue nothing speaks. Thirteen
+  suites green by exit code. Screenshot-checked both themes at 360px, no
+  overflow. `needs` is unchanged (the chair and the bells are still used by the
+  step-downs, goblet squat and soleus raise). sw `CACHE` → v70, `VERSION` →
+  v70, no files added.
+
+  **Not deployed at the user's request.**
+
+  **Noticed earlier and still not fixed:** the knee routine's movements were
+  never written into `docs/ART-PROMPTS.md` or `docs/VOICE-SCRIPTS.md`. They are
+  declared in `PENDING_ART`/`PENDING_CUES` and tracked by the suite, so nothing
+  is broken — but those docs carry only the 27 Pilates entries. Write the briefs
+  and lines before the next asset batch.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -4059,7 +4102,7 @@ Pages run `34768800099`). Every session from v53 on has shipped and been
 verified at the Pages **job** level, not the run badge.
 
 **Live at v69** as of 2026-09-14 (`main` at `bfebfcb`, Pages run
-`34828139178`).
+`34828139178`). **v70 is built and unpushed.**
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported

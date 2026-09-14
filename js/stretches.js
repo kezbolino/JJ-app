@@ -696,20 +696,16 @@ const KNEE_ITEMS = [
       { dose: 'Fingertips · full range', reps: '6–8 reps', cue: 'Fingertips on the frame for balance only, full range down. Slow on the way down; that is where the work is.' },
     ],
   },
-  {
-    id: 'slider-curl',
-    name: 'Slider leg curl',
-    targets: 'Hamstrings at the knee',
-    cue: 'Heels on a towel, smooth floor. Bridge up, slide the heels out, and drag them back in.',
-    bilateral: false,
-    dose: 'Both legs',
-    reps: '9–10 reps',
-    levels: [
-      { dose: 'Both legs', reps: '9–10 reps', cue: 'Heels on a towel, hips up. Slide both heels out until you are nearly flat, then drag them back. Hips stay up throughout.' },
-      { dose: 'Out on two, back on one', reps: '8–9 reps', cue: 'Slide out on both, then drag back on one. Alternate legs. This is the hamstring working at the knee, not the hip.' },
-      { dose: 'Single leg', reps: '7–8 reps', cue: 'One heel on the towel, the other knee tucked. Out and back on one leg, hips up the whole time.' },
-    ],
-  },
+  // NOTE: the hamstring-at-the-knee slot is deliberately EMPTY as of v70.
+  // It held the slider leg curl (v68), then a prone kettlebell curl, then a
+  // heel-dig bridge, and the user asked for it removed rather than substituted
+  // again. So this routine no longer trains knee flexion at all — nothing else
+  // in the app does either, which is the gap v68 added it to close. Re-adding
+  // one is a data change and nothing else: an item here, its id in PENDING_ART
+  // and PENDING_CUES, done. The constraint that made it hard is worth keeping:
+  // a slider needs a floor a towel will slide on, a Nordic needs an ankle
+  // anchor (v49 dropped it for that), a prone curl needs something to hook a
+  // bell over.
   {
     id: 'tib-raise',
     name: 'Tibialis raise',
@@ -839,7 +835,7 @@ export const ROUTINES = [
     workLabel: 'Work',
     unit: 'movements',
     phases: { ready: 10_000, work: 35_000, rest: 20_000 },
-    needs: ['Floor', 'Chair', 'Kettlebells', 'Towel'],
+    needs: ['Floor', 'Chair', 'Kettlebells'],
     warmupLabel: 'Warm up',
     // The only routine with levels, so it is the only one that says so.
     progresses: true,
