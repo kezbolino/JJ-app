@@ -287,6 +287,12 @@ function attachRunning(mount, token, onExit) {
   const nextEl = h('span.st-next', 'Next up');
   const sideEl = h('span.st-side');
   const doseEl = h('span.st-dose');
+  // Reps sit in their own chip rather than being folded into the dose. The
+  // dose says how the movement is loaded at this level; the reps say how
+  // many of it the 35 seconds should buy. Merging them made one long chip
+  // and, worse, let the rep guide fall out entirely when a level wrote its
+  // own dose.
+  const repsEl = h('span.st-reps');
   const targetEl = h('p.st-targets');
   const cueEl = h('p.st-cue');
   const phaseEl = h('span.st-phase');
@@ -313,7 +319,7 @@ function attachRunning(mount, token, onExit) {
   mount.replaceChildren(
     h('div.st-top', stepEl, leftEl),
     overallRail,
-    h('div.st-stage', figSlot, h('div.st-badges', nextEl, warmupEl, sideEl, doseEl)),
+    h('div.st-stage', figSlot, h('div.st-badges', nextEl, warmupEl, sideEl, doseEl, repsEl)),
     nameEl,
     targetEl,
     h('div.st-clock', phaseEl, countEl),
@@ -344,6 +350,8 @@ function attachRunning(mount, token, onExit) {
     sideEl.hidden = !side;
     doseEl.textContent = item.dose ?? '';
     doseEl.hidden = !item.dose;
+    repsEl.textContent = item.reps ?? '';
+    repsEl.hidden = !item.reps;
     stepEl.textContent = `${routine.workLabel} ${stepIdx + 1} of ${s.segs.length}`;
   };
 
@@ -357,6 +365,7 @@ function attachRunning(mount, token, onExit) {
     warmupEl.hidden = true;
     sideEl.hidden = true;
     doseEl.hidden = true;
+    repsEl.hidden = true;
     nameEl.textContent = 'Last one done';
     targetEl.textContent = '';
     cueEl.textContent = 'Breathe. That is the session.';
@@ -467,7 +476,9 @@ function itemList(routine, items) {
       h('span.st-item-txt',
         h('span.st-item-name', item.name),
         h('span.st-item-sub', item.targets)),
-      h('span.st-item-side', item.dose ?? (item.bilateral ? 'Both sides' : oneGo)));
+      h('span.st-item-sides',
+        h('span.st-item-side', item.dose ?? (item.bilateral ? 'Both sides' : oneGo)),
+        item.reps ? h('span.st-item-side.st-item-reps', item.reps) : null));
   }));
 }
 

@@ -1396,11 +1396,17 @@ a.cal__day:active { transform: scale(.9); }
 .st-item-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .st-item-name { font-weight: 700; font-size: .94rem; }
 .st-item-sub { color: var(--muted); font-size: .78rem; font-weight: 600; }
+.st-item-sides {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+}
 .st-item-side {
   flex-shrink: 0; font-size: .7rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: .04em; color: var(--sub);
   background: var(--surface-2); padding: 5px 8px; border-radius: var(--r-chip);
 }
+/* The rep guide is the same kind of data as the dose, so it reads the same —
+   outlined rather than filled only so the two chips don't merge into one block. */
+.st-item-reps { background: none; box-shadow: inset 0 0 0 1.5px var(--line); }
 .st-note {
   color: var(--muted); font-size: .8rem; font-weight: 600;
   text-align: center; margin: 14px 4px 0; line-height: 1.5;
@@ -1434,7 +1440,7 @@ a.cal__day:active { transform: scale(.9); }
    drawing an empty box — see PENDING_ART in js/stretch-art.js. */
 .st-fig[hidden] + .st-badges { margin-top: 26px; }
 .st-badges { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.st-side, .st-dose, .st-warmup, .st-next {
+.st-side, .st-dose, .st-reps, .st-warmup, .st-next {
   display: inline-block; margin-top: 2px;
   font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
   padding: 5px 11px; border-radius: var(--r-chip);
@@ -1442,6 +1448,9 @@ a.cal__day:active { transform: scale(.9); }
 .st-side { background: var(--accent-soft); color: var(--accent-edge); }
 /* Ink, not blue: the dose is data about the movement, not something to tap. */
 .st-dose { background: var(--surface-2); color: var(--sub); }
+/* Same family as the dose — outlined so the pair reads as two facts, not one
+   long chip. How it is loaded, then how many the work phase should buy. */
+.st-reps { background: none; color: var(--sub); box-shadow: inset 0 0 0 1.5px var(--line); }
 /* Green, like the rest-day rest phase: a warm-up is a positive, unhurried
    state, not a gap — amber stays reserved for that. */
 .st-warmup { background: var(--good-soft); color: var(--good); }

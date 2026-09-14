@@ -647,10 +647,11 @@ const KNEE_ITEMS = [
     cue: 'Bell at the chest, elbows inside the knees. All the way down, pause at the bottom, stand up.',
     bilateral: false,
     dose: '10kg · 2s pause',
+    reps: '7–8 reps',
     levels: [
-      { dose: '10kg · 2s pause', cue: 'Bell at the chest, elbows inside the knees. Down to a comfortable depth, pause 2 seconds, stand.' },
-      { dose: '16kg · 2s pause', cue: 'Bell at the chest. All the way down now — hips below the knees if they let you — pause 2 seconds.' },
-      { dose: '16kg · 5s pause', cue: 'Full depth, and hold the bottom for five. Stay upright; the bell is the counterweight that lets you.' },
+      { dose: '10kg · 2s pause', reps: '7–8 reps', cue: 'Bell at the chest, elbows inside the knees. Down to a comfortable depth, pause 2 seconds, stand.' },
+      { dose: '16kg · 2s pause', reps: '6–7 reps', cue: 'Bell at the chest. All the way down now — hips below the knees if they let you — pause 2 seconds.' },
+      { dose: '16kg · 5s pause', reps: '4–5 reps', cue: 'Full depth, and hold the bottom for five. Stay upright; the bell is the counterweight that lets you.' },
     ],
   },
   {
@@ -660,10 +661,11 @@ const KNEE_ITEMS = [
     cue: 'Stand on the chair on one leg. Lower slowly until the other heel touches, then drive back up.',
     bilateral: true,
     dose: '3s lower',
+    reps: '7–8 reps',
     levels: [
-      { dose: '3s lower', cue: 'One foot on the chair, hands free or lightly held. Lower for three seconds until the other heel taps the floor.' },
-      { dose: '5s lower', cue: 'Same, five seconds down. Keep the knee tracking over the middle of the foot — no collapsing inward.' },
-      { dose: '8kg · 5s lower', cue: 'Hold the 8kg at your chest. Five seconds down, and the heel touches — it does not land.' },
+      { dose: '3s lower', reps: '7–8 reps', cue: 'One foot on the chair, hands free or lightly held. Lower for three seconds until the other heel taps the floor.' },
+      { dose: '5s lower', reps: '5–6 reps', cue: 'Same, five seconds down. Keep the knee tracking over the middle of the foot — no collapsing inward.' },
+      { dose: '8kg · 5s lower', reps: '5–6 reps', cue: 'Hold the 8kg at your chest. Five seconds down, and the heel touches — it does not land.' },
     ],
   },
   {
@@ -673,10 +675,11 @@ const KNEE_ITEMS = [
     cue: 'Stand sideways on the chair. Lower off the side slowly, tap, and drive back up.',
     bilateral: true,
     dose: 'Hold support',
+    reps: '8–9 reps',
     levels: [
-      { dose: 'Hold support', cue: 'Sideways on the chair, one hand on something. Lower off the side until the free heel taps.' },
-      { dose: 'No hands', cue: 'Same, hands off. The hip has to do the work now — keep the pelvis level, do not drop the free side.' },
-      { dose: '8kg at the chest', cue: 'Hands off, 8kg held at the chest. Slow down on the way out and keep the knee over the foot.' },
+      { dose: 'Hold support', reps: '8–9 reps', cue: 'Sideways on the chair, one hand on something. Lower off the side until the free heel taps.' },
+      { dose: 'No hands', reps: '7–8 reps', cue: 'Same, hands off. The hip has to do the work now — keep the pelvis level, do not drop the free side.' },
+      { dose: '8kg at the chest', reps: '6–7 reps', cue: 'Hands off, 8kg held at the chest. Slow down on the way out and keep the knee over the foot.' },
     ],
   },
   {
@@ -686,10 +689,11 @@ const KNEE_ITEMS = [
     cue: 'Hold a door frame. Rise onto the balls of your feet and lean back, letting the knees travel forward.',
     bilateral: false,
     dose: 'Feet flat · shallow',
+    reps: '10–12 reps',
     levels: [
-      { dose: 'Feet flat · shallow', cue: 'Hold the frame, feet flat. Let the knees travel forward and lean back, hips and shoulders in one line. Go shallow.' },
-      { dose: 'Heels raised · deeper', cue: 'Up on the balls of your feet now, and go deeper. Squeeze the glutes so the hips do not break — the lean is the exercise.' },
-      { dose: 'Fingertips · full range', cue: 'Fingertips on the frame for balance only, full range down. Slow on the way down; that is where the work is.' },
+      { dose: 'Feet flat · shallow', reps: '10–12 reps', cue: 'Hold the frame, feet flat. Let the knees travel forward and lean back, hips and shoulders in one line. Go shallow.' },
+      { dose: 'Heels raised · deeper', reps: '8–10 reps', cue: 'Up on the balls of your feet now, and go deeper. Squeeze the glutes so the hips do not break — the lean is the exercise.' },
+      { dose: 'Fingertips · full range', reps: '6–8 reps', cue: 'Fingertips on the frame for balance only, full range down. Slow on the way down; that is where the work is.' },
     ],
   },
   {
@@ -699,10 +703,11 @@ const KNEE_ITEMS = [
     cue: 'Heels on a towel, smooth floor. Bridge up, slide the heels out, and drag them back in.',
     bilateral: false,
     dose: 'Both legs',
+    reps: '9–10 reps',
     levels: [
-      { dose: 'Both legs', cue: 'Heels on a towel, hips up. Slide both heels out until you are nearly flat, then drag them back. Hips stay up throughout.' },
-      { dose: 'Out on two, back on one', cue: 'Slide out on both, then drag back on one. Alternate legs. This is the hamstring working at the knee, not the hip.' },
-      { dose: 'Single leg', cue: 'One heel on the towel, the other knee tucked. Out and back on one leg, hips up the whole time.' },
+      { dose: 'Both legs', reps: '9–10 reps', cue: 'Heels on a towel, hips up. Slide both heels out until you are nearly flat, then drag them back. Hips stay up throughout.' },
+      { dose: 'Out on two, back on one', reps: '8–9 reps', cue: 'Slide out on both, then drag back on one. Alternate legs. This is the hamstring working at the knee, not the hip.' },
+      { dose: 'Single leg', reps: '7–8 reps', cue: 'One heel on the towel, the other knee tucked. Out and back on one leg, hips up the whole time.' },
     ],
   },
   {
@@ -712,10 +717,11 @@ const KNEE_ITEMS = [
     cue: 'Back against a wall, feet a step out. Lift the toes toward your shins, slow on the way down.',
     bilateral: false,
     dose: 'Feet close',
+    reps: '12–15 reps',
     levels: [
-      { dose: 'Feet close', cue: 'Back on the wall, heels about a hand from it. Lift the toes as high as they go, lower slowly.' },
-      { dose: 'Feet further out', cue: 'Walk the feet further from the wall — more lean, more load. Same slow lower.' },
-      { dose: 'Seated · 8kg on the foot', cue: 'Sit, hook the 8kg handle over your toes, heel on the floor. Lift, and take three seconds down.' },
+      { dose: 'Feet close', reps: '12–15 reps', cue: 'Back on the wall, heels about a hand from it. Lift the toes as high as they go, lower slowly.' },
+      { dose: 'Feet further out', reps: '12–15 reps', cue: 'Walk the feet further from the wall — more lean, more load. Same slow lower.' },
+      { dose: 'Seated · 8kg on the foot', reps: '8–10 reps', cue: 'Sit, hook the 8kg handle over your toes, heel on the floor. Lift, and take three seconds down.' },
     ],
   },
   {
@@ -725,10 +731,11 @@ const KNEE_ITEMS = [
     cue: 'Seated, knees bent square, bell across the thighs. Drive through the ball of the foot.',
     bilateral: false,
     dose: '10kg both legs',
+    reps: '10–12 reps',
     levels: [
-      { dose: '10kg both legs', cue: 'Sit with knees bent square, 10kg across the thighs. Push the heels up, pause at the top, lower slowly.' },
-      { dose: '16kg both legs', cue: '16kg across the thighs now. Bent knee is the point — this is the soleus, not the calf you can see.' },
-      { dose: '16kg single leg', cue: 'One leg at a time, 16kg on that thigh. Full range, and pause at the top of every rep.' },
+      { dose: '10kg both legs', reps: '10–12 reps', cue: 'Sit with knees bent square, 10kg across the thighs. Push the heels up, pause at the top, lower slowly.' },
+      { dose: '16kg both legs', reps: '10–12 reps', cue: '16kg across the thighs now. Bent knee is the point — this is the soleus, not the calf you can see.' },
+      { dose: '16kg single leg', reps: '10–12 reps', cue: 'One leg at a time, 16kg on that thigh. Full range, and pause at the top of every rep.' },
     ],
   },
 ];
@@ -760,14 +767,21 @@ export function levelFor(completions, levelCount, perLevel = SESSIONS_PER_LEVEL)
  *
  * Returns the item itself when it has no levels, so every other routine is
  * untouched by this and the callers need no branch. The id and the name never
- * change — only `dose` and `cue` — which is what keeps a movement one movement
- * for artwork, voice cues and PENDING_ART/PENDING_CUES alike.
+ * change — only `dose`, `reps` and `cue` — which is what keeps a movement one
+ * movement for artwork, voice cues and PENDING_ART/PENDING_CUES alike.
  */
 export function itemAt(item, completions = 0) {
   if (!item?.levels?.length) return item;
   const i = levelFor(completions, item.levels.length);
-  const { dose, cue } = item.levels[i];
-  return { ...item, dose: dose ?? item.dose, cue: cue ?? item.cue, level: i, levels: item.levels };
+  const { dose, reps, cue } = item.levels[i];
+  return {
+    ...item,
+    dose: dose ?? item.dose,
+    reps: reps ?? item.reps,
+    cue: cue ?? item.cue,
+    level: i,
+    levels: item.levels,
+  };
 }
 
 /** Sessions still to do before the next level. Null once every level is reached. */

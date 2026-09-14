@@ -212,6 +212,35 @@ test('a level changes the dose and the cue, never the id or the name', () => {
   }
 });
 
+test('every timed working movement says how many reps to aim for', () => {
+  // The work phase is a clock, so "how many?" has no answer on screen unless
+  // the movement carries one. The rest day has always stated reps inside its
+  // dose ("8-12 reps"); the knee routine's dose carries the level's loading
+  // instead, so the count needed its own field or it simply vanished.
+  for (const item of knees.items.filter(i => !i.warmup)) {
+    assert.ok(/\d/.test(item.reps ?? ''),
+      `${item.id} states no rep guide, so a 35s work phase says nothing about how many`);
+    for (const level of item.levels ?? []) {
+      assert.ok(/\d/.test(level.reps ?? ''),
+        `${item.id} loses its rep guide at one of its levels`);
+    }
+  }
+});
+
+test('a rep guide follows the level, like the dose and the cue do', () => {
+  const item = knees.items.find(i => i.id === 'goblet-squat');
+  const seen = item.levels.map((_, i) => itemAt(item, i * SESSIONS_PER_LEVEL).reps);
+  assert.equal(seen.length, item.levels.length);
+  for (const [i, reps] of seen.entries()) {
+    assert.equal(reps, item.levels[i].reps, `level ${i} did not carry its own rep guide through itemAt`);
+  }
+  // Harder loading, fewer reps in the same 35 seconds — if that ever inverts,
+  // the numbers were copied rather than thought about.
+  const first = parseInt(seen[0], 10);
+  const last = parseInt(seen[seen.length - 1], 10);
+  assert.ok(last < first, `goblet squat asks for ${last} reps at the top level and ${first} at the bottom`);
+});
+
 test('every level is a real step up, not the same text twice', () => {
   for (const item of knees.items.filter(i => i.levels?.length)) {
     const doses = item.levels.map(l => l.dose);

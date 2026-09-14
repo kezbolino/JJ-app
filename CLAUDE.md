@@ -3970,6 +3970,56 @@ data if forgotten:
   on `mobilitySessions`, which has synced as `byId` since v46, so the first sync
   just carries whatever the phone has.
 
+- 2026-09-14 — **v69: the knee routine says how many reps, not just how heavy.**
+  User, after using it: *"are there reps or just do as many in that time limit?"*
+  A fair question with no answer on screen, and that was my gap rather than
+  their misreading.
+
+  **The cause is an overloaded field.** The rest day has always stated counts
+  inside its `dose` — "8–12 reps", "5–8 each side", "5–6 slow reps". v68's knee
+  levels write their own `dose` to carry the *loading* at that level ("10kg · 2s
+  pause", "3s lower", "Both legs"), so the rep guidance was not moved, it was
+  displaced. The work phase is a clock, so without a stated count the screen
+  genuinely says nothing about how many.
+
+  **`reps` is its own field, on the item and on each level**, and `itemAt`
+  carries it through beside `dose` and `cue`. Folding the number into the dose
+  string was the smaller change and was rejected twice over: it makes one long
+  chip at 360px, and it is exactly the merge that let the count fall out in the
+  first place. The two facts are separate — how it is loaded, and how many of it
+  35 seconds should buy — so they are two chips: filled for the dose, outlined
+  for the reps, in `.st-badges` (which already wraps) and stacked at the right
+  of each intro row via a new `.st-item-sides` column.
+
+  **The numbers fall as the loading rises**, which is the tell that they were
+  derived from the tempo each cue states rather than copied: the goblet squat is
+  7–8 at 10kg with a 2s pause and 4–5 at 16kg with a 5s pause. There is a test
+  asserting that inequality, because a rep guide that does not move with the
+  level is a number nobody thought about.
+
+  **A test that overreached, caught by its own first run.** The new guard
+  originally required every non-warm-up movement in *both* timed routines to
+  state a count, and the rest day legitimately fails that — `deep-squat-hold` is
+  a hold, and "how many" is not a question a hold answers. Narrowed to the knee
+  routine, where every movement is a rep movement by construction. Worth
+  remembering: a rule that reads as universal usually is not, and the routine
+  that breaks it is the one to check before widening the assertion.
+
+  **The browser test skips the warm-up by name, not by count** — leg swings are
+  two-sided, so the knee warm-up is four segments and not the three it looks
+  like, and the first version of that test timed out on exactly that. Same
+  family as the v44 lesson: a number copied out of the data fails on every
+  change to the data without ever finding a bug.
+
+  Three failure modes verified by breaking the code first (a level losing its
+  reps, `itemAt` dropping the field, a movement with none at all), plus the
+  running screen verified unwired — the badge disappears and the assertion has
+  nothing to read. Thirteen suites green by exit code (92 browser assertions in
+  `features`, 50 in `stretches`; `schedule` under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`). Screenshot-checked the intro list and a running set in
+  light and dark at 360px, no horizontal overflow. sw `CACHE` → v69, `VERSION`
+  → v69, no files added.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -3980,7 +4030,9 @@ strength figures outstanding — finished in v56. `PENDING_ART` is empty and
 
 **Live at v68.** v65–v68 deployed together on 2026-09-13 (`main` at `ad08f68`,
 Pages run `34768800099`). Every session from v53 on has shipped and been
-verified at the Pages **job** level, not the run badge.
+verified at the Pages **job** level, not the run badge. **v69 is built and
+unpushed** — see the standing rule from 2026-08-23 and 2026-09-13: if the work
+is finished and green, ship it rather than parking it behind a confirmation.
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported

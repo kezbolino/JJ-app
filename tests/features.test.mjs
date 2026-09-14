@@ -1395,7 +1395,10 @@ await test('finishing the knee routine logs it and buys a level', async () => {
   }, perLevel - 1);
   await go(page, '/stretch?r=knees');
   assert.match(await page.locator('.st-level').innerText(), /level 1 of 3/i);
+  // The dose says the loading; the reps say what 35 seconds should buy. Both,
+  // or the screen answers "how heavy" and stays silent on "how many".
   assert.match(await page.locator('.st-item', { hasText: 'Goblet squat' }).innerText(), /10kg/i);
+  assert.match(await page.locator('.st-item', { hasText: 'Goblet squat' }).innerText(), /7–8 reps/i);
 
   // One more completion crosses it, and the whole list hardens together.
   await page.evaluate(async () => {
@@ -1406,6 +1409,25 @@ await test('finishing the knee routine logs it and buys a level', async () => {
   await go(page, '/stretch?r=knees');
   assert.match(await page.locator('.st-level').innerText(), /level 2 of 3/i);
   assert.match(await page.locator('.st-item', { hasText: 'Goblet squat' }).innerText(), /16kg/i);
+  // Heavier, so fewer in the same window — the rep guide moves with the level.
+  assert.match(await page.locator('.st-item', { hasText: 'Goblet squat' }).innerText(), /6–7 reps/i);
+  await page.context().close();
+});
+
+await test('the running knee screen states the reps as well as the loading', async () => {
+  const page = await newPage();
+  await go(page, '/stretch?r=knees');
+  await page.locator('.st button.cta').click();
+  // Straight past the warm-up, which is open-ended by design. Skipping by name
+  // rather than by a count: leg swings are two-sided, so the warm-up is four
+  // segments and not three, and a hard-coded count would break on any reorder.
+  for (let i = 0; i < 8 && await page.locator('.st-name').innerText() !== 'Goblet squat'; i++) {
+    await page.locator('.st-skip').click();
+  }
+  await page.waitForFunction(() => document.querySelector('.st-name')?.textContent === 'Goblet squat');
+  assert.equal(await page.locator('.st-dose').innerText(), '10KG · 2S PAUSE');
+  assert.equal(await page.locator('.st-reps').innerText(), '7–8 REPS');
+  await page.locator('.st-end').click();
   await page.context().close();
 });
 
