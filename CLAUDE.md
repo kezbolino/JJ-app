@@ -4089,6 +4089,51 @@ data if forgotten:
   is broken — but those docs carry only the 27 Pilates entries. Write the briefs
   and lines before the next asset batch.
 
+- 2026-09-18 — **Still v70: supersets are tinted teal, so a pair reads as one
+  block.** User: *"for the supersets I want the grouping of them to be
+  highlighted a different colour, so the pairs are distinct from ones on their
+  own."* They were bracketed by a 3px `--accent-soft` rule down the left, which
+  at #e8edfb is very nearly invisible.
+
+  **This needed a new colour, and that is the part worth defending.** Every
+  colour in this app has exactly one job — amber is gap/waiting-on-you, green is
+  rest and warm-up, red throws work away, purple is the one priority card (v60),
+  blue is every button. A superset is **structure**, not a state: it is not any
+  of those, and above all it must not be blue, because a filled accent panel
+  behind two movements you cannot tap reads as a button. So `--pair` /
+  `--pair-ink` / `--pair-soft` / `--pair-line`, teal, written into all three
+  palettes with its one job in the comment. Contrast measured rather than
+  assumed: 6.7:1 for the tag on the tinted panel, 7.5:1 on plain surface, 7.6:1
+  in dark.
+
+  **Two mechanisms for the same tint, and the difference is a real trap.**
+  `.sx-plan.is-pair` on the intro takes a plain `background-color`: it sits in
+  normal flow inside an opaque card, so the dark-mode `rgba()` composites onto
+  that card and tints it. `.sx-pair` on the session screen **is** the card, so a
+  colour there replaces `.card`'s own `--surface` and the rgba would composite
+  over the *page* — coming out darker than every other card rather than tinted.
+  That one needs the two-stop `linear-gradient` over an opaque base. Same family
+  as the v49 sticky-overlay rule, different symptom; both are written at the use
+  site.
+
+  **The test caught two of its own faults before it was kept, which is the
+  whole reason to break-verify.** (1) It compared `backgroundColor`, and a
+  gradient tint lives in the *image* layer — so the tinted card and the plain
+  one both report white. It passed on the intro for the wrong reason and failed
+  on the session screen. (2) It compared the computed `borderLeftColor`
+  (`rgb(58, 99, 240)`) against `--accent` read off `:root` (`#3a63f0`), which
+  can never be equal — **a test that could not fail**, the v68 lesson again.
+  `--accent` is resolved through a probe element now. All three assertions
+  verified against deliberately broken CSS: intro tint removed, spine set back
+  to the accent, pair card tint removed.
+
+  Thirteen suites green by exit code (93 browser assertions in `features`;
+  `schedule` under UTC, LA and Sydney). Screenshot-checked the intro list and a
+  running session in light and dark, no overflow at 360 or 390px. `CACHE` and
+  `VERSION` stay at **v70** — it has never been deployed, so there is no cached
+  shell to invalidate and bumping would invent a version nobody ran (the v26
+  precedent). **Still not deployed at the user's request.**
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,

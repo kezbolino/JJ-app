@@ -73,6 +73,18 @@
   --flag-line:   #d9c9f0;
   --on-flag:     #ffffff;
 
+  /* teal = TWO MOVEMENTS PERFORMED TOGETHER. The superset bracket on the lift,
+     and nothing else. Same reasoning that bought purple in v60: every other
+     colour is spoken for, and a superset is *structure* rather than a state —
+     it is not a gap (amber), not rest (green), not something that throws work
+     away (red), and above all not an action, so it must not be blue: a filled
+     accent panel behind two movements you cannot tap reads as a button. */
+  --pair:        #0f766e;
+  --pair-ink:    #0b5f59;   /* teal text on light — 6.7:1 on the tinted panel,
+                               which is where it actually sits; 7.5:1 on plain --surface */
+  --pair-soft:   #e7f5f3;
+  --pair-line:   #b3ddd7;
+
   --dash:        #cfd7e8;   /* dashed border on "not yet" affordances */
   --btn-line:    #dde2ee;   /* outline on a neutral button, so it reads as one
                                on a white card as well as on the page */
@@ -143,6 +155,10 @@
     --flag-ink:    #b088e8;
     --flag-soft:   rgba(176, 136, 232, .13);
     --flag-line:   rgba(176, 136, 232, .36);
+    --pair:        #5ad1c4;
+    --pair-ink:    #5ad1c4;
+    --pair-soft:   rgba(90, 209, 196, .12);
+    --pair-line:   rgba(90, 209, 196, .34);
     --on-flag:     #17131f;
 
     --dash:        #394054;
@@ -191,6 +207,10 @@
   --flag-ink:    #b088e8;
   --flag-soft:   rgba(176, 136, 232, .13);
   --flag-line:   rgba(176, 136, 232, .36);
+  --pair:        #5ad1c4;
+  --pair-ink:    #5ad1c4;
+  --pair-soft:   rgba(90, 209, 196, .12);
+  --pair-line:   rgba(90, 209, 196, .34);
   --on-flag:     #17131f;
 
   --dash:        #394054;
@@ -1857,11 +1877,18 @@ body:has(.st.is-running) .appfoot { display: none; }
 .sx-say:active { color: var(--accent); }
 
 /* --- supersets ----------------------------------------------------------- */
-.sx-pair { margin-bottom: var(--gap); }
+/* The whole card is tinted rather than badged, because on this screen a pair
+   sits among single-movement cards and the question being answered at a glance
+   is "is this one thing or two". Same layering as the intro panel. */
+.sx-pair {
+  margin-bottom: var(--gap);
+  background: linear-gradient(var(--pair-soft), var(--pair-soft)), var(--surface);
+  border-color: var(--pair-line);
+}
 .sx-pair-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
 .sx-pair-label {
   font-size: .72rem; font-weight: 900; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--accent);
+  letter-spacing: .06em; color: var(--pair-ink);
 }
 .sx-pair-sub { color: var(--muted); font-size: .74rem; font-weight: 700; }
 .sx-pair-note {
@@ -1872,20 +1899,38 @@ body:has(.st.is-running) .appfoot { display: none; }
    than each carrying its own card — two cards inside a card reads as clutter
    and hides the fact that they belong together. */
 .sx-ex.is-paired {
-  margin: 14px 0 0; padding-top: 14px; border-top: 2px solid var(--line);
+  margin: 14px 0 0; padding-top: 14px; border-top: 2px solid var(--pair-line);
 }
 .sx-ex.is-paired:first-of-type { border-top: 0; }
 
-/* On the intro, a pair is bracketed by an accent rule down the left. */
-.sx-plan.is-pair { border-left: 3px solid var(--accent-soft); padding-left: 11px; }
-.sx-plan.is-pair-top { border-bottom: 0; padding-bottom: 4px; }
+/* On the intro a pair is one tinted panel with a teal spine, so the two rows
+   inside it read as a unit and a movement on its own reads as plain.
+   A plain `background-color` is correct HERE and wrong on `.sx-pair` below, and
+   the difference is worth knowing. --pair-soft is an rgba() in dark mode, so it
+   composites over whatever is behind it: this row sits in normal flow inside an
+   opaque card, so it lands on the card and tints it. `.sx-pair` IS the card, so
+   setting a colour there replaces `.card`'s own --surface and the rgba would
+   composite over the *page* instead — darker than every other card rather than
+   tinted. That one needs the two-stop gradient over an opaque base, which is
+   the v49 rule. (v49 itself was a sticky overlay, where the page scrolled
+   visibly through the tint — same cause, different symptom.) */
+.sx-plan.is-pair {
+  border-left: 3px solid var(--pair);
+  padding-left: 11px; padding-right: 9px;
+  background-color: var(--pair-soft);
+}
+.sx-plan.is-pair-top {
+  border-bottom: 0; padding-bottom: 4px;
+  border-radius: 10px 10px 0 0;
+}
+.sx-plan.is-pair-bottom { border-radius: 0 0 10px 10px; }
 /* No `text-transform` here on purpose. The tag reads "SUPERSET · 60s between",
    and a CSS transform cannot produce mixed case in one string — it would render
    "60S", which is the exact bug v28 fixed on the stretch intro. The word is
    capitalised in JS and the unit is left as typed. */
 .sx-pair-tag {
   display: block; font-size: .66rem; font-weight: 900;
-  letter-spacing: .06em; color: var(--accent); margin-bottom: 5px;
+  letter-spacing: .06em; color: var(--pair-ink); margin-bottom: 5px;
 }
 .sx-pair-tag b { font-weight: 900; letter-spacing: .06em; }
 .sx-pair-tag span { font-weight: 700; letter-spacing: 0; color: var(--muted); }

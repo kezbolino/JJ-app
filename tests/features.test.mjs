@@ -2195,6 +2195,57 @@ await test('the intro says how long the session takes, derived from the plan', a
   await page.context().close();
 });
 
+await test('a superset is tinted so it reads as one block, a lone movement is not', async () => {
+  const page = await newPage();
+  await go(page, '/strength');
+
+  // The intro. A paired row and a solo row must not paint the same background,
+  // which is the whole ask — asserting the class alone would pass on a
+  // stylesheet that had lost the rule.
+  const bg = el => el.evaluate(n => getComputedStyle(n).backgroundColor);
+  const paired = await bg(page.locator('.sx-plan.is-pair').first());
+  const solo = await bg(page.locator('.sx-plan:not(.is-pair)').first());
+  assert.notEqual(paired, solo, `a superset row and a lone row paint the same background (${paired})`);
+  assert.notEqual(paired, 'rgba(0, 0, 0, 0)', 'the superset panel has no tint at all');
+
+  // Teal, not the accent: a filled blue panel behind two movements you cannot
+  // tap reads as a button, which is why this colour exists at all.
+  // Resolve --accent through an element rather than reading the custom property
+  // off :root. The property is the raw `#3a63f0`, `borderLeftColor` is
+  // `rgb(58, 99, 240)`, and comparing those two can never be equal — the first
+  // draft of this line was a test that could not fail, which is the v68 lesson.
+  const spine = await page.locator('.sx-plan.is-pair').first()
+    .evaluate(n => getComputedStyle(n).borderLeftColor);
+  const accent = await page.evaluate(() => {
+    const probe = document.createElement('i');
+    probe.style.color = 'var(--accent)';
+    document.body.append(probe);
+    const c = getComputedStyle(probe).color;
+    probe.remove();
+    return c;
+  });
+  assert.notEqual(spine, accent, 'the superset spine is the accent colour');
+
+  // And the same distinction on the session screen, where a pair card sits
+  // among single-movement cards and "one thing or two" is the question.
+  //
+  // Read the background *image* here, not the colour. A pair card carries its
+  // tint as a two-stop gradient over an opaque base (see the CSS comment on
+  // .sx-pair), so `backgroundColor` reports the opaque base — white — for the
+  // tinted card and the plain one alike. The first draft of this test compared
+  // colours, passed on the intro for the wrong reason and failed here; the
+  // painted layer is the one to assert on.
+  await page.click('.sx-intro .btn.cta');
+  await page.waitForSelector('.sx-set');
+  const img = el => el.evaluate(n => getComputedStyle(n).backgroundImage);
+  const pairCard = await img(page.locator('.sx-pair').first());
+  const soloCard = await img(page.locator('.sx-ex:not(.is-paired)').first());
+  assert.notEqual(pairCard, soloCard,
+    `a superset card and a lone movement card paint the same background (${pairCard})`);
+  assert.match(pairCard, /gradient/, 'the superset card lost its tint');
+  await page.context().close();
+});
+
 await test('supersets group two movements and shorten the rest between them', async () => {
   const page = await newPage();
   await go(page, '/strength');
