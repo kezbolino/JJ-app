@@ -6,6 +6,12 @@ Every spoken cue in the app, per voice.
 every movement in the two original routines and every strength lift nameable in
 either.
 
+**Also outstanding: a third voice, Samuel** — 67 lines, script at the bottom of
+this file, to be generated with Chatterbox. It is **not** registered in
+`js/voices.js` yet and must not be until its clips exist: Mix rolls between
+every entry in `VOICES`, so a named voice with an empty folder is a silent
+session in three.
+
 **Also outstanding: second takes of every movement name** — the variety batch,
 specced at the bottom of this file. The app can play more than one reading of a
 line as of v71 (`CUE_TAKES` in `js/voices.js`); nothing is recorded yet, so
@@ -428,3 +434,183 @@ name, so it *is* per voice and can land one voice at a time.
 | `hype-12` | Easy now. You got plenty left. | You have more in you. Give it! |
 | `hype-13` | Look at you go, nephew. | Excellent. Keep going! |
 | `hype-14` | Keep breathing. Nice and steady. | Breathe. And push! |
+
+---
+
+# Samuel — a third voice (spec, not yet recorded)
+
+**Status: the script only.** The voice is deliberately **not** registered in
+`js/voices.js` until its clips exist, because registering it early is worse
+than not having it: `pickVoice` rolls between every entry in `VOICES` on Mix,
+so a third name with an empty folder would mean roughly one session in three
+where nothing speaks at all. The wiring checklist is at the bottom of this
+section and is about ten minutes' work once the audio lands.
+
+**67 lines**, the same set both other voices have — 40 movement and lift names,
+plus the 27 generic pool cues. Not the Pilates 27 (no voice has those; they are
+in `PENDING_CUES`) and not the second-takes batch above (that is variety on top
+of a complete set, and this set is not complete yet).
+
+**Voice id `samuel`, folder `audio/cues/samuel/`, picker label `Samuel`.**
+Measured before writing this: four options fit the Settings picker down to a
+320px viewport with no CSS change — 50/63/68/71px at the tightest, exactly
+filling the control. There is no slack left, so a **fifth** voice, or a longer
+label than "Samuel", needs `.seg` taught to wrap first (the v68 five-tabs fix).
+
+**On the quotes.** Where a line leans on a famous one it is a short allusion
+rather than a reproduced speech — partly because the long ones are copyrighted
+film dialogue, and mostly because a cue has about five seconds and the first
+two are spent naming the movement. **The strongest language sits in the hype
+pool on purpose:** those fire on 45% of sets from a pool of ten, so any one
+line lands rarely, while a movement name plays every single session forever.
+A swear you hear thirty times a session stops being funny by week two.
+
+## Samuel — after-class cool-down (13)
+
+| id | line |
+|---|---|
+| `neck-side` | Neck side stretch. Ear to the shoulder. Slow, now. |
+| `wrist-floor` | Kneeling wrist stretch. Palms down. Those hands earned this. |
+| `childs-pose` | Child's pose. Sit back on the heels. Be cool and breathe. |
+| `thread-needle` | Thread the needle. Run that arm underneath. All the way through. |
+| `ankle-rock` | Half-kneeling ankle rock. Drive that knee past the toes. I dare you. |
+| `hip-flexor-lunge` | Kneeling hip flexor lunge. Tuck the hips. There it is. |
+| `quad-kneel` | Kneeling quad stretch. Heel to the seat. Breathe through it. |
+| `pigeon` | Pigeon stretch. Shin across the front. Sink on down. |
+| `frog` | Frog stretch. Knees out wide. Rock it back, nice and slow. |
+| `ninety-ninety` | Ninety ninety hip stretch. Both knees bent. Sit up tall. |
+| `seated-fold` | Seated forward fold. Long legs, fold on over. No bouncing. |
+| `sphinx` | Sphinx. Up on the elbows. Open that chest up. |
+| `supine-twist` | Supine spinal twist. On your back, knees across. Let it all go. |
+
+## Samuel — rest-day routine (17)
+
+| id | line |
+|---|---|
+| `warmup-march` | March in place. Knees up. Get that blood moving. |
+| `warmup-squat` | Bodyweight squat pulses. Stay down low and keep bouncing. |
+| `warmup-arm-circle` | Arm circles. Both directions. Big and loose. |
+| `warmup-leg-swing` | Leg swings. Front to back. Stay tall. |
+| `deep-squat-hold` | Deep squat hold. All the way down. Sit in it. |
+| `cossack-squat` | Cossack squat. Shift across. As deep as you got. |
+| `ninety-ninety-liftoff` | Ninety ninety lift-off. Small range. Lift that knee. |
+| `glute-bridge-single` | Single-leg glute bridge. One foot down. Drive them hips up. |
+| `copenhagen` | Copenhagen plank. Top leg on the chair. Hold it right there. |
+| `single-leg-rdl` | Single-leg Romanian deadlift. Hinge back slow. Control it. |
+| `jefferson-curl` | Jefferson curl. Roll down one bone at a time. |
+| `thoracic-press-up` | Prone thoracic press-up. Press that chest up off the floor. |
+| `wall-slide` | Scapular wall slide. Arms up the wall. Keep them touching. |
+| `dead-hang` | Dead hang. Grab that bar and hang. Do not let go. |
+| `neck-isometric` | Neck isometrics. Push into the hand. Eight seconds. |
+| `bear-crawl` | Bear crawl. Hips low. Forward and back. |
+| `side-plank` | Side plank. Up on the elbow. Hold that line. |
+
+## Samuel — strength lifts (9) and the lift warm-up (1)
+
+| id | line |
+|---|---|
+| `pull-up` | Pull-ups. Full hang, chest to the bar. No kipping. |
+| `archer-press-up` | Archer press-ups. Weight over the bending arm. Hips level. |
+| `kb-getup` | Turkish get-up. Eyes on that bell. Do not lose the shoulder. |
+| `split-squat` | Bulgarian split squat. Back foot up. Shin stays upright. |
+| `hanging-leg-raise` | Hanging leg raises. Curl the pelvis. No swinging. |
+| `inverted-row` | Inverted rows. Body in one line. Pull. |
+| `pike-press-up` | Pike press-ups. Hips high. Crown to the floor. |
+| `hollow-hold` | Hollow body hold. Low back pressed flat. Do not quit on me. |
+| `kb-swing` | Kettlebell swings. Snap them hips. Let it float. |
+| `wu-press-ups` | Press-ups. Ten of them. Chest all the way to the floor. |
+
+## Samuel — countdown (1)
+
+| id | line |
+|---|---|
+| `countdown` | Three. Two. One. Show me something. |
+
+## Samuel — rest is over (5)
+
+| id | line |
+|---|---|
+| `rest-over-1` | Rest is over. Back to work. |
+| `rest-over-2` | That is enough sitting around. Up. |
+| `rest-over-3` | Time is up. Let's go. |
+| `rest-over-4` | Break is done. Move it. |
+| `rest-over-5` | Rest is over. I am not asking twice. |
+
+## Samuel — now the other side (6)
+
+| id | line |
+|---|---|
+| `other-side-1` | Now the other side. |
+| `other-side-2` | Switch it. Other side. |
+| `other-side-3` | Other side. Go. |
+| `other-side-4` | Change sides. Right now. |
+| `other-side-5` | Now the other one. |
+| `other-side-6` | Flip it over. |
+
+## Samuel — hype (10)
+
+Where the famous ones live, for the reason given above: 45% of sets, pool of
+ten, so no single line wears out.
+
+| id | line |
+|---|---|
+| `hype-1` | Enough with these motherfucking reps on this motherfucking mat. |
+| `hype-2` | Hold onto your butts. |
+| `hype-3` | Say you are done again. I dare you. I double dare you. |
+| `hype-4` | That right there is the path of the righteous man. Keep going. |
+| `hype-5` | I am trying real hard to be the shepherd. Finish the set. |
+| `hype-6` | Yes it hurts. And yes, you are going to finish it. |
+| `hype-7` | Now that is a tasty burger. Go on and earn it. |
+| `hype-8` | Keep moving, because I will not be repeating myself. |
+| `hype-9` | Your deepest fear is not that you are weak. Go. |
+| `hype-10` | English. Do you speak it. Then push. |
+
+## Samuel — session complete (5)
+
+| id | line |
+|---|---|
+| `finish-1` | Session complete. That is how it is done. |
+| `finish-2` | Done. Now go and eat a tasty burger. |
+| `finish-3` | Workout is over. You did that. |
+| `finish-4` | Finished. Get on out of here. |
+| `finish-5` | That is a wrap. Respect. |
+
+## Recording notes for this batch
+
+- **One file per line, named after the id** — `pull-up.wav`, `hype-3.wav`. That
+  is what makes the mapping *verifiable* instead of inferred; the v39 batch was
+  one long take and needed a transcriber to cut. Any container is fine, it gets
+  re-encoded to opus.
+- **Level does not need matching any more, and this is new.** The v52 note above
+  says to match Snoop's −24 dB because Arnold came in 9 dB hot. Since v59
+  `js/voice.js` drives every clip to the same RMS and normalises it onto the
+  same peak ceiling at decode time, so a take at any sane level lands where the
+  others do. **Room noise is what matters instead** — everything gets amplified,
+  hiss included, so a quiet room beats a loud take.
+- **Under about five seconds each.** The spoken countdown fires with 3s of the
+  get-ready left; a name longer than 7s used to get chopped mid-word, and as of
+  v71 it instead *suppresses the countdown*, which is better but still means a
+  long name eats the flourish.
+- **Say the names plainly** — "Ninety ninety", not "90/90"; "Romanian deadlift",
+  not "R-D-L". The cut is audited by transcribing each clip and matching it to
+  its own movement, and initialisms do not survive that check.
+- **Audit before wiring.** Transcribe the 40 name clips and check each against
+  its own movement. The 27 pool cues cannot be mis-mapped by construction — any
+  one can play in any slot — so the names are the only clips whose identity
+  matters.
+
+## Wiring checklist, for when the clips land
+
+1. `audio/cues/samuel/` — all 67 files, encoded to opus/webm like the others.
+2. `js/voices.js` — add `['samuel', 'Samuel']` to `VOICES`, and a
+   `samuel: {}` entry to `CUE_TAKES`.
+3. `sw.js` — add a `samuel:` array to `CUES` listing all 67 ids. The test
+   asserts this map and the folder agree exactly, in both directions.
+4. Run `node tests/stretches.test.mjs`. The guard that matters is **every voice
+   names every movement the app can speak** — a voice missing one cue goes
+   silent for it on a third of sessions, which is the hardest kind of gap to
+   notice. A missing line fails there by name.
+5. Bump `CACHE` and `VERSION`. Note the size: a third voice is roughly another
+   **1.1 MB** in `audio/cues/`. That rides in `EXTRAS`, added one file at a
+   time and best-effort since v53, so it cannot fail the install the way the
+   v52 audio jump did — but it is still a download.

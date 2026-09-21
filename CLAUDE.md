@@ -4309,6 +4309,25 @@ verified at the Pages **job** level, not the run badge.
 **Live at v70** as of 2026-09-21 (`main` at `33cb16b`, Pages run
 `35590856412`).
 
+**Outstanding audio — a third voice, Samuel (2026-09-21).** The user is
+generating it with Chatterbox. All 67 lines are written at the bottom of
+`docs/VOICE-SCRIPTS.md`, verified against the real cue set in both directions
+(no invented id, nothing missed), with a wiring checklist. **It is deliberately
+not registered in `js/voices.js` until the clips exist** — `pickVoice` rolls
+over every entry in `VOICES` on Mix, so a third name with an empty folder means
+roughly one session in three where nothing speaks, and the "every voice names
+every movement" guard would fail. Measured before writing it: four options fit
+the Settings picker down to 320px with no CSS change (50/63/68/71px, exactly
+filling the control) — so there is **no slack for a fifth voice or a longer
+label** without teaching `.seg` to wrap, which is the v68 five-tabs fix.
+Two things about the batch worth knowing: the strongest language is in the hype
+pool on purpose (45% of sets from a pool of ten, so no line wears out, where a
+movement name plays every session forever), and **level no longer needs matching
+at encode** — v59 drives and normalises every clip at decode, so the v52
+hand-matching note above is superseded; room noise is what matters now, because
+hiss gets amplified with everything else. A third voice is ~1.1 MB, in `EXTRAS`
+and therefore best-effort since v53, so it cannot fail the install.
+
 **Outstanding audio — the variety batch (v71).** Every movement still says the
 same words every time; the app can play more than one reading as of v71 but
 nothing is recorded. Scripts for a second take of all 40 movement and lift
