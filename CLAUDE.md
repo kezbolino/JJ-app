@@ -4175,6 +4175,30 @@ data if forgotten:
   there is no cached shell to invalidate and bumping would invent a version
   nobody ran (the v26 precedent, same as the superset tinting).
 
+- 2026-09-21 — **v70 deployed.** `main` fast-forwarded `e71111b..33cb16b` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 24s, `report-build-status` in 4s, `deploy` in 10s
+  (10:50:50→10:51:00Z, run `35590856412`). Tenth clean deploy in a row.
+
+  Ship gate: thirteen suites green *by exit code* (`schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`), `CACHE` == `VERSION` == v70,
+  clean tree, fast-forward confirmed with `git merge-base --is-ancestor`.
+
+  **Three sessions' work in one version.** v70 was built on 2026-09-18 and held
+  back at the user's request, so it carries the empty hamstring-at-the-knee
+  slot, the teal superset tinting and the two finish/rest fixes from 2026-09-21.
+  The number never moved past v70 because it had never reached a device — the
+  v26 precedent, and the reason the footer is a meaningful check at all.
+
+  **The visible tells:** the footer reads `JUJI v70`; the Knees routine is
+  **11:00** with nine movements and no leg slider curl; the lift's supersets are
+  a teal block on both the plan and the session screen; the routine finish
+  screen offers **Done** instead of Go again; and the rest day ends on the side
+  plank rather than on twenty seconds of rest.
+
+  **No churn expected in `jj-app-data`** — nothing in v70 touches
+  `js/markdown.js`, the entry model or `js/appstate.js`.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -4188,7 +4212,10 @@ Pages run `34768800099`). Every session from v53 on has shipped and been
 verified at the Pages **job** level, not the run badge.
 
 **Live at v69** as of 2026-09-14 (`main` at `bfebfcb`, Pages run
-`34828139178`). **v70 is built and unpushed.**
+`34828139178`).
+
+**Live at v70** as of 2026-09-21 (`main` at `33cb16b`, Pages run
+`35590856412`).
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported
