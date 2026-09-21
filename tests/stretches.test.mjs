@@ -422,6 +422,25 @@ test('both routines land in the window they were asked for', () => {
   }
 });
 
+test('no routine ends on a rest — there is nothing to recover for', () => {
+  // The rest day and the knee routine both used to finish on twenty seconds of
+  // rest after the last set, counting down to a routine that was already over,
+  // with the rest screen's "NEXT UP" card having no next movement to name.
+  for (const r of ROUTINES) {
+    const segs = segments(r);
+    const last = segs[segs.length - 1];
+    assert.equal(last.phases.rest, 0, `${r.id} ends on a rest phase`);
+    assert.equal(last.length, last.phases.ready + last.phases.work,
+      `${r.id} last segment is longer than its own phases`);
+  }
+  // And the copy matters: `phasesFor` hands back `routine.phases` itself for a
+  // normal movement, so zeroing the last one in place would zero every one.
+  const segs = segments(restDay);
+  const mid = segs.find(seg => !seg.item.warmup);
+  assert.ok(mid.phases.rest > 0, 'zeroing the last rest zeroed them all');
+  assert.ok(restDay.phases.rest > 0, 'the routine itself lost its rest');
+});
+
 test('the timeline is contiguous, starts at zero and has no gaps', () => {
   // Everything downstream is a lookup into these offsets. A gap or an overlap
   // would put the routine on the wrong movement, silently.

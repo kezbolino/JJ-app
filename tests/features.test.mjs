@@ -1592,6 +1592,44 @@ await test('finishing a routine marks the calendar and offers no class to log', 
   await page.context().close();
 });
 
+await test('the finish screen does not offer to run the whole routine again', async () => {
+  // Removal pin, in the spirit of the v18 timer one. "Go again" was the only
+  // button on the finish screen and therefore the most prominent control in
+  // the app at the moment you had just finished — offering a second 16-minute
+  // cool-down to someone who has finished one. Done goes back to the plan,
+  // which is also where you would start it again from if you meant to.
+  const page = await fastPage(400);
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-done', { timeout: 20000 });
+
+  const labels = await page.locator('.st-done .btn-row button').allInnerTexts();
+  assert.deepEqual(labels.map(t => t.trim()), ['Done'], `finish screen offers ${labels.join(', ')}`);
+
+  // And it is a way out, not a dead end — the v36 lesson about a control that
+  // looks like one and does nothing.
+  await page.click('.st-done .btn-row button');
+  await page.waitForSelector('.st-intro', { timeout: 5000 });
+  await page.context().close();
+});
+
+await test('a routine does not rest after its last set', async () => {
+  // The rest day used to end on twenty seconds of rest with nothing after it.
+  // Asserted through the module rather than by watching the clock: the last
+  // segment is the one that must not carry the phase.
+  const page = await newPage();
+  await go(page, '/stretch');
+  const tails = await page.evaluate(async () => {
+    const { ROUTINES, segments } = await import('/js/stretches.js');
+    return ROUTINES.map(r => {
+      const segs = segments(r);
+      return [r.id, segs[segs.length - 1].phases.rest];
+    });
+  });
+  for (const [id, rest] of tails) assert.equal(rest, 0, `${id} ends on a rest`);
+  await page.context().close();
+});
+
 await test('the running screen has a red End button and hides the version footer', async () => {
   const page = await newPage();
   await go(page, '/stretch');

@@ -395,8 +395,13 @@ function attachRunning(mount, token, onExit) {
         h('div.st-done-ico', icon('flame')),
         h('h2', routine.id === 'post-class' ? 'Stretched off' : 'Session done'),
         h('p', `${routine.items.length} ${routine.unit} · ${clock(s.totalMs)} mins. ${routine.doneNote}`),
+        // No "Go again". You have just finished the routine; offering to run
+        // the whole thing a second time is the app asking for something nobody
+        // wants, and it was the most prominent control on the screen. Done
+        // takes you back to the plan, which is also the way to start it again
+        // if that is genuinely what you want.
         h('div.btn-row',
-          h('button.btn.primary', { type: 'button', onclick: () => onExit('again') }, 'Go again'))));
+          h('button.btn.primary', { type: 'button', onclick: () => onExit() }, 'Done'))));
   };
 
   let lastAnnounceKey = '';
@@ -451,7 +456,7 @@ function attachRunning(mount, token, onExit) {
     soundBtn.title = nowMuted ? 'Sound off' : 'Sound on';
   });
 
-  endBtn.addEventListener('click', () => { endSession(); onExit('end'); });
+  endBtn.addEventListener('click', () => { endSession(); onExit(); });
 
   s.renderers.add(paint);
   paint(computeState(s));
@@ -596,7 +601,7 @@ export default async function stretch(root, { routine: routineId } = {}) {
     teardown?.();
     teardown = null;
     mount.className = 'st is-running';
-    teardown = attachRunning(mount, token, reason => (reason === 'again' ? begin() : showIntro()));
+    teardown = attachRunning(mount, token, () => showIntro());
   };
 
   const begin = () => {

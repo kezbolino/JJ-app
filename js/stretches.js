@@ -917,6 +917,22 @@ export function segments(routine) {
     if (item.bilateral) { push(item, 'Left side'); push(item, 'Right side'); }
     else push(item, null);
   }
+  // **The last segment never rests.** A rest phase exists to recover you for
+  // the next set, and after the final one there is no next set — the routine
+  // is over. Left in, the rest day and the knee routine both ended on twenty
+  // seconds of a countdown to nothing, with the rest screen's "NEXT UP" card
+  // having no movement to show.
+  //
+  // Note the copy: `phasesFor` returns `routine.phases` itself for a normal
+  // movement, so writing `rest` on it in place would zero the rest for every
+  // segment of the routine, not just this one.
+  const last = out[out.length - 1];
+  if (last && last.phases.rest) {
+    const { ready, work } = last.phases;
+    last.phases = { ready, work, rest: 0 };
+    last.length = ready + work;
+    last.end = last.start + last.length;
+  }
   return out;
 }
 

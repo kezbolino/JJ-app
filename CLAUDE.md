@@ -4134,6 +4134,47 @@ data if forgotten:
   shell to invalidate and bumping would invent a version nobody ran (the v26
   precedent). **Still not deployed at the user's request.**
 
+- 2026-09-21 — **Still v70: the finish screen stopped asking for a rematch, and
+  no routine ends on a rest.** Two things the user hit doing an actual session.
+
+  **"Go again" is gone.** It was the only button on the finish screen, so the
+  most prominent control in the app at the moment you had just finished a
+  16-minute cool-down was an offer to do another one. It is **Done** now, back
+  to the plan — which is also where you would start it again from if you
+  genuinely meant to, so nothing is lost but the nagging. `attachRunning`'s
+  exit callback took a reason (`'again'` vs anything else) and only had one
+  branch left, so the argument went with it rather than sitting there unread.
+
+  **The last segment never rests.** The rest day and the knee routine both
+  finished on twenty seconds of rest counting down to a routine that was
+  already over, with the rest screen's `NEXT UP` card having no next movement
+  to name. Rest day 22:25 → 22:05, knees 11:00 → 10:45.
+
+  **The trap in that one-liner, and it is the reason to read the fix rather
+  than assume it:** `phasesFor` returns **`routine.phases` itself** for a normal
+  movement — the same object, not a copy — so writing `rest = 0` onto the last
+  segment's `phases` in place would have zeroed the rest for *every* segment of
+  that routine, turning a 22-minute session into a continuous one. The fix
+  replaces the object instead, and there is an assertion on exactly that: a
+  mid-routine segment must still carry its rest, and so must `routine.phases`.
+  Verified by writing the in-place version and watching it fail.
+
+  Everything downstream needed nothing. Phase selection is
+  `within < ready + work ? 'work' : 'rest'` and `segmentAt` returns -1 at the
+  end, so a trailing rest of 0 is simply never entered — the v40 note that **a
+  phase of length 0 is not special-cased** paying off for the third time, after
+  the cool-down's rest and the warm-up's get-ready.
+
+  Three tests, all verified against broken code first: the pure one pins both
+  the trailing rest and the shared-object trap, and two browser ones pin the
+  removal (the finish screen offers exactly `Done`, and it leads back to the
+  intro rather than being another dead control — the v36 `Skip rest` lesson)
+  and the tail phase through the module.
+
+  `CACHE` and `VERSION` stay at **v70** — it has still never been deployed, so
+  there is no cached shell to invalidate and bumping would invent a version
+  nobody ran (the v26 precedent, same as the superset tinting).
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
