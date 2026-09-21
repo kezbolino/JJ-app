@@ -401,7 +401,7 @@ name, so it *is* per voice and can land one voice at a time.
 |---|---|---|
 | `countdown-2` | Three. Two. One. Go on then. | Three. Two. One. Move! |
 | `countdown-3` | Three, two, one — let's get it. | Three. Two. One. Now! |
-| `countdown-4` | Three. Two. One. Here we go, nephew. | Three. Two. One. Begin!
+| `countdown-4` | Three. Two. One. Here we go, nephew. | Three. Two. One. Begin! |
 
 ### now the other side — `other-side-7` to `-10`
 
