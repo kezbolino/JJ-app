@@ -8,7 +8,7 @@
 // life of a session — see js/voices.js. Each player caches its own decoded
 // buffers, so a voice's clips are never mixed with another's.
 
-import { DEFAULT_VOICE } from './voices.js';
+import { DEFAULT_VOICE, cueFile, pickCue, takesFor } from './voices.js';
 
 /**
  * How hard to drive a clip into the limiter, as RMS amplitude.
@@ -239,6 +239,24 @@ export function processClip(samples, opts = {}) {
 }
 
 /**
+ * Ramp lengths, in seconds.
+ *
+ * `FADE_OUT_S` is the one that matters: it is how long an *interrupted* clip
+ * takes to go quiet instead of stopping dead. 80ms is long enough that a cut
+ * mid-word reads as a fade rather than a chop, and short enough that the cue
+ * replacing it is not talking over the old one — the countdown has three
+ * seconds to say "3, 2, 1, let's go" and cannot afford to share them.
+ *
+ * `FADE_IN_S` is insurance rather than a fix. Every clip on disk was measured
+ * before this was written and each one carries at least 85ms of silence before
+ * the voice arrives, so there is no click to remove at the start today; a take
+ * cut tighter in future would have one. Kept short for the same reason: a long
+ * attack eats the first consonant, which is the part that identifies the word.
+ */
+export const FADE_IN_S = 0.008;
+export const FADE_OUT_S = 0.08;
+
+/**
  * This plays clips through Web Audio, the same as the beeps, rather than a
  * plain `Audio` element — deliberately. A bare `Audio().play()` called from
  * a `setInterval` tick (as every segment after the first is) is not running
@@ -253,7 +271,28 @@ export function createVoice(voice = DEFAULT_VOICE) {
   let ctx = null;
   let closed = false;
   let current = null;
+  let speakingUntil = 0;
   const buffers = new Map();
+  /** The last take played of each id, so a repeat never picks the same one. */
+  const lastTake = new Map();
+  /** A take chosen by `preload` and owed to the next `say` of that id. */
+  const owed = new Map();
+
+  /**
+   * Which recording of `id` plays this time. Most ids have one, and this is
+   * then a lookup that always answers 1.
+   */
+  const choose = id => {
+    let take;
+    if (owed.has(id)) { take = owed.get(id); owed.delete(id); }
+    else {
+      const takes = takesFor(voice, id);
+      if (takes < 2) return 1;
+      take = pickCue(takes, lastTake.get(id));
+    }
+    lastTake.set(id, take);
+    return take;
+  };
 
   const ensure = () => {
     if (closed) return null;
@@ -264,10 +303,11 @@ export function createVoice(voice = DEFAULT_VOICE) {
     return ctx;
   };
 
-  const load = async (c, id) => {
-    if (buffers.has(id)) return buffers.get(id);
+  const load = async (c, id, take) => {
+    const key = take > 1 ? `${id}-${take}` : id;
+    if (buffers.has(key)) return buffers.get(key);
     try {
-      const res = await fetch(`audio/cues/${voice}/${id}.webm`);
+      const res = await fetch(cueFile(voice, id, take));
       const buf = await c.decodeAudioData(await res.arrayBuffer());
       // Levelled once, in place, off the decoded samples — not baked into the
       // files. A clip recorded later at a different level is then handled on
@@ -280,7 +320,7 @@ export function createVoice(voice = DEFAULT_VOICE) {
         const data = buf.getChannelData(ch);
         data.set(processClip(data, { sampleRate: buf.sampleRate }));
       }
-      buffers.set(id, buf);
+      buffers.set(key, buf);
       return buf;
     } catch { return null; }
     // No clip recorded yet in *this* voice — stay silent, don't break the
@@ -289,8 +329,35 @@ export function createVoice(voice = DEFAULT_VOICE) {
     // is the standing contract every missing cue has always had.
   };
 
+  /**
+   * Stop whatever is playing, over FADE_OUT_S rather than instantly.
+   *
+   * This is the fix for the hard cut-off. A clip is interrupted more often than
+   * it is left to finish — the spoken countdown lands on top of a long name,
+   * Skip and Back jump to the next movement, muting silences the one in
+   * flight — and `src.stop()` with no argument truncates the waveform at
+   * whatever sample it had reached. Mid-vowel that is a step of most of full
+   * scale in one sample, which is a click as well as an abrupt ending.
+   *
+   * The source is still stopped, just after the ramp: leaving it running would
+   * hold the buffer and the node alive for the rest of the line with nothing
+   * audible coming out. Returns when the last sound is gone, so `close` can
+   * wait for it.
+   */
   const stop = () => {
-    if (current) { try { current.stop(); } catch { /* already ended */ } current = null; }
+    const playing = current;
+    current = null;
+    speakingUntil = 0;
+    if (!playing) return 0;
+    const { src, gain } = playing;
+    const t = ctx ? ctx.currentTime : 0;
+    try {
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(gain.gain.value, t);
+      gain.gain.linearRampToValueAtTime(0, t + FADE_OUT_S);
+      src.stop(t + FADE_OUT_S);
+    } catch { try { src.stop(); } catch { /* already ended */ } }
+    return FADE_OUT_S;
   };
 
   return {
@@ -303,7 +370,21 @@ export function createVoice(voice = DEFAULT_VOICE) {
      * round-trip and a decode between the beep and the voice, which on a cold
      * cache is exactly the moment you are not looking at the screen.
      */
-    preload: id => { const c = ensure(); if (c) load(c, id); },
+    preload: id => {
+      const c = ensure();
+      if (!c) return;
+      // Pick the take here and hold it for the `say` that follows, or a clip
+      // with several takes would decode one now and roll a different one when
+      // the rest ends — which is the round-trip this preload exists to avoid.
+      if (!owed.has(id)) owed.set(id, choose(id));
+      load(c, id, owed.get(id));
+    },
+    /**
+     * Is a clip audible right now? Used by the routine to hold back the spoken
+     * countdown rather than talk over the movement's own name — the one
+     * interruption that fires on its own, with nobody having tapped anything.
+     */
+    isSpeaking: () => Boolean(current) && (ctx?.currentTime ?? 0) < speakingUntil,
     /**
      * Play a clip. Resolves with its length in seconds, or 0 if there was
      * nothing to play.
@@ -317,23 +398,37 @@ export function createVoice(voice = DEFAULT_VOICE) {
     say: async id => {
       const c = ensure();
       if (!c) return 0;
-      const buf = await load(c, id);
+      const take = choose(id);
+      const buf = await load(c, id, take);
       if (!buf || closed) return 0;   // torn down while the clip was still decoding
       stop();
       const src = c.createBufferSource();
       src.buffer = buf;
-      // Straight to the destination. The levelling is already in the samples,
-      // and the DynamicsCompressorNode that used to sit here was doing almost
-      // nothing — see TARGET_RMS.
-      src.connect(c.destination);
+      // One gain node per clip, for the ramps. The levelling itself is already
+      // in the samples, and the DynamicsCompressorNode that used to sit here
+      // was doing almost nothing — see TARGET_RMS.
+      const gain = c.createGain();
+      const t = c.currentTime;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(1, t + FADE_IN_S);
+      src.connect(gain).connect(c.destination);
       src.start();
-      current = src;
+      current = { src, gain };
+      speakingUntil = t + buf.duration;
       return buf.duration;
     },
     stop,
     close: () => {
-      stop(); closed = true;
-      if (ctx) { ctx.close().catch(() => {}); ctx = null; }
+      // Let the fade finish before the context goes. Closing it in the same
+      // turn cuts the clip dead, which is the exact thing `stop` is here to
+      // avoid — and End routine, muting and leaving a lift screen all land
+      // here mid-sentence. `closed` is set now, so nothing new can start in
+      // the window.
+      const wait = stop();
+      closed = true;
+      const c = ctx;
+      ctx = null;
+      if (c) setTimeout(() => c.close().catch(() => {}), wait * 1000 + 20);
     },
   };
 }

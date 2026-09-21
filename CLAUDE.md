@@ -4199,6 +4199,98 @@ data if forgotten:
   **No churn expected in `jj-app-data`** — nothing in v70 touches
   `js/markdown.js`, the entry model or `js/appstate.js`.
 
+- 2026-09-21 — **v71: an interrupted cue fades instead of stopping dead, and a
+  line can be said more than one way.** User: *"there's a hard cut off with the
+  audio clips, I want a clean fade in and out"* and *"expand the phrases as they
+  are becoming samey — a few variations of the same moves."*
+
+  **The clips were not the problem, and measuring that first is what saved the
+  session.** The obvious reading of "hard cut off" is a file cut too tight, so
+  all 134 were decoded and their edges measured before a line was written:
+  **every one carries at least 85ms of silence before the voice arrives and
+  144ms after it stops** (median 227ms / 297ms). A fade at the file edges would
+  have faded silence. The cut-off is real, it just happens at the *other* end —
+  `src.stop()` with no argument, which truncates the waveform at whatever
+  sample it had reached. Mid-vowel that is a step of most of full scale in one
+  sample: a click as well as an abrupt ending.
+
+  **A clip is interrupted far more often than it is left to finish.** Skip and
+  Back, muting mid-cue, End routine, leaving a lift screen (`mountAudio` closes
+  the pair), and every `say` stopping the one before it. All of them went
+  through that one line.
+
+  **So the ramps are in the player, not in the files.** One `GainNode` per clip
+  — 8ms in, **80ms out** — and `close()` now waits for the fade before closing
+  the context, because End routine and muting both land there mid-sentence and
+  closing the context underneath is the same hard cut by another route. 80ms is
+  long enough to read as a fade and short enough that the cue replacing it is
+  not sharing words with the old one. The fade-*in* is insurance and is
+  described as such: there is no click to remove at the start today, and a long
+  attack would eat the first consonant, which is the part that identifies the
+  word.
+
+  **One interruption fires on its own, and it is now held back.** The spoken
+  "3, 2, 1" lands at 7s into a 10s get-ready, and three Arnold names run longer
+  than that (`hip-flexor-lunge` 8.5s, `supine-twist` 7.4s, `quad-kneel` 7.2s) —
+  so about one set in five it chopped a name mid-word with nobody having tapped
+  anything. `voice.isSpeaking()` is one boolean and the three ticks are the
+  fallback, so the last three seconds are never silent. Deliberately *not*
+  timing logic keyed to clip length — that is the per-item special-casing the
+  segment engine has refused since v27.
+
+  **The variety half is a mechanism plus a script, and the audio is the user's
+  to record.** `CUE_TAKES` in `js/voices.js` says how many readings each voice
+  has of each id; `createVoice` picks one with the same `pickCue` no-repeat rule
+  the `hype-N` pool already uses. **Take 1 keeps the plain filename**, so
+  nothing on the phone moves and none of the 134 existing clips re-downloads —
+  a second reading is `<id>-2.webm` beside `<id>.webm`. It is **ragged per
+  voice** on purpose: Snoop may have three takes of a movement and Arnold one.
+  What may never be ragged is having *none*, which is what `PENDING_CUES`
+  guards.
+
+  **`CUE_TAKES` is empty, and that is the honest state** — the same shape as
+  `PENDING_ART`. The scripts are written: `docs/VOICE-SCRIPTS.md` now carries a
+  second take of all 40 movement and lift names in both voices, plus pool
+  extensions. **Landing one is three things in one commit** — the bytes,
+  the count in `CUE_TAKES`, the filename in `sw.js` — and a test fails on any
+  one missing, in both directions. Verified by breaking each: a declared take
+  with no file, and a file nobody declares.
+
+  **The discriminator for "is this a take?" is worth knowing**, because the
+  generic pools already use `-N` filenames. `hype-2` is a pool member because
+  there is no `hype.webm`; `neck-side-2` could only ever be a second reading of
+  `neck-side`. The test keys off whether the base clip exists.
+
+  **The pool counts are not per voice and cannot land one voice at a time.**
+  `OTHER_SIDE_CUES`, `HYPE_CUES` and `REST_OVER_CUES` are one number each, so
+  `other-side-7` has to exist in *both* folders before the constant moves. The
+  movement takes have no such coupling. Said so in the doc rather than leaving
+  it to be discovered by a failing install.
+
+  **`pickCue` moved from `js/stretches.js` to `js/voices.js`**, re-exported from
+  its old home so every caller and test is unchanged. The player needs it to
+  choose a take, and importing the routine data would have dragged 146 KB of
+  artwork into the audio path. Note a re-export is not an import: `export {
+  pickCue } from './voices.js'` does **not** put the binding in scope for
+  `pickOtherSide` in the same file, which is how five tests went red for one
+  commit.
+
+  **The countdown guard is asserted by absence, so it is paired.** The new
+  browser test runs Arnold on `hip-flexor-lunge` and asserts no countdown; the
+  v39 test alongside it runs Snoop on a 3.5s name with the same stubbed coin
+  and asserts the countdown *does* fire. Only the clip length differs between
+  them. The fade test drives `js/voice.js` directly and instruments
+  `AudioBufferSourceNode.stop` — the assertion is that the stop is scheduled
+  80ms out and that the gain ramps to zero first. Both verified against broken
+  code (the fade test reports "stopped NaNms ahead", which is what a bare
+  `stop()` looks like from the outside).
+
+  Thirteen suites green by exit code (97 browser assertions in `features`, 55 in
+  `stretches`, 16 in `sync`, smoke clean; `schedule` under UTC,
+  `America/Los_Angeles` and `Australia/Sydney`). No audio was touched and no
+  files were added or removed, so this is a small update with nothing to
+  re-download but the shell. sw `CACHE` → v71, `VERSION` → v71.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -4216,6 +4308,15 @@ verified at the Pages **job** level, not the run badge.
 
 **Live at v70** as of 2026-09-21 (`main` at `33cb16b`, Pages run
 `35590856412`).
+
+**Outstanding audio — the variety batch (v71).** Every movement still says the
+same words every time; the app can play more than one reading as of v71 but
+nothing is recorded. Scripts for a second take of all 40 movement and lift
+names, in both voices, plus pool extensions, are at the bottom of
+`docs/VOICE-SCRIPTS.md`. Movement takes land per voice, one at a time, through
+`CUE_TAKES` in `js/voices.js`; the pool counts (`OTHER_SIDE_CUES`,
+`HYPE_CUES`, `REST_OVER_CUES`) are single numbers and need both voices before
+they move.
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported

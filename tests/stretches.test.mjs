@@ -13,7 +13,9 @@ import {
 } from '../js/stretches.js';
 import { ART, PENDING_ART } from '../js/stretch-art.js';
 import { STRENGTH_ART } from '../js/strength-art.js';
-import { VOICE_IDS, VOICES, pickVoice, PENDING_CUES } from '../js/voices.js';
+import {
+  VOICE_IDS, VOICES, pickVoice, PENDING_CUES, CUE_TAKES, takesFor, cueFile,
+} from '../js/voices.js';
 import { EXERCISES, WARM_UP } from '../js/strength.js';
 
 let passed = 0;
@@ -730,9 +732,69 @@ test('every precached clip is one the app can actually ask for', () => {
 
   for (const [voice, ids] of Object.entries(swCues())) {
     for (const id of ids) {
-      assert.ok(reachable.has(id),
+      // `<id>-2` is a second take of `<id>` only when the voice declares one;
+      // it is otherwise just an id that happens to end in a number, which is
+      // what every generic pool's filenames look like.
+      const take = id.match(/^(.*)-(\d+)$/);
+      const asTake = take && reachable.has(take[1])
+        && Number(take[2]) <= takesFor(voice, take[1]);
+      assert.ok(reachable.has(id) || asTake,
         `${voice}/${id}.webm is precached but nothing in the app requests it`);
     }
+  }
+});
+
+test('a take that is declared exists, and a take that exists is declared', () => {
+  // CUE_TAKES is a claim about files, and both directions of getting it wrong
+  // are silent. A declared take with no file plays nothing on the sessions the
+  // picker happens to choose it — worse than a cue that is always missing,
+  // because it is intermittent. A file nobody declares is never requested and
+  // rides in the precache forever, which is the v41/v52 `wu-press-ups` bug.
+  //
+  // The discriminator for "is this a take?" is that its base clip exists:
+  // `hype-2.webm` is a pool member because there is no `hype.webm`, while
+  // `neck-side-2.webm` could only ever be a second reading of `neck-side`.
+  const root = new URL('../audio/cues/', import.meta.url);
+  for (const voice of VOICE_IDS) {
+    const disk = new Set(readdirSync(new URL(`${voice}/`, root))
+      .filter(f => f.endsWith('.webm')).map(f => f.slice(0, -5)));
+
+    for (const [id, n] of Object.entries(CUE_TAKES[voice] ?? {})) {
+      assert.ok(Number.isInteger(n) && n > 1,
+        `CUE_TAKES.${voice}["${id}"] is ${n} — one take is the default, so say nothing`);
+      assert.ok(disk.has(id), `${voice} declares ${n} takes of "${id}" and has none`);
+      for (let take = 2; take <= n; take++) {
+        assert.ok(disk.has(`${id}-${take}`),
+          `${voice} declares ${n} takes of "${id}" but ${cueFile(voice, id, take)} is missing`);
+      }
+    }
+
+    for (const file of disk) {
+      const m = file.match(/^(.*)-(\d+)$/);
+      if (!m || !disk.has(m[1])) continue;
+      assert.ok(Number(m[2]) <= takesFor(voice, m[1]),
+        `${voice}/${file}.webm looks like take ${m[2]} of "${m[1]}", which CUE_TAKES does not declare — nothing will ever play it`);
+    }
+  }
+});
+
+test('take 1 keeps the plain filename, so recording a second renames nothing', () => {
+  // The 134 clips already on the user's phone must not move. Take 1 is the
+  // bare id and always has been; only takes 2+ carry a suffix.
+  assert.equal(cueFile('snoop', 'neck-side'), 'audio/cues/snoop/neck-side.webm');
+  assert.equal(cueFile('snoop', 'neck-side', 1), 'audio/cues/snoop/neck-side.webm');
+  assert.equal(cueFile('arnold', 'neck-side', 3), 'audio/cues/arnold/neck-side-3.webm');
+});
+
+test('a voice with no entry has exactly one take, and takes are per voice', () => {
+  assert.equal(takesFor('snoop', 'neck-side'), takesFor('snoop', 'neck-side'));
+  assert.equal(takesFor('snoop', 'nothing-like-this'), 1);
+  assert.equal(takesFor('no-such-voice', 'neck-side'), 1);
+  // Ragged on purpose: one voice may have three readings of a line and the
+  // other one. What may never be ragged is having none — PENDING_CUES covers
+  // that, above.
+  for (const voice of VOICE_IDS) {
+    assert.ok(CUE_TAKES[voice], `CUE_TAKES has no entry for the voice "${voice}"`);
   }
 });
 

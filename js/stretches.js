@@ -37,6 +37,7 @@
 // General guidance, not physio. Nothing here knows anything about your body.
 
 import { ART, PENDING_ART } from './stretch-art.js';
+import { pickCue } from './voices.js';
 
 /** The cool-down's cycle, kept as named exports because tests pin them. */
 export const READY_MS = 10_000;
@@ -982,24 +983,12 @@ export const OTHER_SIDE_CUES = 6;
 export const HYPE_CUES = 10;
 
 /**
- * Pick a take, never the one that just played.
- *
- * Pure, and `rand` is injectable, because this is the only part of the audio
- * path that can be checked without ears: the browser caches a decoded clip, so
- * a second play of the same take fires no network request and a test watching
- * requests silently undercounts. Test the choice, not the fetch.
- *
- * Uniform over the other five rather than re-rolling until it differs — a
- * re-roll loop is unbounded in principle, and this runs mid-routine.
+ * Re-exported from js/voices.js, where it lives so that js/voice.js can pick a
+ * take without importing this module — the routine data pulls in 146 KB of
+ * artwork, and the audio player has no business depending on it. Every existing
+ * caller reads it from here.
  */
-export function pickCue(count, last, rand = Math.random) {
-  // No previous take (start of a session): every one is fair game. Without
-  // this branch the skip-over below shifts every result up by one and take 1
-  // can never play first.
-  if (!(last >= 1 && last <= count)) return 1 + Math.floor(rand() * count);
-  const n = 1 + Math.floor(rand() * (count - 1));   // 1..count-1
-  return n >= last ? n + 1 : n;                     // skip over `last`
-}
+export { pickCue };
 
 /**
  * "Session complete" lines — `audio/cues/<voice>/finish-N.webm`.

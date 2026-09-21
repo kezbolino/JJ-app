@@ -6,6 +6,11 @@ Every spoken cue in the app, per voice.
 every movement in the two original routines and every strength lift nameable in
 either.
 
+**Also outstanding: second takes of every movement name** — the variety batch,
+specced at the bottom of this file. The app can play more than one reading of a
+line as of v71 (`CUE_TAKES` in `js/voices.js`); nothing is recorded yet, so
+every movement still says the same words every time.
+
 **Outstanding: the 27 Pilates lines, in both voices** (54 clips). The routine
 shipped in v64 without audio on purpose — it runs on beeps, and a missing clip
 has always been silent by design. What makes that deliberate rather than broken
@@ -284,3 +289,142 @@ will cut a longer name off (see the v52 note on Arnold's longest clips).
 | `pil-saw` | Saw. Rotate, reach past the little toe, breathe it all out. |
 | `pil-spine-stretch` | Spine stretch forward. Curl over, then restack. |
 | `pil-mermaid` | Mermaid. Reach over, breathe into the ribs. |
+
+---
+
+# Second takes — the variety batch (v71)
+
+**Why.** Every movement has had exactly one recording since the voices shipped,
+so the same words land every time that movement comes round — thirteen of them
+every cool-down, seventeen every rest day, forever. The generic pools (`hype-N`,
+`other-side-N`) have varied from the start and the movement names never have.
+
+**How it works.** `CUE_TAKES` in `js/voices.js` says how many readings each
+voice has of each id, and `createVoice` picks one, never the same one twice in
+a row — the same `pickCue` rule the pools use. **Take 1 keeps the plain
+filename**, so nothing already on the phone moves: the new file is
+`<id>-2.webm` next to `<id>.webm`.
+
+**Landing a take is three things in one commit** — the bytes in
+`audio/cues/<voice>/`, the count in `CUE_TAKES`, and the filename in `sw.js`'s
+`CUES`. `tests/stretches.test.mjs` fails on any one of them missing, in both
+directions: a declared take with no file is silent on the sessions the picker
+happens to choose it, and a file nobody declares rides in the precache forever
+without ever being asked for.
+
+**Record these in any order, one voice at a time.** `CUE_TAKES` is per voice,
+so Snoop can have two readings of a movement while Arnold has one and nothing
+is wrong. The **pools below are not** — `OTHER_SIDE_CUES` and friends are one
+number for both voices, so `other-side-7` has to exist in *both* folders before
+that constant moves.
+
+**Same rules as every batch.** One file per line, named after the line. A clear
+second of silence between lines if they come in one take. Movement name first,
+plainly — "Ninety ninety", not "90/90". Keep each under about five seconds.
+
+## Second takes — after-class cool-down (13)
+
+| id | Snoop | Arnold |
+|---|---|---|
+| `neck-side` | Neck side stretch. Ear to the shoulder, easy now. | Neck side stretch. Take it over. Slowly. |
+| `wrist-floor` | Kneeling wrist stretch. Palms down, lean in gentle. | Kneeling wrist stretch. Palms down. Lean. |
+| `childs-pose` | Child's pose. Sit back on them heels and breathe. | Child's pose. Sit back. Breathe. |
+| `thread-needle` | Thread the needle. Slide that arm under, shoulder to the floor. | Thread the needle. Arm underneath. All the way. |
+| `ankle-rock` | Half-kneeling ankle rock. Rock that knee forward, heel stays down. | Half-kneeling ankle rock. Knee forward. Heel down! |
+| `hip-flexor-lunge` | Kneeling hip flexor lunge. Tuck the hips, feel that front. | Kneeling hip flexor lunge. Tuck the hips. Good. |
+| `quad-kneel` | Kneeling quad stretch. Heel to the backside, nice and slow. | Kneeling quad stretch. Heel to the seat. |
+| `pigeon` | Pigeon stretch. Shin across the front, sink in. | Pigeon stretch. Shin forward. Sink down. |
+| `frog` | Frog stretch. Knees out wide, rock it back. | Frog stretch. Knees wide. Rock back. |
+| `ninety-ninety` | Ninety ninety hip stretch. Both knees bent, sit up tall. | Ninety ninety hip stretch. Sit tall. Breathe. |
+| `seated-fold` | Seated forward fold. Long legs, fold over easy. | Seated forward fold. Fold over. Do not bounce. |
+| `sphinx` | Sphinx. Up on them elbows, open the chest. | Sphinx. Onto the elbows. Chest up. |
+| `supine-twist` | Supine spinal twist. On your back, knees over, let go. | Supine spinal twist. Knees across. Relax. |
+
+## Second takes — rest-day routine (17)
+
+| id | Snoop | Arnold |
+|---|---|---|
+| `warmup-march` | March in place. Knees up, get that blood moving. | March in place. Knees up. Go! |
+| `warmup-squat` | Bodyweight squat pulses. Little bounces down low. | Bodyweight squat pulses. Down, down, down. |
+| `warmup-arm-circle` | Arm circles. Big ones, both directions. | Arm circles. Big circles. Both ways. |
+| `warmup-leg-swing` | Leg swings. Swing it front to back, stay tall. | Leg swings. Front and back. Stay tall. |
+| `deep-squat-hold` | Deep squat hold. All the way down, sit in it. | Deep squat hold. All the way down. Settle. |
+| `cossack-squat` | Cossack squat. Slide across, one side then the other. | Cossack squat. Shift across. Deep. |
+| `ninety-ninety-liftoff` | Ninety ninety lift-off. Tiny lift, hold it there. | Ninety ninety lift-off. Lift. Small range. |
+| `glute-bridge-single` | Single-leg glute bridge. One foot planted, hips to the sky. | Single-leg glute bridge. Hips up. Squeeze! |
+| `copenhagen` | Copenhagen plank. Top leg up on the chair, hold steady. | Copenhagen plank. Top leg on the chair. Hold! |
+| `single-leg-rdl` | Single-leg Romanian deadlift. Hinge back slow, chase that hamstring. | Single-leg Romanian deadlift. Hinge. Control it. |
+| `jefferson-curl` | Jefferson curl. Roll down slow, one bone at a time. | Jefferson curl. Roll down. Vertebra by vertebra. |
+| `thoracic-press-up` | Prone thoracic press-up. Press the chest up off the floor. | Prone thoracic press-up. Press up. Open it. |
+| `wall-slide` | Scapular wall slide. Arms up the wall, keep 'em touching. | Scapular wall slide. Up the wall. Keep contact. |
+| `dead-hang` | Dead hang. Grab the bar and just hang, nephew. | Dead hang. Hang. Do not let go. |
+| `neck-isometric` | Neck isometrics. Press into the hand, hold it. | Neck isometrics. Push. Hold. Eight seconds. |
+| `bear-crawl` | Bear crawl. Hips low, crawl it out. | Bear crawl. Hips low. Forward! |
+| `side-plank` | Side plank. Up on the elbow, hips high. | Side plank. Up. Hips high. Hold it. |
+
+## Second takes — strength lifts (9; `single-leg-rdl` is above)
+
+| id | Snoop | Arnold |
+|---|---|---|
+| `pull-up` | Pull-ups. Dead hang to the top, no swinging. | Pull-ups. Full hang. Chest to the bar! |
+| `archer-press-up` | Archer press-ups. Lean over one arm, other one long. | Archer press-ups. Over the bending arm. |
+| `kb-getup` | Turkish get-up. Eyes on that bell the whole way. | Turkish get-up. Eyes on the bell. Slow. |
+| `split-squat` | Bulgarian split squat. Back foot up, sink straight down. | Bulgarian split squat. Down. Shin upright. |
+| `hanging-leg-raise` | Hanging leg raises. Curl the hips, no swinging. | Hanging leg raises. Curl the pelvis. No swinging! |
+| `inverted-row` | Inverted rows. One straight line, pull the chest up. | Inverted rows. Straight line. Pull! |
+| `pike-press-up` | Pike press-ups. Hips high, head to the floor. | Pike press-ups. Hips high. Crown down. |
+| `hollow-hold` | Hollow body hold. Low back pressed flat, hold it. | Hollow body hold. Back flat. Hold! |
+| `kb-swing` | Kettlebell swings. Snap them hips, let it float. | Kettlebell swings. Snap the hips! |
+
+## Second take — strength warm-up (1)
+
+| id | Snoop | Arnold |
+|---|---|---|
+| `wu-press-ups` | Press-ups. Ten of 'em, chest all the way down. | Press-ups. Ten. Chest to the floor! |
+
+## Pool extensions
+
+These are **not** per voice — the counts (`OTHER_SIDE_CUES`, `HYPE_CUES` in
+`js/stretches.js`, `REST_OVER_CUES` in `js/views/strength.js`) are one number
+each, so every line here has to be recorded in **both** voices before the
+number moves. Until then, leave the constant alone and the extra files out of
+the repo.
+
+**`countdown` is the sameiest cue in the app** and is the best line-for-line
+value here: one recording, played on about one set in five, identical every
+time. It becomes `countdown-2`/`-3`/`-4` through `CUE_TAKES` like a movement
+name, so it *is* per voice and can land one voice at a time.
+
+### countdown — three more takes each (via `CUE_TAKES`)
+
+| file | Snoop | Arnold |
+|---|---|---|
+| `countdown-2` | Three. Two. One. Go on then. | Three. Two. One. Move! |
+| `countdown-3` | Three, two, one — let's get it. | Three. Two. One. Now! |
+| `countdown-4` | Three. Two. One. Here we go, nephew. | Three. Two. One. Begin!
+
+### now the other side — `other-side-7` to `-10`
+
+| file | Snoop | Arnold |
+|---|---|---|
+| `other-side-7` | Flip it over, nephew. | Turn around. Other side. |
+| `other-side-8` | Other side now. | The other side. Now! |
+| `other-side-9` | Swap them over. | Switch. Go. |
+| `other-side-10` | Same thing, other side. | Same again. Other side. |
+
+### rest is over — `rest-over-6` to `-8`
+
+| file | Snoop | Arnold |
+|---|---|---|
+| `rest-over-6` | That's the rest. Back to it. | The rest is finished. Up! |
+| `rest-over-7` | Time's up, young'n. Go again. | Time is up. Again! |
+| `rest-over-8` | Break's done. One more round. | No more resting. Move! |
+
+### hype — `hype-11` to `-14`
+
+| file | Snoop | Arnold |
+|---|---|---|
+| `hype-11` | That's it. Stay smooth with it. | Do not stop. Finish it! |
+| `hype-12` | Easy now. You got plenty left. | You have more in you. Give it! |
+| `hype-13` | Look at you go, nephew. | Excellent. Keep going! |
+| `hype-14` | Keep breathing. Nice and steady. | Breathe. And push! |

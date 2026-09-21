@@ -1754,6 +1754,90 @@ await test('a hype line lands as the set begins, and not when the countdown did'
   await page.context().close();
 });
 
+await test('an interrupted cue fades out instead of stopping dead', async () => {
+  // The hard cut-off the user reported. A clip is interrupted far more often
+  // than it is left to finish — Skip and Back, muting mid-cue, End routine,
+  // leaving a lift screen — and `src.stop()` with no argument truncates the
+  // waveform at whatever sample it had reached, which mid-vowel is a step of
+  // most of full scale in one sample.
+  //
+  // Driven through js/voice.js directly rather than through a routine: the
+  // thing being asserted is the shape of the teardown, and the routine would
+  // only add 40 seconds of waiting between the two lines that matter.
+  const page = await newPage();
+  await page.goto(BASE, { waitUntil: 'networkidle' });
+  const result = await page.evaluate(async () => {
+    const stops = [];
+    const ramps = [];
+    const Src = AudioBufferSourceNode.prototype;
+    const realStop = Src.stop;
+    Src.stop = function (t) { stops.push({ at: t, now: this.context.currentTime }); return realStop.call(this, t); };
+    const Ramp = AudioParam.prototype;
+    const realRamp = Ramp.linearRampToValueAtTime;
+    Ramp.linearRampToValueAtTime = function (v, t) { ramps.push(v); return realRamp.call(this, v, t); };
+
+    const { createVoice, FADE_OUT_S } = await import('/js/voice.js');
+    const v = createVoice('snoop');
+    v.unlock();
+    const secs = await v.say('childs-pose');          // 3.7s in this voice
+    await new Promise(r => setTimeout(r, 300));
+    const speakingMidClip = v.isSpeaking();
+    v.stop();
+    const speakingAfterStop = v.isSpeaking();
+    return { secs, speakingMidClip, speakingAfterStop, stops, ramps, FADE_OUT_S };
+  });
+
+  assert.ok(result.secs > 1, `nothing played back (say returned ${result.secs})`);
+  assert.ok(result.speakingMidClip, 'the player did not know it was speaking mid-clip');
+  assert.ok(!result.speakingAfterStop, 'the player still claimed to be speaking after stop()');
+  assert.equal(result.stops.length, 1, `expected one stop, saw ${result.stops.length}`);
+  const [{ at, now }] = result.stops;
+  assert.ok(at - now >= result.FADE_OUT_S - 1e-6,
+    `the source was stopped ${((at - now) * 1000).toFixed(0)}ms ahead, not ${result.FADE_OUT_S * 1000}ms — that is the hard cut`);
+  assert.ok(result.ramps.includes(0), 'nothing ramped the gain down to silence before the stop');
+  await page.context().close();
+});
+
+await test('the countdown holds back rather than talking over a long name', async () => {
+  // The one interruption that fires on its own, with nobody having tapped
+  // anything: the spoken "3, 2, 1" lands at 7s into a 10s get-ready, and three
+  // Arnold names run longer than that. It now falls back to the three ticks.
+  //
+  // Asserting an absence, so it is paired with the positive test above — same
+  // stubbed coin, same 7.6s wait, a voice whose clip is *short* fires the
+  // countdown. Only the clip length differs.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  context.setDefaultTimeout(12000);
+  await context.addInitScript(() => { localStorage.setItem('jj-voice', 'arnold'); });
+  await context.addInitScript(() => { Math.random = () => 0.10; });   // countdown due
+  const page = await context.newPage();
+  const cues = [];
+  page.on('request', req => {
+    if (req.url().includes('/audio/cues/')) cues.push(req.url().split('/').pop());
+  });
+  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await go(page, '/stretch');
+  await page.click('.st-intro .btn.cta');
+  await page.waitForSelector('.st-count');
+
+  // Skip to the kneeling hip flexor lunge — 8.5s in this voice, the longest
+  // line either voice has. Found by id rather than by counting taps, so a
+  // routine change does not quietly aim this at a different movement.
+  const skips = await page.evaluate(async () => {
+    const { getRoutine, segments } = await import('/js/stretches.js');
+    return segments(getRoutine('cooldown')).findIndex(s => s.item.id === 'hip-flexor-lunge');
+  });
+  assert.ok(skips > 0, 'hip-flexor-lunge is no longer in the cool-down');
+  for (let i = 0; i < skips; i++) await page.click('.st-skip');
+  await page.waitForTimeout(7600);
+
+  assert.ok(cues.includes('hip-flexor-lunge.webm'),
+    `the long name never played (heard: ${cues.join(', ') || 'nothing'})`);
+  assert.ok(!cues.includes('countdown.webm'),
+    'the countdown fired on top of a name that was still playing');
+  await page.context().close();
+});
+
 const NAMES = [
   ...Array.from({ length: 6 }, (_, i) => `other-side-${i + 1}`),
   ...Array.from({ length: 10 }, (_, i) => `hype-${i + 1}`),

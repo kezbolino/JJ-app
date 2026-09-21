@@ -163,8 +163,16 @@ function engineTick() {
       // The spoken "3, 2, 1, let's go" *replaces* the three ticks rather than
       // playing over them. Muted falls back to the ticks, so the last three
       // seconds are never silent.
-      const spoken = st.phase === 'ready' && s.countdownDue && !s.beep.isMuted();
-      if (!spoken) s.beep.tick();
+      // ...and only when the movement has finished saying its own name. The
+      // countdown fires at 7s into a 10s get-ready and the longest Arnold names
+      // run to 8.5s, so this used to cut one off mid-word roughly one set in
+      // five — the single most frequent interruption in the app, and the one
+      // nobody asked for by tapping anything. Asking the player whether it is
+      // still speaking costs one boolean and keeps the timing rules out of it;
+      // the ticks are the fallback, so the last three seconds are never silent.
+      const spoken = st.phase === 'ready' && s.countdownDue && !s.beep.isMuted()
+        && !(st.secs === 3 && s.voice.isSpeaking());
+      if (!spoken) { s.countdownDue = false; s.beep.tick(); }
       else if (st.secs === 3) s.voice.say('countdown');
     }
   }
