@@ -6,12 +6,12 @@
 //
 // The precache is split in two, and that split is the whole point of this file:
 //
-//   CORE   — the app itself. 45 entries, ~670 KB. Cached with `addAll`, which
+//   CORE   — the app itself. 44 entries, ~720 KB. Cached with `addAll`, which
 //            is all-or-nothing on purpose: half an app is a white screen, so
 //            it is better for the install to fail and leave the previous
 //            version serving. Everything in here is something the app cannot
 //            open without; anything else belongs below.
-//   EXTRAS — the 134 spoken cues, 2.3 MB of them, plus LAZY below. Cached one
+//   EXTRAS — the 201 spoken cues, 3.0 MB of them, plus LAZY below. Cached one
 //            at a time, and a failure is *ignored*: a missing clip is silent,
 //            which is already createVoice's standing contract, exactly like
 //            PENDING_ART for a figure.

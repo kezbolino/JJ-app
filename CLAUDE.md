@@ -4357,6 +4357,42 @@ data if forgotten:
   before the script was written; there is no slack for a fifth without teaching
   `.seg` to wrap. sw `CACHE` → v72, `VERSION` → v72.
 
+- 2026-09-22 — **v72 deployed.** `main` fast-forwarded `e71111b..671e758` and
+  pushed. Checked at the **job** level per the 2026-08-06 note: `build`
+  succeeded in 21s, `report-build-status` in 4s, `deploy` in 12s
+  (13:39:17→13:39:29Z, run `35734832790`). Eleventh clean deploy in a row.
+
+  Ship gate: thirteen suites green *by exit code* (97 browser assertions in
+  `features`; `schedule` under UTC, `America/Los_Angeles` and
+  `Australia/Sydney`), `CACHE` == `VERSION` == v72, clean tree, fast-forward
+  confirmed with `git merge-base --is-ancestor`.
+
+  **The visible tells:** the footer reads `JUJI v72`; Settings → Appearance →
+  Off mat voice offers a fourth option, **Samuel**, alongside Mix / Snoop /
+  Arnold; and an interrupted cue — Skip, Back, mute mid-sentence, End routine —
+  fades over 80ms instead of stopping dead (v71).
+
+  **The first open wants a real moment on wifi, more than any previous
+  deploy.** `audio/cues/` went 2.3 MB → 3.0 MB (134 clips → 201, a third
+  voice), so the precache is now 246 files: 44 in `CORE` (~720 KB, atomic) and
+  202 in `EXTRAS` (one at a time, failures ignored). Settings → **Offline use**
+  is where to confirm it settled; it should read all 246. The two figures in
+  `sw.js`'s own header comment were stale by a version and were corrected in
+  the same commit — they are the only place those numbers are written down, so
+  they rot silently.
+
+  **No churn expected in `jj-app-data`** — neither v71 nor v72 touches
+  `js/markdown.js`, the entry model or `js/appstate.js`. The voice preference
+  is `localStorage` and deliberately does not sync (v52).
+
+  **Still outstanding after this**, unchanged by the deploy: the v71 variety
+  batch (a second reading of all 40 movement and lift names — scripts written
+  at the bottom of `docs/VOICE-SCRIPTS.md`, **nothing recorded**, and note a
+  third voice now means three folders per take, not two); the 27 Pilates
+  figures and 27 lines × three voices; and the knee-routine assets, which have
+  still never been written into `docs/ART-PROMPTS.md` or
+  `docs/VOICE-SCRIPTS.md`.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -4375,18 +4411,22 @@ verified at the Pages **job** level, not the run badge.
 **Live at v70** as of 2026-09-21 (`main` at `33cb16b`, Pages run
 `35590856412`).
 
+**Live at v72** as of 2026-09-22 (`main` at `671e758`, Pages run
+`35734832790`) — v71's cue fades and v72's Samuel voice shipped together.
+
 **Outstanding audio — the variety batch (v71).** Every movement still says the
 same words every time; the app can play more than one reading as of v71 but
 nothing is recorded. Scripts for a second take of all 40 movement and lift
 names, in both voices, plus pool extensions, are at the bottom of
-`docs/VOICE-SCRIPTS.md`. Movement takes land per voice, one at a time, through
-`CUE_TAKES` in `js/voices.js`; the pool counts (`OTHER_SIDE_CUES`,
-`HYPE_CUES`, `REST_OVER_CUES`) are single numbers and need both voices before
+`docs/VOICE-SCRIPTS.md` — **written before Samuel landed, so a third column is
+needed**. Movement takes land per voice, one at a time, through `CUE_TAKES` in
+`js/voices.js`; the pool counts (`OTHER_SIDE_CUES`, `HYPE_CUES`,
+`REST_OVER_CUES`) are single numbers and now need **all three** voices before
 they move.
 
 **Outstanding assets for v64's Pilates routine:** 27 figures
 (`docs/ART-PROMPTS.md`, and put them in a new lazily-imported
-`js/pilates-art.js`, not in `stretch-art.js`) and 27 lines × 2 voices
+`js/pilates-art.js`, not in `stretch-art.js`) and 27 lines × 3 voices
 (`docs/VOICE-SCRIPTS.md`). Both absences are declared in `PENDING_ART` and
 `PENDING_CUES` and tested; delete an id from each set as its asset lands.
 
