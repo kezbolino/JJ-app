@@ -4291,6 +4291,72 @@ data if forgotten:
   files were added or removed, so this is a small update with nothing to
   re-download but the shell. sw `CACHE` → v71, `VERSION` → v71.
 
+- 2026-09-22 — **v72: a third voice, Samuel.** The user generated it with
+  Chatterbox on their own machine and sent the takes; everything from the cut
+  onwards is this session. `audio/cues/` is now **201 clips, 3.5 MB**, three
+  voices complete at 67 each.
+
+  **I did not generate the audio and would not** — synthesising a real,
+  identifiable person's voice is the line, and it stayed the line when the local
+  install removed the technical obstacle. Cutting, levelling, auditing and
+  wiring a file the user made is a different job and is the whole of what is
+  below.
+
+  **Four takes arrived; only the last one was used.** The first three covered
+  lines 1–5, 6–11 and 18–67 and were cut and audited clean (0 flagged, median
+  name match 0.80) before the fourth turned up holding **all 67 in one
+  generation run**. Re-cutting from the single take was the better call and not
+  a close one: one reference clip and one seed across the whole voice, where
+  three takes means three prosody restarts. The earlier 61 are parked on
+  `art-inbox` with their alignment tables.
+
+  **The GUI is the wrong entry point for a cue list, and their own handoff says
+  why.** `markup.py` turns every newline into a **fixed 0.35s silence**, so the
+  file comes back as one continuous take whose line breaks are indistinguishable
+  from the sentence pauses inside a line — measured at 0.31 / 0.61 / 1.55s
+  min/median/max over 162 fragments for 67 lines. That is the v39 trap with a
+  documented cause. **`batch.py` writes one wav per line as `NNN_slug.wav`, is
+  resumable, and makes the mapping verifiable rather than inferred** — ask for
+  that first next time.
+
+  **What made the alignment work, because two of the three signals were not
+  enough.** Duration fit plus fuzzy similarity got most of it; the systematic
+  error left over was the DP handing **each line's opening fragment to the
+  previous line**, which cost four movements their own name. The reason is
+  specific and worth keeping: `pocketsphinx` mangles the movement names *worst*,
+  because they are exactly the words it has never seen — "Half-kneeling ankle
+  rock" came back as *"have an elliptical raw"*, "Arm circles" as *"answer"*,
+  "Bear crawl" as *"they agree"*. So the text signal is weakest precisely where
+  the boundary decision is hardest. The fix was a **gap prior**: the GUI's
+  newline silence sits on top of each generation's own lead-in and tail, so a
+  real line break is systematically the wider gap. Not separable by threshold —
+  that is the trap — but a good cost term, and it fixed all four.
+
+  **Character-level similarity, not word-set overlap.** The first version used
+  exact word intersection and `thread-needle` swallowed the opening of
+  `ankle-rock`. Against a transcript this mangled, set intersection scores a
+  real match at zero.
+
+  **Audit: 67 clips, 0 flagged** — none silent, none under 0.5s, every one
+  matched against its own line. Median name match 0.74, weakest `sphinx` at
+  0.46, which is fine: in a monotonic alignment a clip is bracketed by its
+  neighbours, so position carries the certainty when the transcript does not.
+  Levels −18 to −24 dBFS and deliberately not matched by hand — v59 drives and
+  normalises at decode, which makes the v52 encode-time matching obsolete.
+
+  **A self-inflicted one worth remembering:** building the `sw.js` precache block
+  with `textwrap.fill` split ids at their hyphens (`'deep-squat-` / `hold'`),
+  and the suite caught it immediately by name. `break_on_hyphens` is True by
+  default. The block is packed by hand now.
+
+  Thirteen suites green by exit code (97 browser assertions in `features`;
+  `schedule` under UTC, `America/Los_Angeles` and `Australia/Sydney`). Drove the
+  cool-down in a browser with the voice pinned to Samuel — requests
+  `samuel/neck-side.webm`, no failed responses, picker reads Mix / Snoop /
+  Arnold / Samuel. **Four options fit the picker down to 320px**, measured
+  before the script was written; there is no slack for a fifth without teaching
+  `.seg` to wrap. sw `CACHE` → v72, `VERSION` → v72.
+
 ## Parked — pick this up next session
 
 **Everything on the old parked list is done.** `docs/AUDIT.md` closed in v45,
@@ -4308,25 +4374,6 @@ verified at the Pages **job** level, not the run badge.
 
 **Live at v70** as of 2026-09-21 (`main` at `33cb16b`, Pages run
 `35590856412`).
-
-**Outstanding audio — a third voice, Samuel (2026-09-21).** The user is
-generating it with Chatterbox. All 67 lines are written at the bottom of
-`docs/VOICE-SCRIPTS.md`, verified against the real cue set in both directions
-(no invented id, nothing missed), with a wiring checklist. **It is deliberately
-not registered in `js/voices.js` until the clips exist** — `pickVoice` rolls
-over every entry in `VOICES` on Mix, so a third name with an empty folder means
-roughly one session in three where nothing speaks, and the "every voice names
-every movement" guard would fail. Measured before writing it: four options fit
-the Settings picker down to 320px with no CSS change (50/63/68/71px, exactly
-filling the control) — so there is **no slack for a fifth voice or a longer
-label** without teaching `.seg` to wrap, which is the v68 five-tabs fix.
-Two things about the batch worth knowing: the strongest language is in the hype
-pool on purpose (45% of sets from a pool of ten, so no line wears out, where a
-movement name plays every session forever), and **level no longer needs matching
-at encode** — v59 drives and normalises every clip at decode, so the v52
-hand-matching note above is superseded; room noise is what matters now, because
-hiss gets amplified with everything else. A third voice is ~1.1 MB, in `EXTRAS`
-and therefore best-effort since v53, so it cannot fail the install.
 
 **Outstanding audio — the variety batch (v71).** Every movement still says the
 same words every time; the app can play more than one reading as of v71 but

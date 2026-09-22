@@ -437,14 +437,12 @@ name, so it *is* per voice and can land one voice at a time.
 
 ---
 
-# Samuel — a third voice (spec, not yet recorded)
+# Samuel — a third voice (shipped v72)
 
-**Status: the script only.** The voice is deliberately **not** registered in
-`js/voices.js` until its clips exist, because registering it early is worse
-than not having it: `pickVoice` rolls between every entry in `VOICES` on Mix,
-so a third name with an empty folder would mean roughly one session in three
-where nothing speaks at all. The wiring checklist is at the bottom of this
-section and is about ten minutes' work once the audio lands.
+**Status: recorded and wired.** All 67 clips are in `audio/cues/samuel/`,
+`samuel` is in `VOICES` and `CUE_TAKES`, and `sw.js` precaches the set. Cut from
+a single Chatterbox take by transcribe-and-align — see the note at the end of
+this section, because the method is the reusable part.
 
 **67 lines**, the same set both other voices have — 40 movement and lift names,
 plus the 27 generic pool cues. Not the Pilates 27 (no voice has those; they are
@@ -599,18 +597,30 @@ ten, so no single line wears out.
   one can play in any slot — so the names are the only clips whose identity
   matters.
 
-## Wiring checklist, for when the clips land
+## How it was cut — read this before the next long take
 
-1. `audio/cues/samuel/` — all 67 files, encoded to opus/webm like the others.
-2. `js/voices.js` — add `['samuel', 'Samuel']` to `VOICES`, and a
-   `samuel: {}` entry to `CUE_TAKES`.
-3. `sw.js` — add a `samuel:` array to `CUES` listing all 67 ids. The test
-   asserts this map and the folder agree exactly, in both directions.
-4. Run `node tests/stretches.test.mjs`. The guard that matters is **every voice
-   names every movement the app can speak** — a voice missing one cue goes
-   silent for it on a third of sessions, which is the hardest kind of gap to
-   notice. A missing line fails there by name.
-5. Bump `CACHE` and `VERSION`. Note the size: a third voice is roughly another
-   **1.1 MB** in `audio/cues/`. That rides in `EXTRAS`, added one file at a
-   time and best-effort since v53, so it cannot fail the install the way the
-   v52 audio jump did — but it is still a download.
+The take came from the **GUI**, which concatenates the whole file with a fixed
+0.35s silence per newline (`markup.py`). That is why gap width alone cannot cut
+it: a pause inside a line and a break between lines land in the same range
+(measured 0.31 / 0.61 / 1.55s min/median/max across 162 fragments for 67 lines).
+The v39 trap exactly — the right *count* of wide gaps is not the right
+segmentation.
+
+Three signals together did it, and all three were needed:
+
+1. **Duration fit** against each line's character count.
+2. **Fuzzy similarity** of the span's transcript to the line — character-level,
+   not word-set. `pocketsphinx` mangles the movement names worst of all because
+   it has never seen them: "Half-kneeling ankle rock" came back as *"have an
+   elliptical raw"*, "Arm circles" as *"answer"*, "Bear crawl" as *"they
+   agree"*. Exact word overlap scores those at zero and the alignment drifts.
+3. **A gap prior at the boundary.** Because the GUI's newline silence is added
+   on top of each generation's own lead-in and tail, a real line break is
+   systematically the wider gap. Not wide enough to threshold on — but as a
+   cost term it fixed the one systematic error left, which was the DP handing
+   each line's opening fragment to the previous line. Four lines lost their own
+   name before this went in.
+
+**`batch.py` avoids all of it** — one wav per line, `NNN_slug.wav`, resumable,
+and the mapping can then be *verified* by slug instead of inferred. Ask for that
+next time; the GUI is the wrong entry point for a cue list.

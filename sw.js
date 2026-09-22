@@ -22,7 +22,7 @@
 // said nothing about it. Never put an optional asset in the same `addAll` as
 // a required one.
 
-const CACHE = 'jj-app-v71';
+const CACHE = 'jj-app-v72';
 
 // The clips that exist on disk, per voice. See js/voices.js.
 //
@@ -71,6 +71,24 @@ const CUES = {
     'split-squat', 'supine-twist', 'thoracic-press-up', 'thread-needle',
     'wall-slide', 'warmup-arm-circle', 'warmup-leg-swing', 'warmup-march',
     'warmup-squat', 'wrist-floor', 'wu-press-ups',
+  ],
+  samuel: [
+    'ankle-rock', 'archer-press-up', 'bear-crawl', 'childs-pose',
+    'copenhagen', 'cossack-squat', 'countdown', 'dead-hang',
+    'deep-squat-hold', 'finish-1', 'finish-2', 'finish-3', 'finish-4',
+    'finish-5', 'frog', 'glute-bridge-single', 'hanging-leg-raise',
+    'hip-flexor-lunge', 'hollow-hold', 'hype-1', 'hype-10', 'hype-2',
+    'hype-3', 'hype-4', 'hype-5', 'hype-6', 'hype-7', 'hype-8', 'hype-9',
+    'inverted-row', 'jefferson-curl', 'kb-getup', 'kb-swing',
+    'neck-isometric', 'neck-side', 'ninety-ninety', 'ninety-ninety-liftoff',
+    'other-side-1', 'other-side-2', 'other-side-3', 'other-side-4',
+    'other-side-5', 'other-side-6', 'pigeon', 'pike-press-up', 'pull-up',
+    'quad-kneel', 'rest-over-1', 'rest-over-2', 'rest-over-3',
+    'rest-over-4', 'rest-over-5', 'seated-fold', 'side-plank',
+    'single-leg-rdl', 'sphinx', 'split-squat', 'supine-twist',
+    'thoracic-press-up', 'thread-needle', 'wall-slide', 'warmup-arm-circle',
+    'warmup-leg-swing', 'warmup-march', 'warmup-squat', 'wrist-floor',
+    'wu-press-ups',
   ],
 };
 

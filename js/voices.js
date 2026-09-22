@@ -11,7 +11,8 @@
 // bug, not as variety.
 
 /** [value, label] — `''` is the default, as in js/appearance.js. */
-export const VOICES = [['', 'Mix'], ['snoop', 'Snoop'], ['arnold', 'Arnold']];
+export const VOICES = [['', 'Mix'], ['snoop', 'Snoop'], ['arnold', 'Arnold'],
+                       ['samuel', 'Samuel']];
 
 /** The voices that actually have a folder of clips. `''` is not one of them. */
 export const VOICE_IDS = VOICES.map(([value]) => value).filter(Boolean);
@@ -49,6 +50,7 @@ export const DEFAULT_VOICE = 'snoop';
 export const CUE_TAKES = {
   snoop: {},
   arnold: {},
+  samuel: {},
 };
 
 /**
