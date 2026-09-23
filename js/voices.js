@@ -127,19 +127,22 @@ export function pickVoice(setting, rand = Math.random) {
  */
 export const PENDING_CUES = new Set([
   // v68's knee routine. Its three warm-up items reuse rest-day ids, so those
-  // already have clips in both voices — the session is not mute from the off.
+  // already have clips in every voice — the session is not mute from the off.
+  // The six below are scripted in docs/VOICE-SCRIPTS.md alongside v67's two.
   'goblet-squat',
   'step-down',
   'lateral-step-down',
   'sissy-squat',
   'tib-raise',
   'soleus-raise',
-  // v67's two cool-down additions. Two lines to record in both voices when
-  // the Pilates batch is done — see docs/VOICE-SCRIPTS.md.
+  // v67's two cool-down additions. These are the ones worth recording first:
+  // the cool-down runs after every class, so these two are silent in a routine
+  // that is actually used. Scripted in all three voices in
+  // docs/VOICE-SCRIPTS.md, under "Still to record".
   'wrist-reverse',
   'pec-floor',
   // The Pilates routine (v64), shipped without audio on purpose — the routine
-  // works from day one with beeps, and 27 lines × 2 voices is its own job.
+  // works from day one with beeps, and 27 lines × 3 voices is its own job.
   'pil-breathing',
   'pil-pelvic-tilt',
   'pil-head-nod',

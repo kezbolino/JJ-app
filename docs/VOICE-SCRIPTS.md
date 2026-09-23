@@ -17,18 +17,27 @@ specced at the bottom of this file. The app can play more than one reading of a
 line as of v71 (`CUE_TAKES` in `js/voices.js`); nothing is recorded yet, so
 every movement still says the same words every time.
 
-**Outstanding: the 27 Pilates lines, in both voices** (54 clips). The routine
-shipped in v64 without audio on purpose — it runs on beeps, and a missing clip
-has always been silent by design. What makes that deliberate rather than broken
-is `PENDING_CUES` in `js/voices.js`: every Pilates id is listed there, and
-`tests/stretches.test.mjs` asserts a pending id is one that genuinely has no
-recording, in any voice. **Delete an id from that set the moment its line lands
-in *both* voices** — a cue recorded in one voice only goes missing on half your
-sessions, which is the hardest kind of gap to notice. The script is at the
-bottom of this file. Arnold landed in
-v52; Snoop's last three (`kb-getup`, `kb-swing`, `wu-press-ups`) landed with it.
-There is a test asserting every voice can name everything the app speaks, so a
-future movement cannot quietly ship in one voice and not the other.
+**Outstanding: 35 movements × 3 voices = 105 clips**, in two batches. First
+the **8 that a live routine is silent on today** — `wrist-reverse` and
+`pec-floor`, added to the cool-down in v67, and the six knee movements from
+v68 — then the **27 Pilates lines**, which shipped without audio on purpose in
+v64 because that routine runs fine on beeps. Both scripts are below, the 8
+first because they are the ones you actually hit.
+
+A missing clip has always been silent by design. What makes that deliberate
+rather than broken is `PENDING_CUES` in `js/voices.js`: every one of the 35 is
+listed there, and `tests/stretches.test.mjs` asserts a pending id is one that
+genuinely has no recording, in *any* voice. **Delete an id from that set the
+moment its line lands in all three voices** — a cue recorded in one voice only
+goes missing on a third of your sessions, which is the hardest kind of gap to
+notice.
+
+**What is already complete:** Snoop and Arnold both landed in v52 (Snoop's last
+three — `kb-getup`, `kb-swing`, `wu-press-ups` — arrived with Arnold's set), and
+Samuel in v72, so all three name every movement in the cool-down, the rest day
+and the lift. There is a test asserting exactly that, so a future movement
+cannot quietly ship in one voice and not the others — it either speaks
+everywhere or it is declared pending.
 
 That includes the five **session complete** lines, wired in v52: a finished
 routine or lift chimes, then speaks.
@@ -48,7 +57,7 @@ back, and the cue's whole job is to tell you what is coming.
 
 ---
 
-## Arnold — after-class routine (13)
+## Arnold — after-class routine (13 of 15; `wrist-reverse` and `pec-floor` are below)
 
 | id | line |
 |---|---|
@@ -254,7 +263,38 @@ Snoop versions to match.
 
 ---
 
-## Pilates — both voices, still to record (27 each)
+## Still to record — two cool-down additions and the knee routine (8 × 3 voices)
+
+**These are the ones a live routine is currently silent on**, which is why they
+come before the Pilates batch below: the after-class cool-down and the knee
+routine are both in use, and a movement with no clip just says nothing while
+the beeps carry on. Declared in `PENDING_CUES` in `js/voices.js`, so the suite
+tracks them — **delete an id from that set in the same commit as its bytes and
+its `sw.js` line**, or the install fails or the clip is dead weight.
+
+`wrist-reverse` and `pec-floor` were added to the cool-down in v67; the six
+knee movements in v68. Neither batch was ever written up here, which is the
+gap this section closes.
+
+| id | Snoop | Arnold | Samuel |
+|---|---|---|---|
+| `wrist-reverse` | Reverse wrist stretch. Flip them hands over, backs down, ease on back. | Reverse wrist stretch. Flip the hands. Backs down. Lean back. | Reverse wrist stretch. Flip those hands over. Backs on the floor. |
+| `pec-floor` | Prone chest opener. Face down, arm out wide, roll on over. | Prone chest opener. Arm out. Roll onto the shoulder. Open it up. | Prone chest opener. Arm straight out. Now roll onto that shoulder. |
+| `goblet-squat` | Goblet squat. Bell at the chest, all the way down, sit in it. | Goblet squat. Bell at the chest. All the way down. Stand up. | Goblet squat. Bell up at the chest. Drop all the way down. |
+| `step-down` | Eccentric step-down. One leg, lower nice and slow, tap and rise. | Eccentric step-down. One leg. Slow on the way down. Control it. | Eccentric step-down. One leg. Slow down, tap, and drive up. |
+| `lateral-step-down` | Lateral step-down. Sideways on the chair, lower off the edge easy. | Lateral step-down. Sideways. Down off the side. Slowly! | Lateral step-down. Stand sideways. Lower off that edge, controlled. |
+| `sissy-squat` | Supported sissy squat. Hold the frame, lean back, let them knees travel. | Supported sissy squat. Hold on. Lean back. Knees forward. | Supported sissy squat. Hold that frame. Lean back and let the knees go. |
+| `tib-raise` | Tibialis raise. Back on the wall, lift them toes, slow coming down. | Tibialis raise. Back to the wall. Toes up. Slow down. | Tibialis raise. Back against the wall. Toes to the shins. |
+| `soleus-raise` | Seated soleus raise. Bell on the thighs, drive through the ball of the foot. | Seated soleus raise. Bell on the thighs. Push through the ball. Go. | Seated soleus raise. Bell across the thighs. Drive through that ball. |
+
+**The knee routine's three warm-up items are not here on purpose.** They reuse
+`warmup-march`, `warmup-squat` and `warmup-leg-swing` by reference from the
+rest day, so they already speak in all three voices — that is the whole point
+of sharing the id rather than copying the movement.
+
+---
+
+## Pilates — all three voices, still to record (27 each)
 
 The routine is at `#/stretch?r=pilates`. Same rule as everywhere else: **the
 movement name first, clearly**, then the character. These play while the
@@ -319,16 +359,16 @@ happens to choose it, and a file nobody declares rides in the precache forever
 without ever being asked for.
 
 **Record these in any order, one voice at a time.** `CUE_TAKES` is per voice,
-so Snoop can have two readings of a movement while Arnold has one and nothing
-is wrong. The **pools below are not** — `OTHER_SIDE_CUES` and friends are one
-number for both voices, so `other-side-7` has to exist in *both* folders before
-that constant moves.
+so Snoop can have two readings of a movement while Arnold and Samuel have one
+and nothing is wrong. The **pools below are not** — `OTHER_SIDE_CUES` and friends are one
+number across every voice, so `other-side-7` has to exist in **all three**
+folders before that constant moves.
 
 **Same rules as every batch.** One file per line, named after the line. A clear
 second of silence between lines if they come in one take. Movement name first,
 plainly — "Ninety ninety", not "90/90". Keep each under about five seconds.
 
-## Second takes — after-class cool-down (13)
+## Second takes — after-class cool-down (13; the two v67 additions need a first take before a second)
 
 | id | Snoop | Arnold |
 |---|---|---|
@@ -463,7 +503,7 @@ pool on purpose:** those fire on 45% of sets from a pool of ten, so any one
 line lands rarely, while a movement name plays every single session forever.
 A swear you hear thirty times a session stops being funny by week two.
 
-## Samuel — after-class cool-down (13)
+## Samuel — after-class cool-down (13 of 15; `wrist-reverse` and `pec-floor` are below)
 
 | id | line |
 |---|---|
