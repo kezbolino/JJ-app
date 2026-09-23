@@ -287,6 +287,21 @@ gap this section closes.
 | `tib-raise` | Tibialis raise. Back on the wall, lift them toes, slow coming down. | Tibialis raise. Back to the wall. Toes up. Slow down. | Tibialis raise. Back against the wall. Toes to the shins. |
 | `soleus-raise` | Seated soleus raise. Bell on the thighs, drive through the ball of the foot. | Seated soleus raise. Bell on the thighs. Push through the ball. Go. | Seated soleus raise. Bell across the thighs. Drive through that ball. |
 
+**Ready to feed to Chatterbox:** `docs/voice-record-list-pending-snoop.txt`,
+`-arnold.txt` and `-samuel.txt` are these same eight lines, one per line, in
+routine order — that is `batch.py`'s input format, so each comes back as its
+own `NNN_slug.wav` and the mapping is checkable rather than inferred. **Use
+`batch.py`, not the GUI**: the GUI turns every newline into a fixed 0.35s
+silence and hands back one continuous take, whose line breaks are
+indistinguishable from the pauses inside a line — that is what made Samuel's
+cut a three-signal alignment problem in v72.
+
+The matching `.tsv` files carry `id<TAB>line`, which is what maps a returned
+wav onto `audio/cues/<voice>/<id>.webm`. All three sets were generated from
+the table above rather than retyped, and every line was checked against
+`js/stretches.js`: the id exists, it is in `PENDING_CUES`, and the line opens
+with that movement's own name.
+
 **The knee routine's three warm-up items are not here on purpose.** They reuse
 `warmup-march`, `warmup-squat` and `warmup-leg-swing` by reference from the
 rest day, so they already speak in all three voices — that is the whole point
